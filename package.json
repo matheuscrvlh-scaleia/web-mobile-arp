@@ -1,0 +1,29 @@
+{
+  "name": "erp-mobile-arp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Gestor do app do visitante ARP: API (Fastify) e painel web (React).",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @arp/api & npm run dev --workspace @arp/web",
+    "dev:api": "npm run dev --workspace @arp/api",
+    "dev:web": "npm run dev --workspace @arp/web",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "biome check",
+    "format": "biome format --write",
+    "check": "biome check && npm run typecheck",
+    "db:migrate": "npm run db:migrate --workspace @arp/api",
+    "db:seed": "npm run db:seed --workspace @arp/api"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.2",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

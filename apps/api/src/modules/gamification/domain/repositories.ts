@@ -1,0 +1,72 @@
+import type { Campaign, NewCampaign, TierInput } from "./campaign";
+import type { Challenge, NewChallenge } from "./challenge";
+import type { NewQrCode, QrCode } from "./qr-code";
+import type { NewSeal, Seal } from "./seal";
+
+export interface SealRepository {
+  findById(id: string): Promise<Seal | null>;
+  /** Slugs já usados que começam com a base (para gerar um livre). */
+  slugsLike(base: string): Promise<Set<string>>;
+  /** ConflictError se o slug já existir. */
+  create(data: NewSeal): Promise<Seal>;
+  save(seal: Seal): Promise<void>;
+}
+
+export interface CampaignRepository {
+  findById(id: string): Promise<Campaign | null>;
+  create(data: NewCampaign): Promise<Campaign>;
+  save(campaign: Campaign): Promise<void>;
+  replaceTiers(campaignId: string, tiers: readonly TierInput[]): Promise<void>;
+}
+
+export interface ChallengeRepository {
+  findById(id: string): Promise<Challenge | null>;
+  create(data: NewChallenge): Promise<Challenge>;
+  save(challenge: Challenge): Promise<void>;
+  delete(id: string): Promise<void>;
+  countEarned(challengeId: string): Promise<number>;
+}
+
+export interface QrCodeRepository {
+  findById(id: string): Promise<QrCode | null>;
+  /** QrTokenCollisionError se o token já existir. */
+  create(data: NewQrCode): Promise<QrCode>;
+  save(qr: QrCode): Promise<void>;
+}
+
+/** Existência de loja e evento referenciados por um desafio (outros módulos). */
+export interface ChallengeReferences {
+  storeExists(id: string): Promise<boolean>;
+  eventExists(id: string): Promise<boolean>;
+}
+
+export type ScanResult = "awarded" | "duplicate" | "expired" | "invalid";
+
+/** Tudo o que a leitura de um QR precisa, numa consulta. */
+export interface QrScanContext {
+  qr: QrCode;
+  challenge: Challenge;
+  campaign: Campaign;
+}
+
+export interface SealAward {
+  visitorId: string;
+  challengeId: string;
+  sealId: string;
+  campaignId: string;
+  qrCodeId: string | null;
+  earnedAt: Date;
+}
+
+export interface SealAwardRepository {
+  findQrContext(token: string): Promise<QrScanContext | null>;
+  hasEarned(visitorId: string, challengeId: string): Promise<boolean>;
+  /** SealAlreadyEarnedError se o visitante já tiver o selo do desafio (corrida). */
+  award(data: SealAward): Promise<string>;
+  recordScan(scan: {
+    qrCodeId: string | null;
+    visitorId: string;
+    result: ScanResult;
+    at: Date;
+  }): Promise<void>;
+}

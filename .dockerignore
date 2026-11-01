@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/coverage
+storage
+apps/api/storage
+**/.env
+**/.env.*
+!**/.env.example
+.git
+.vscode
+docs

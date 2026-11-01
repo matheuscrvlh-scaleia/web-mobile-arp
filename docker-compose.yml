@@ -1,0 +1,92 @@
+# Produção (Supabase):  cp .env.example .env  →  preencher  →  docker compose up -d --build
+# Dev offline:          docker compose --profile local up -d --build
+#                       (com DATABASE_URL=postgres://postgres:postgres@db:5432/postgres e STORAGE_DRIVER=local)
+#
+# Web:  http://localhost:8082  (nginx :80)  — proxy de /api para a API
+# API:  http://localhost:3002  (node  :3000)
+
+name: arp-erp
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      TRUST_PROXY: "1"
+      DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL no .env}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?Defina JWT_ACCESS_SECRET no .env (32+ caracteres)}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8082}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-supabase}
+      # Heap abaixo do limite do container: o GC age antes do OOM killer.
+      NODE_OPTIONS: --max-old-space-size=384
+    ports:
+      - "3002:3000"
+    volumes:
+      - uploads:/app/storage/uploads
+    # Maior que SHUTDOWN_TIMEOUT_MS (20 s): o graceful shutdown termina antes do SIGKILL.
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    depends_on:
+      db:
+        condition: service_healthy
+        required: false
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    environment:
+      API_HOST: api:3000
+    ports:
+      - "8082:80"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # Postgres local só no perfil "local" (em produção o banco é o Supabase).
+  db:
+    profiles: ["local"]
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  uploads:
+  pgdata:

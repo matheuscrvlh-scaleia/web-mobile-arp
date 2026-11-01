@@ -1,0 +1,95 @@
+# Serve o SPA e faz proxy de /api e /uploads para a API: mesma origem, então
+# o cookie httpOnly do refresh (Path=/api/v1/auth) funciona sem CORS.
+# Este arquivo entra no contexto http (conf.d); o envsubst da imagem só troca
+# variáveis definidas no ambiente (API_HOST), então $host etc. ficam intactos.
+
+# DNS do Docker: com várias réplicas da API, o nome resolve para todas e é
+# reconsultado a cada 10 s (réplicas novas entram sem reiniciar o nginx).
+resolver 127.0.0.11 valid=10s ipv6=off;
+
+upstream arp_api {
+  zone arp_api 64k;
+  server ${API_HOST} resolve;
+  # Conexões reaproveitadas: evita um handshake TCP por requisição.
+  keepalive 32;
+  keepalive_timeout 60s;
+}
+
+# Repassa o X-Request-Id do cliente ou gera um: o mesmo id aparece no log do
+# nginx, no log da API e na resposta de erro.
+map $http_x_request_id $arp_request_id {
+  default $http_x_request_id;
+  "" $request_id;
+}
+
+log_format arp '$remote_addr - [$time_local] "$request" $status $body_bytes_sent '
+  'rt=$request_time urt=$upstream_response_time rid=$arp_request_id';
+
+server {
+  listen 80;
+  server_name _;
+  root /usr/share/nginx/html;
+  server_tokens off;
+  access_log /var/log/nginx/access.log arp;
+
+  gzip on;
+  gzip_comp_level 5;
+  gzip_min_length 1024;
+  gzip_proxied any;
+  gzip_vary on;
+  gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+
+  add_header X-Content-Type-Options nosniff always;
+  add_header X-Frame-Options DENY always;
+  add_header Referrer-Policy strict-origin-when-cross-origin always;
+
+  # Upload até 5 MB (limite da API) + folga do multipart.
+  client_max_body_size 6m;
+
+  location = /healthz {
+    access_log off;
+    return 200 "ok";
+  }
+
+  location /api/ {
+    proxy_pass http://arp_api;
+    proxy_http_version 1.1;
+    # Sem "Connection: close" o upstream mantém a conexão viva (keepalive).
+    proxy_set_header Connection "";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Request-Id $arp_request_id;
+    # O nginx comprime: a API não gasta CPU com gzip nas chamadas do painel.
+    proxy_set_header Accept-Encoding "";
+    proxy_connect_timeout 5s;
+    proxy_send_timeout 60s;
+    proxy_read_timeout 60s;
+    # Só repete em outra réplica se a conexão falhou (nunca um POST já enviado).
+    proxy_next_upstream error timeout;
+    proxy_next_upstream_tries 2;
+  }
+
+  # Só usado com STORAGE_DRIVER=local; no Supabase as imagens têm URL própria.
+  location /uploads/ {
+    proxy_pass http://arp_api;
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    proxy_set_header Host $host;
+    expires 7d;
+  }
+
+  # Arquivos com hash no nome: cache longo.
+  location /assets/ {
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+    try_files $uri =404;
+  }
+
+  # index.html nunca em cache: um deploy novo aparece no próximo carregamento.
+  location / {
+    add_header Cache-Control "no-cache";
+    try_files $uri $uri/ /index.html;
+  }
+}
