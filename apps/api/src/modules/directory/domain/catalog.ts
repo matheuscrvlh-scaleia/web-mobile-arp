@@ -32,7 +32,7 @@ export interface BlockProps {
 export interface StoreCategoryProps {
   id: string;
   name: string;
-  kind: "food" | "shop";
+  kind: "shop" | "food" | "service";
   icon: string;
   sortOrder: number;
 }

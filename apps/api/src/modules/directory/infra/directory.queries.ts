@@ -6,6 +6,7 @@ import type {
   MapShape,
   MetricsPeriod,
   StoreCategory,
+  StoreCategoryRef,
   StoreDetail,
   StoreKind,
   StoreMetrics,
@@ -18,6 +19,11 @@ import { offsetOf, type Page, toPage } from "../../../shared/application/paginat
 import type { Clock } from "../../../shared/application/ports/clock";
 import type { Database } from "../../../shared/infra/database/database";
 import { type SqlFragment, sql } from "../../../shared/infra/database/sql";
+import {
+  STORE_EXTRA_CATEGORIES_JSON,
+  storeHasKind,
+  storeInCategory,
+} from "../../../shared/infra/database/store-categories";
 import { iso } from "../../../shared/infra/presenters";
 import { type DailyHours, isOpenNow } from "../domain/opening-hours";
 import { STORE_HOURS_JSON } from "./fragments";
@@ -29,6 +35,7 @@ interface StoreSummaryRow {
   category_id: string;
   category_name: string;
   category_kind: StoreKind;
+  extra_categories: StoreCategoryRef[];
   block_id: string;
   block_name: string;
   floor_id: string;
@@ -49,6 +56,7 @@ interface StoreSummaryRow {
 const SUMMARY_COLUMNS = sql`
   s.id, s.slug, s.name, s.icon, s.brand_color, s.cover_image_url, s.status, s.map_x, s.map_y,
   c.id as category_id, c.name as category_name, c.kind as category_kind,
+  ${STORE_EXTRA_CATEGORIES_JSON} as extra_categories,
   b.id as block_id, b.name as block_name,
   f.id as floor_id, f.label as floor_label, f.short_label as floor_short_label, f.level as floor_level,
   (select count(*) from promotions.coupons cp
@@ -86,6 +94,7 @@ export class DirectoryQueries {
       slug: r.slug,
       name: r.name,
       category: { id: r.category_id, name: r.category_name, kind: r.category_kind },
+      extraCategories: r.extra_categories,
       block: { id: r.block_id, name: r.block_name },
       floor: {
         id: r.floor_id,
@@ -111,8 +120,8 @@ export class DirectoryQueries {
       ${SUMMARY_FROM}
       ${sql.where([
         storeId && sql`s.id = ${storeId}`,
-        query.kind && sql`c.kind = ${query.kind}`,
-        query.categoryId && sql`s.category_id = ${query.categoryId}`,
+        query.kind && storeHasKind(query.kind),
+        query.categoryId && storeInCategory(query.categoryId),
         query.blockId && sql`s.block_id = ${query.blockId}`,
         query.floorId && sql`s.floor_id = ${query.floorId}`,
         query.status && sql`s.status = ${query.status}`,
@@ -263,10 +272,10 @@ export class DirectoryQueries {
   async listStoreCategories(id?: string): Promise<StoreCategory[]> {
     return this.db.many<StoreCategory>(sql`
       select c.id, c.name, c.kind, c.icon, c.sort_order as "sortOrder",
-             (select count(*) from directory.stores s where s.category_id = c.id) as "storesCount"
+             (select count(*) from directory.stores s where ${storeInCategory(sql.raw("c.id"))}) as "storesCount"
       from directory.store_categories c
       ${sql.where([id && sql`c.id = ${id}`])}
-      order by c.kind, c.sort_order, c.name
+      order by array_position(array['shop','food','service'], c.kind), c.sort_order, c.name
     `);
   }
 

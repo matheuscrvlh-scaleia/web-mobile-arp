@@ -18,6 +18,7 @@ import type { DailyHours } from "../domain/opening-hours";
 import type {
   CatalogRepository,
   DirectoryReferences,
+  StoreRefs,
   StoreRepository,
 } from "../domain/repositories";
 import { type NewStore, Store, type StoreProps } from "../domain/store";
@@ -146,6 +147,7 @@ interface StoreRow {
   slug: string;
   name: string;
   category_id: string;
+  extra_category_ids: string[];
   block_id: string;
   floor_id: string;
   description: string;
@@ -174,6 +176,7 @@ function storeToDomain(r: StoreRow): Store {
     slug: r.slug,
     name: r.name,
     categoryId: r.category_id,
+    extraCategoryIds: r.extra_category_ids,
     blockId: r.block_id,
     floorId: r.floor_id,
     description: r.description,
@@ -200,6 +203,8 @@ export class PgStoreRepository implements StoreRepository {
       select s.id, s.slug, s.name, s.category_id, s.block_id, s.floor_id, s.description, s.icon,
              s.brand_color, s.cover_image_url, s.logo_url, s.phone, s.whatsapp, s.instagram,
              s.website, s.map_x, s.map_y, s.status,
+             array(select x.category_id from directory.store_extra_categories x
+                   where x.store_id = s.id order by x.created_at, x.category_id) as extra_category_ids,
              ${STORE_HOURS_JSON} as hours
       from directory.stores s
       where s.id = ${id}
@@ -232,6 +237,7 @@ export class PgStoreRepository implements StoreRepository {
       STORE_ERRORS,
     );
     await this.replaceHours(id, data.hours);
+    await this.replaceExtraCategories(id, data.extraCategoryIds);
     return (await this.findById(id)) as Store;
   }
 
@@ -252,6 +258,19 @@ export class PgStoreRepository implements StoreRepository {
       STORE_ERRORS,
     );
     await this.replaceHours(s.id, s.hours);
+    await this.replaceExtraCategories(s.id, s.extraCategoryIds);
+  }
+
+  private async replaceExtraCategories(storeId: string, ids: readonly string[]): Promise<void> {
+    await this.db.query(
+      sql`delete from directory.store_extra_categories where store_id = ${storeId}`,
+    );
+    if (ids.length === 0) return;
+    const values = ids.map((id) => sql`(${storeId}, ${id})`);
+    await this.db.query(sql`
+      insert into directory.store_extra_categories (store_id, category_id)
+      values ${sql.join(values)}
+    `);
   }
 
   private async replaceHours(storeId: string, hours: readonly DailyHours[]): Promise<void> {
@@ -270,9 +289,17 @@ export class PgStoreRepository implements StoreRepository {
 export class PgDirectoryReferences implements DirectoryReferences {
   constructor(private readonly db: Database) {}
 
-  async missing(refs: { categoryId?: string; blockId?: string; floorId?: string }) {
-    const row = await this.db.one<{ category: boolean; block: boolean; floor: boolean }>(sql`
+  async missing(refs: StoreRefs) {
+    const extras = [...new Set(refs.extraCategoryIds ?? [])];
+    const row = await this.db.one<{
+      category: boolean;
+      extras: boolean;
+      block: boolean;
+      floor: boolean;
+    }>(sql`
       select
+        (select count(*) from directory.store_categories
+          where id = any(${extras}::uuid[])) = ${extras.length} as extras,
         ${refs.categoryId ?? null}::uuid is null
           or exists (select 1 from directory.store_categories where id = ${refs.categoryId ?? null}::uuid) as category,
         ${refs.blockId ?? null}::uuid is null
@@ -282,6 +309,7 @@ export class PgDirectoryReferences implements DirectoryReferences {
     `);
     const missing: string[] = [];
     if (!row.category) missing.push("categoryId");
+    if (!row.extras) missing.push("extraCategoryIds");
     if (!row.block) missing.push("blockId");
     if (!row.floor) missing.push("floorId");
     return missing;

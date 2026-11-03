@@ -3,6 +3,7 @@ import { offsetOf, type Page, toPage } from "../../../shared/application/paginat
 import { addDaysToDate, toLocal } from "../../../shared/domain/time";
 import type { Database } from "../../../shared/infra/database/database";
 import { type SqlFragment, sql } from "../../../shared/infra/database/sql";
+import { storeHasKind } from "../../../shared/infra/database/store-categories";
 import { hhmmOrNull } from "../../../shared/infra/presenters";
 import { datesBetween, nextOccurrence, occursOn } from "../domain/event-occurrence";
 import {
@@ -190,7 +191,7 @@ export class FeedQueries {
       ${couponCardSelect(now, sql`, count(*) over() as total`)}
       ${sql.where([
         liveCoupon(now),
-        query.kind && sql`sc.kind = ${query.kind}`,
+        query.kind && storeHasKind(query.kind),
         query.storeId && sql`c.store_id = ${query.storeId}`,
         query.q &&
           sql`(public.f_unaccent(lower(c.title)) like ${sql.containsPattern(query.q)}

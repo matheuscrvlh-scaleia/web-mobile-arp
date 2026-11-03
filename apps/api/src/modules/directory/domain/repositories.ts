@@ -36,7 +36,15 @@ export interface StoreRepository {
   save(store: Store): Promise<void>;
 }
 
+/** Referências da loja checadas antes de gravar. */
+export interface StoreRefs {
+  categoryId?: string;
+  extraCategoryIds?: readonly string[];
+  blockId?: string;
+  floorId?: string;
+}
+
 /** Checagem de referências antes de gravar (mensagem por campo em vez de erro de FK). */
 export interface DirectoryReferences {
-  missing(refs: { categoryId?: string; blockId?: string; floorId?: string }): Promise<string[]>;
+  missing(refs: StoreRefs): Promise<string[]>;
 }

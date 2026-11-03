@@ -9,7 +9,10 @@ export interface StoreProps {
   id: string;
   slug: string;
   name: string;
+  /** Subcategoria principal. */
   categoryId: string;
+  /** Subcategorias extras (Fase 2): a loja aparece em todas. Nunca repete a principal. */
+  extraCategoryIds: string[];
   blockId: string;
   floorId: string;
   description: string;
@@ -51,10 +54,19 @@ function assertHours(hours: readonly DailyHours[]): void {
   }
 }
 
+/** Extras sem a principal e sem repetição. */
+function cleanExtras(categoryId: string, extras: readonly string[]): string[] {
+  return [...new Set(extras)].filter((id) => id !== categoryId);
+}
+
 export function validateNewStore(data: NewStore): NewStore {
   assertLocation(data.mapX, data.mapY);
   assertHours(data.hours);
-  return { ...data, hours: sortHours(data.hours) };
+  return {
+    ...data,
+    extraCategoryIds: cleanExtras(data.categoryId, data.extraCategoryIds),
+    hours: sortHours(data.hours),
+  };
 }
 
 function sortHours(hours: readonly DailyHours[]): DailyHours[] {
@@ -88,7 +100,11 @@ export class Store {
     const next = applyPatch(this.props, changes);
     assertLocation(next.mapX, next.mapY);
     assertHours(next.hours);
-    this.props = { ...next, hours: sortHours(next.hours) };
+    this.props = {
+      ...next,
+      extraCategoryIds: cleanExtras(next.categoryId, next.extraCategoryIds),
+      hours: sortHours(next.hours),
+    };
   }
 
   /** Reposiciona no mapa (opcionalmente em outro andar). */
@@ -105,6 +121,10 @@ export class Store {
   }
 
   toState(): StoreProps {
-    return { ...this.props, hours: this.props.hours.map((h) => ({ ...h })) };
+    return {
+      ...this.props,
+      extraCategoryIds: [...this.props.extraCategoryIds],
+      hours: this.props.hours.map((h) => ({ ...h })),
+    };
   }
 }

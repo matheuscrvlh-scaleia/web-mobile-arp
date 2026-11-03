@@ -33,6 +33,13 @@ import { CategoryFormModal } from "../components/CategoryFormModal";
 
 type Tab = "categorias" | "blocos";
 
+/** Cor de cada uma das 3 categorias do app. */
+const KIND_COLOR: Record<StoreKind, string> = {
+  shop: "#2f7d3d",
+  food: "#c8692f",
+  service: "#3d5a80",
+};
+
 export function CatalogPage() {
   const { can } = useAuth();
   const tabs: TabItem<Tab>[] = [
@@ -81,7 +88,7 @@ function CategoriesTab({ canEdit }: { canEdit: boolean }) {
       header: "Categoria",
       cell: (c) => (
         <span className="flex items-center gap-3">
-          <IconTile icon={c.icon} size="sm" color={kind === "food" ? "#c8692f" : "#2f7d3d"} />
+          <IconTile icon={c.icon} size="sm" color={KIND_COLOR[kind]} />
           <span className="font-medium">{c.name}</span>
         </span>
       ),
@@ -130,7 +137,7 @@ function CategoriesTab({ canEdit }: { canEdit: boolean }) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+    <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
       {storeKindSchema.options.map((kind) => {
         const rows = categories.data
           ?.filter((c) => c.kind === kind)
@@ -139,9 +146,7 @@ function CategoriesTab({ canEdit }: { canEdit: boolean }) {
           <Card key={kind}>
             <CardHeader
               title={STORE_KIND_LABEL[kind]}
-              description={
-                kind === "food" ? "Aparece em “Comer” no app." : "Aparece em “Comprar” no app."
-              }
+              description={`Subcategorias da aba “${STORE_KIND_LABEL[kind]}” no app.`}
               action={
                 canEdit && (
                   <Button

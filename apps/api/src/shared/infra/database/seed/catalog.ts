@@ -186,23 +186,42 @@ export const MAP_POINTS = [
 
 /* Lojas ------------------------------------------------------------------ */
 
+/**
+ * Subcategorias das 3 categorias do app (Fase 2): as mesmas do site da ARP
+ * (espacoarp.com.br/lojas-e-servicos). "Academia" vem do menu do site.
+ */
 export const STORE_CATEGORIES: readonly {
   name: string;
   kind: StoreKind;
   icon: string;
   sortOrder: number;
 }[] = [
-  { name: "Restaurantes", kind: "food", icon: "utensils", sortOrder: 1 },
-  { name: "Bares", kind: "food", icon: "beer", sortOrder: 2 },
-  { name: "Cafés", kind: "food", icon: "coffee", sortOrder: 3 },
-  { name: "Doces", kind: "food", icon: "ice-cream-cone", sortOrder: 4 },
-  { name: "Moda", kind: "shop", icon: "shirt", sortOrder: 1 },
-  { name: "Livros", kind: "shop", icon: "book-open", sortOrder: 2 },
-  { name: "Saúde", kind: "shop", icon: "heart-pulse", sortOrder: 3 },
-  { name: "Casa", kind: "shop", icon: "sofa", sortOrder: 4 },
-  { name: "Pet", kind: "shop", icon: "paw-print", sortOrder: 5 },
-  { name: "Bem-estar", kind: "shop", icon: "flower-2", sortOrder: 6 },
-  { name: "Serviços", kind: "shop", icon: "scissors", sortOrder: 7 },
+  { name: "Acessórios", kind: "shop", icon: "gem", sortOrder: 1 },
+  { name: "Moda", kind: "shop", icon: "shirt", sortOrder: 2 },
+  { name: "Utilidades", kind: "shop", icon: "house", sortOrder: 3 },
+  { name: "Varejo", kind: "shop", icon: "shopping-bag", sortOrder: 4 },
+  { name: "Bar", kind: "food", icon: "beer", sortOrder: 1 },
+  { name: "Confeitaria e Café", kind: "food", icon: "coffee", sortOrder: 2 },
+  { name: "Padaria e Lanchonete", kind: "food", icon: "croissant", sortOrder: 3 },
+  { name: "Pizzaria", kind: "food", icon: "pizza", sortOrder: 4 },
+  { name: "Produtos Naturais", kind: "food", icon: "leaf", sortOrder: 5 },
+  { name: "Restaurante", kind: "food", icon: "utensils", sortOrder: 6 },
+  { name: "Sorveteria", kind: "food", icon: "ice-cream-cone", sortOrder: 7 },
+  { name: "Academia", kind: "service", icon: "dumbbell", sortOrder: 1 },
+  { name: "Advocacia", kind: "service", icon: "landmark", sortOrder: 2 },
+  { name: "Agência e Eventos", kind: "service", icon: "party-popper", sortOrder: 3 },
+  { name: "Arquitetura e Engenharia", kind: "service", icon: "building-2", sortOrder: 4 },
+  { name: "Ateliê", kind: "service", icon: "scissors", sortOrder: 5 },
+  { name: "Contabilidade e Finanças", kind: "service", icon: "banknote", sortOrder: 6 },
+  { name: "Ensino", kind: "service", icon: "book-open", sortOrder: 7 },
+  { name: "Estética e Beleza", kind: "service", icon: "sparkles", sortOrder: 8 },
+  { name: "Fotografia", kind: "service", icon: "camera", sortOrder: 9 },
+  { name: "Imobiliária e Corretora", kind: "service", icon: "key-round", sortOrder: 10 },
+  { name: "Indústria", kind: "service", icon: "hammer", sortOrder: 11 },
+  { name: "Lazer", kind: "service", icon: "gamepad-2", sortOrder: 12 },
+  { name: "Saúde", kind: "service", icon: "stethoscope", sortOrder: 13 },
+  { name: "Tecnologia", kind: "service", icon: "laptop", sortOrder: 14 },
+  { name: "Veterinária", kind: "service", icon: "paw-print", sortOrder: 15 },
 ];
 
 /** [dias da semana (0 = dom), abre, fecha]. Fecha <= abre = passa da meia-noite. */
@@ -217,6 +236,8 @@ export interface StoreSeed {
   name: string;
   kind: StoreKind;
   category: string;
+  /** Subcategorias extras [tipo, nome]: a loja aparece nelas também. */
+  extraCategories?: readonly [StoreKind, string][];
   block: string;
   level: number;
   icon: string;
@@ -237,7 +258,7 @@ export const STORES: readonly StoreSeed[] = [
     slug: "a-feitoria",
     name: "A Feitoria",
     kind: "food",
-    category: "Restaurantes",
+    category: "Restaurante",
     block: "Bloco 80",
     level: 0,
     icon: "utensils",
@@ -256,7 +277,7 @@ export const STORES: readonly StoreSeed[] = [
     slug: "casa-brava",
     name: "Casa Brava",
     kind: "food",
-    category: "Bares",
+    category: "Bar",
     block: "Bloco 82",
     level: 0,
     icon: "beer",
@@ -277,7 +298,7 @@ export const STORES: readonly StoreSeed[] = [
     slug: "cafe-da-serra",
     name: "Café da Serra",
     kind: "food",
-    category: "Cafés",
+    category: "Confeitaria e Café",
     block: "Bloco 80",
     level: 1,
     icon: "coffee",
@@ -299,7 +320,8 @@ export const STORES: readonly StoreSeed[] = [
     slug: "doce-tilia",
     name: "Doce Tília",
     kind: "food",
-    category: "Doces",
+    category: "Confeitaria e Café",
+    extraCategories: [["food", "Sorveteria"]],
     block: "Bloco 81",
     level: 0,
     icon: "ice-cream-cone",
@@ -317,7 +339,8 @@ export const STORES: readonly StoreSeed[] = [
     slug: "massa-fina",
     name: "Massa Fina",
     kind: "food",
-    category: "Restaurantes",
+    category: "Restaurante",
+    extraCategories: [["food", "Pizzaria"]],
     block: "Bloco 82",
     level: 1,
     icon: "pizza",
@@ -335,7 +358,7 @@ export const STORES: readonly StoreSeed[] = [
     slug: "kiro-sushi",
     name: "Kiro Sushi",
     kind: "food",
-    category: "Restaurantes",
+    category: "Restaurante",
     block: "Bloco 81",
     level: 2,
     icon: "fish",
@@ -354,6 +377,7 @@ export const STORES: readonly StoreSeed[] = [
     name: "Ateliê Linho",
     kind: "shop",
     category: "Moda",
+    extraCategories: [["service", "Ateliê"]],
     block: "Bloco 80",
     level: 1,
     icon: "shirt",
@@ -374,7 +398,8 @@ export const STORES: readonly StoreSeed[] = [
     slug: "entrelinhas",
     name: "Entrelinhas",
     kind: "shop",
-    category: "Livros",
+    category: "Varejo",
+    extraCategories: [["food", "Confeitaria e Café"]],
     block: "Bloco 81",
     level: 1,
     icon: "book-open",
@@ -392,7 +417,8 @@ export const STORES: readonly StoreSeed[] = [
     slug: "otica-vista",
     name: "Ótica Vista",
     kind: "shop",
-    category: "Saúde",
+    category: "Acessórios",
+    extraCategories: [["service", "Saúde"]],
     block: "Bloco 80",
     level: 0,
     icon: "glasses",
@@ -410,7 +436,7 @@ export const STORES: readonly StoreSeed[] = [
     slug: "casa-mata",
     name: "Casa Mata",
     kind: "shop",
-    category: "Casa",
+    category: "Utilidades",
     block: "Bloco 81",
     level: 2,
     icon: "sofa",
@@ -427,8 +453,9 @@ export const STORES: readonly StoreSeed[] = [
   {
     slug: "pet-point",
     name: "Pet Point",
-    kind: "shop",
-    category: "Pet",
+    kind: "service",
+    category: "Veterinária",
+    extraCategories: [["shop", "Varejo"]],
     block: "Bloco 82",
     level: 2,
     icon: "paw-print",
@@ -445,8 +472,9 @@ export const STORES: readonly StoreSeed[] = [
   {
     slug: "alto-pilates",
     name: "Alto Pilates",
-    kind: "shop",
-    category: "Bem-estar",
+    kind: "service",
+    category: "Academia",
+    extraCategories: [["service", "Saúde"]],
     block: "Bloco 82",
     level: 2,
     icon: "flower-2",
@@ -466,8 +494,8 @@ export const STORES: readonly StoreSeed[] = [
   {
     slug: "barbearia-82",
     name: "Barbearia 82",
-    kind: "shop",
-    category: "Serviços",
+    kind: "service",
+    category: "Estética e Beleza",
     block: "Bloco 82",
     level: 1,
     icon: "scissors",

@@ -56,7 +56,9 @@ export function StoreHero({ store }: { store: StoreDetail }) {
                 {store.name}
               </h1>
               <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[rgb(255_255_255/0.8)]">
-                <span>{store.category.name}</span>
+                <span>
+                  {[store.category, ...store.extraCategories].map((c) => c.name).join(" · ")}
+                </span>
                 <span className="inline-flex items-center gap-1">
                   <MapPin className="size-3.5" aria-hidden />
                   {store.block.name} · {store.floor.label}

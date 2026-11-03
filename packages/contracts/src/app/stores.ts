@@ -8,7 +8,12 @@ import {
   paginated,
   paginationQuerySchema,
 } from "../common";
-import { mapShapeSchema, storeHoursSchema, storeKindSchema } from "../directory";
+import {
+  mapShapeSchema,
+  storeCategoryRefSchema,
+  storeHoursSchema,
+  storeKindSchema,
+} from "../directory";
 import { challengeItemSchema } from "./challenges";
 import { couponCardSchema } from "./coupons";
 
@@ -27,7 +32,12 @@ export const storeSummarySchema = z.object({
   id: idSchema,
   slug: z.string(),
   name: z.string(),
-  category: z.object({ id: idSchema, name: z.string(), kind: storeKindSchema }),
+  /** Subcategoria principal. */
+  category: storeCategoryRefSchema,
+  /** Subcategorias extras: a loja aparece em todas as categorias marcadas. */
+  extraCategories: z.array(storeCategoryRefSchema),
+  /** As categorias (Lojas, Gastronomia, Serviços) em que a loja aparece. */
+  kinds: z.array(storeKindSchema),
   floor: z.object({ id: idSchema, label: z.string(), shortLabel: z.string(), level: z.number() }),
   block: z.object({ id: idSchema, name: z.string() }),
   icon: iconNameSchema,
@@ -99,7 +109,10 @@ export const mapSchema = z.object({
           name: z.string(),
           icon: iconNameSchema,
           brandColor: hexColorSchema,
+          /** Categoria principal (cor do pino). */
           kind: storeKindSchema,
+          /** Todas as categorias da loja (filtro do mapa). */
+          kinds: z.array(storeKindSchema),
           x: z.number(),
           y: z.number(),
         }),

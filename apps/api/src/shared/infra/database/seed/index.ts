@@ -331,6 +331,13 @@ class Seeder {
           })),
         );
         await this.db.query(insertInto("directory.store_hours", hours));
+        const extras = (store.extraCategories ?? []).map(([kind, name]) => ({
+          store_id: id,
+          category_id: this.ids.categories.get(`${kind}:${name}`),
+        }));
+        if (extras.length > 0) {
+          await this.db.query(insertInto("directory.store_extra_categories", extras));
+        }
       }
     }
     for (const point of MAP_POINTS) {

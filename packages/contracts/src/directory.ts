@@ -19,13 +19,37 @@ export const MAP_VIEWBOX = { width: 360, height: 470 } as const;
 const mapX = z.number().min(0).max(MAP_VIEWBOX.width);
 const mapY = z.number().min(0).max(MAP_VIEWBOX.height);
 
-export const storeKindSchema = z.enum(["food", "shop"]);
+/**
+ * As 3 categorias do app (Fase 2), sempre nesta ordem: Lojas, Gastronomia e
+ * Serviços. As subcategorias (as mesmas do site da ARP) são as
+ * store_categories de cada tipo. Chaves estáveis: shop/food/service.
+ */
+export const storeKindSchema = z.enum(["shop", "food", "service"]);
 export type StoreKind = z.infer<typeof storeKindSchema>;
 
 export const STORE_KIND_LABEL: Record<StoreKind, string> = {
-  food: "Alimentação",
-  shop: "Lojas e serviços",
+  shop: "Lojas",
+  food: "Gastronomia",
+  service: "Serviços",
 };
+
+/** Ícone de cada categoria nos atalhos e abas. */
+export const STORE_KIND_ICON: Record<StoreKind, string> = {
+  shop: "shopping-bag",
+  food: "utensils",
+  service: "briefcase",
+};
+
+/** Referência à subcategoria (id, nome e a qual das 3 categorias pertence). */
+export const storeCategoryRefSchema = z.object({
+  id: idSchema,
+  name: z.string(),
+  kind: storeKindSchema,
+});
+export type StoreCategoryRef = z.infer<typeof storeCategoryRefSchema>;
+
+/** Até quantas subcategorias extras um estabelecimento pode ter (além da principal). */
+export const STORE_EXTRA_CATEGORIES_MAX = 5;
 
 /* Andares ---------------------------------------------------------------- */
 
@@ -172,7 +196,13 @@ export const storeSummarySchema = z.object({
   id: idSchema,
   slug: z.string(),
   name: z.string(),
-  category: z.object({ id: idSchema, name: z.string(), kind: storeKindSchema }),
+  /** Subcategoria principal. */
+  category: storeCategoryRefSchema,
+  /**
+   * Subcategorias extras (ex.: loja de roupas que também é café). A loja
+   * aparece em todas as categorias marcadas.
+   */
+  extraCategories: z.array(storeCategoryRefSchema),
   block: z.object({ id: idSchema, name: z.string() }),
   floor: z.object({ id: idSchema, label: z.string(), shortLabel: z.string(), level: z.number() }),
   icon: iconNameSchema,
@@ -214,7 +244,14 @@ export const createStoreBodySchema = z.object({
   name: z.string().trim().min(2).max(80),
   /** Sem slug: gerado a partir do nome. */
   slug: slugSchema.optional(),
+  /** Subcategoria principal. */
   categoryId: idSchema,
+  /** Outras subcategorias (podem ser de outra das 3 categorias). */
+  extraCategoryIds: z
+    .array(idSchema)
+    .max(STORE_EXTRA_CATEGORIES_MAX)
+    .refine((l) => new Set(l).size === l.length, "Categoria repetida")
+    .default([]),
   blockId: idSchema,
   floorId: idSchema,
   description: z.string().trim().max(600).default(""),

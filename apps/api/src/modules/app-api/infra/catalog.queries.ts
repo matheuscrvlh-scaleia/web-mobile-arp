@@ -3,6 +3,12 @@ import { offsetOf, type Page, toPage } from "../../../shared/application/paginat
 import { toLocal } from "../../../shared/domain/time";
 import type { Database } from "../../../shared/infra/database/database";
 import { type SqlFragment, sql } from "../../../shared/infra/database/sql";
+import {
+  STORE_EXTRA_CATEGORIES_JSON,
+  STORE_KINDS_JSON,
+  storeHasKind,
+  storeInCategory,
+} from "../../../shared/infra/database/store-categories";
 import { type DailyHours, isOpenNow } from "../../directory/domain/opening-hours";
 import {
   type ChallengeRow,
@@ -27,6 +33,8 @@ interface StoreSummaryRow {
   category_id: string;
   category_name: string;
   kind: Kind;
+  extra_categories: App.StoreSummary["extraCategories"];
+  kinds: Kind[];
   floor_id: string;
   floor_label: string;
   floor_short_label: string;
@@ -81,6 +89,7 @@ const storeSummarySelect = (
 ) => sql`
   select s.id, s.slug, s.name, s.icon, s.brand_color, s.cover_image_url,
          sc.id as category_id, sc.name as category_name, sc.kind,
+         ${STORE_EXTRA_CATEGORIES_JSON} as extra_categories, ${STORE_KINDS_JSON} as kinds,
          f.id as floor_id, f.label as floor_label, f.short_label as floor_short_label,
          f.level as floor_level, b.id as block_id, b.name as block_name,
          coalesce((
@@ -107,6 +116,8 @@ function toStoreSummary(r: StoreSummaryRow, now: Date): App.StoreSummary {
     slug: r.slug,
     name: r.name,
     category: { id: r.category_id, name: r.category_name, kind: r.kind },
+    extraCategories: r.extra_categories,
+    kinds: r.kinds,
     floor: {
       id: r.floor_id,
       label: r.floor_label,
@@ -132,8 +143,9 @@ export class CatalogQueries {
     return this.db.many<App.StoreCategory>(sql`
       select sc.id, sc.name, sc.kind, sc.icon
       from directory.store_categories sc
-      where exists (select 1 from directory.stores s where s.category_id = sc.id and s.status = 'active')
-      order by sc.kind, sc.sort_order, sc.name
+      where exists (select 1 from directory.stores s
+                    where ${storeInCategory(sql.raw("sc.id"))} and s.status = 'active')
+      order by array_position(array['shop','food','service'], sc.kind), sc.sort_order, sc.name
     `);
   }
 
@@ -146,8 +158,8 @@ export class CatalogQueries {
       ${storeSummarySelect(now, visitorId, sql`, count(*) over() as total`)}
       ${sql.where([
         sql`s.status = 'active'`,
-        query.kind && sql`sc.kind = ${query.kind}`,
-        query.categoryId && sql`s.category_id = ${query.categoryId}`,
+        query.kind && storeHasKind(query.kind),
+        query.categoryId && storeInCategory(query.categoryId),
         query.floorId && sql`s.floor_id = ${query.floorId}`,
         query.openNow && openNowFilter(now),
         query.q && sql`public.f_unaccent(lower(s.name)) like ${sql.containsPattern(query.q)}`,
@@ -263,7 +275,8 @@ export class CatalogQueries {
              coalesce((
                select jsonb_agg(jsonb_build_object(
                         'storeId', s.id, 'slug', s.slug, 'name', s.name, 'icon', s.icon,
-                        'brandColor', s.brand_color, 'kind', sc.kind, 'x', s.map_x, 'y', s.map_y)
+                        'brandColor', s.brand_color, 'kind', sc.kind,
+                        'kinds', ${STORE_KINDS_JSON}, 'x', s.map_x, 'y', s.map_y)
                       order by s.name)
                from directory.stores s
                join directory.store_categories sc on sc.id = s.category_id

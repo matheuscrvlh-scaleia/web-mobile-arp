@@ -16,9 +16,10 @@ export class UpdateStoreUseCase {
       const store = await stores.findById(input.id);
       if (!store) throw new NotFoundError(STORE_NOT_FOUND);
       assertStoreAccess(actor, store.id);
-      const { categoryId, blockId, floorId } = input.changes;
+      const { categoryId, extraCategoryIds, blockId, floorId } = input.changes;
       await assertReferences(references, {
         ...(categoryId ? { categoryId } : {}),
+        ...(extraCategoryIds ? { extraCategoryIds } : {}),
         ...(blockId ? { blockId } : {}),
         ...(floorId ? { floorId } : {}),
       });

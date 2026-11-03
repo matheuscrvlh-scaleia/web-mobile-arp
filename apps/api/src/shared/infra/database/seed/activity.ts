@@ -403,7 +403,7 @@ export function generateActivity(input: ActivityInput): Activity {
     const from = coupon.startsAt;
     const to = minDate(coupon.endsAt ?? now, plus(now, -60_000));
     if (to <= from) continue;
-    const profile: Profile = coupon.kind;
+    const profile: Profile = coupon.kind === "food" ? "food" : "shop"; // serviços: mesmo padrão de lojas
     const couponClaims: ClaimRow[] = [];
 
     // Presets da Ana entram na mesma linha do tempo (e contam no estoque).

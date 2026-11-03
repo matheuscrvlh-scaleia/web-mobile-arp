@@ -1,6 +1,8 @@
 import {
   createStoreBodySchema,
+  STORE_EXTRA_CATEGORIES_MAX,
   STORE_KIND_LABEL,
+  type StoreCategory,
   type StoreDetail,
   storeKindSchema,
 } from "@arp/contracts";
@@ -47,6 +49,7 @@ export function storeToFormValues(store?: StoreDetail): StoreFormInput {
     name: store?.name ?? "",
     slug: store?.slug,
     categoryId: store?.category.id ?? "",
+    extraCategoryIds: store?.extraCategories.map((c) => c.id) ?? [],
     blockId: store?.block.id ?? "",
     floorId: store?.floor.id ?? "",
     description: store?.description ?? "",
@@ -97,9 +100,9 @@ export function StoreForm({
   const categories = useStoreCategories();
   const blocks = useBlocks();
   const floors = useFloors();
-  const [name, slug, icon, brandColor, coverImageUrl, description] = useWatch({
+  const [name, slug, icon, brandColor, coverImageUrl, description, categoryId] = useWatch({
     control,
-    name: ["name", "slug", "icon", "brandColor", "coverImageUrl", "description"],
+    name: ["name", "slug", "icon", "brandColor", "coverImageUrl", "description", "categoryId"],
   });
 
   return (
@@ -132,7 +135,7 @@ export function StoreForm({
               </Field>
             </FieldRow>
             <FieldRow>
-              <Field label="Categoria" required error={errors.categoryId?.message}>
+              <Field label="Categoria principal" required error={errors.categoryId?.message}>
                 <Select placeholder="Escolha a categoria" {...register("categoryId")}>
                   {storeKindSchema.options.map((kind) => (
                     <optgroup key={kind} label={STORE_KIND_LABEL[kind]}>
@@ -163,6 +166,19 @@ export function StoreForm({
                 )}
               />
             </FieldRow>
+            <Controller
+              control={control}
+              name="extraCategoryIds"
+              render={({ field }) => (
+                <ExtraCategoriesPicker
+                  categories={categories.data ?? []}
+                  primaryId={categoryId}
+                  value={field.value ?? []}
+                  onChange={field.onChange}
+                  error={errors.extraCategoryIds?.message}
+                />
+              )}
+            />
           </FormSection>
 
           <FormSection
@@ -328,5 +344,74 @@ export function StoreForm({
         />
       )}
     </form>
+  );
+}
+
+/**
+ * Outras categorias (Fase 2): a loja aparece também nelas, inclusive em outra
+ * das 3 categorias do app (ex.: loja de roupas com café = Lojas e Gastronomia).
+ */
+function ExtraCategoriesPicker({
+  categories,
+  primaryId,
+  value,
+  onChange,
+  error,
+}: {
+  categories: readonly StoreCategory[];
+  primaryId: string | undefined;
+  value: readonly string[];
+  onChange: (ids: string[]) => void;
+  error?: string | undefined;
+}) {
+  const selected = value.filter((id) => id !== primaryId);
+  const full = selected.length >= STORE_EXTRA_CATEGORIES_MAX;
+  const toggle = (id: string) =>
+    onChange(selected.includes(id) ? selected.filter((v) => v !== id) : [...selected, id]);
+
+  return (
+    <div className="mt-4">
+      <p className="text-xs font-medium text-neutral-600">
+        Outras categorias <span className="font-normal text-neutral-400">(opcional)</span>
+      </p>
+      <p className="mt-0.5 text-xs text-neutral-500">
+        A loja aparece também nestas categorias no app. Até {STORE_EXTRA_CATEGORIES_MAX}.
+      </p>
+      <div className="mt-3 space-y-3">
+        {storeKindSchema.options.map((kind) => {
+          const items = categories.filter((c) => c.kind === kind && c.id !== primaryId);
+          if (items.length === 0) return null;
+          return (
+            <div key={kind}>
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                {STORE_KIND_LABEL[kind]}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {items.map((c) => {
+                  const on = selected.includes(c.id);
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      aria-pressed={on}
+                      disabled={!on && full}
+                      onClick={() => toggle(c.id)}
+                      className={`rounded-full border px-3 py-1 text-xs font-medium transition disabled:opacity-40 ${
+                        on
+                          ? "border-neutral-900 bg-neutral-900 text-white"
+                          : "border-neutral-300 bg-white text-neutral-700 hover:border-neutral-400"
+                      }`}
+                    >
+                      {c.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {error ? <p className="mt-2 text-xs font-medium text-red-700">{error}</p> : null}
+    </div>
   );
 }

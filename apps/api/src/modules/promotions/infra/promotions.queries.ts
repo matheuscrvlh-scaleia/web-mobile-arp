@@ -20,6 +20,7 @@ import type { Clock } from "../../../shared/application/ports/clock";
 import { ValidationError } from "../../../shared/domain/errors";
 import type { Database } from "../../../shared/infra/database/database";
 import { type SqlFragment, sql } from "../../../shared/infra/database/sql";
+import { storeHasKind } from "../../../shared/infra/database/store-categories";
 import { iso, isoOrNull } from "../../../shared/infra/presenters";
 import type { ClaimReader } from "../application/lookup-claim.use-case";
 
@@ -179,7 +180,7 @@ export class PromotionsQueries implements ClaimReader {
       ${sql.where([
         query.storeId && sql`c.store_id = ${query.storeId}`,
         query.status && sql`c.status = ${query.status}`,
-        query.kind && sql`cat.kind = ${query.kind}`,
+        query.kind && storeHasKind(query.kind),
         query.q && sql`public.f_unaccent(lower(c.title)) like ${sql.containsPattern(query.q)}`,
       ])}
       order by c.starts_at desc, c.id desc
