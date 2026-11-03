@@ -787,47 +787,47 @@ export const COUPONS: readonly CouponSeed[] = [
 export const SEALS = [
   {
     slug: "explorador",
-    name: "Explorador",
+    name: "Origens",
     icon: "compass",
     from: "#7fd68d",
     to: "#2f7d3d",
-    description: "Fez o tour da ARP.",
+    description: "Visitou o Túnel do Tempo.",
   },
   {
     slug: "mao-verde",
-    name: "Mão Verde",
+    name: "Transforma",
     icon: "recycle",
     from: "#9be0a5",
     to: "#3a9a4b",
-    description: "Descartou vidro no ponto de reciclagem.",
+    description: "Descartou no Sustentarp.",
   },
   {
     slug: "bom-garfo",
-    name: "Bom Garfo",
+    name: "Sabores",
     icon: "utensils",
     from: "#f2b38a",
     to: "#c8692f",
-    description: "Provou o prato do mês.",
+    description: "Provou o prato do mês de um parceiro.",
   },
   {
     slug: "agito",
-    name: "Agito",
+    name: "Energia",
     icon: "party-popper",
     from: "#c7a3ff",
     to: "#7d5a8c",
-    description: "Participou de um evento.",
+    description: "Participou de um evento (pode ganhar de novo).",
   },
   {
     slug: "cultural",
-    name: "Cultural",
+    name: "Fio Cultural",
     icon: "palette",
     from: "#ffd27a",
     to: "#c99220",
-    description: "Visitou o Corredor Cultural.",
+    description: "Fez o Circuito Cultural.",
   },
   {
     slug: "sem-fila",
-    name: "Sem Fila",
+    name: "Passe Livre",
     icon: "car",
     from: "#9cc5ff",
     to: "#2b4c6f",
@@ -840,6 +840,8 @@ export interface ChallengeSeed {
   seal: (typeof SEALS)[number]["slug"];
   title: string;
   howTo: string;
+  /** Produto do parceiro (desafio de produto). */
+  product?: string;
   icon: string;
   validation: "qr" | "auto";
   storeSlug: string | null;
@@ -855,8 +857,8 @@ export const CHALLENGES: readonly ChallengeSeed[] = [
   {
     ref: "tour",
     seal: "explorador",
-    title: "Faça o tour da ARP",
-    howTo: "QR Code no fim do tour, na praça central",
+    title: "Visite o Túnel do Tempo",
+    howTo: "QR Code na saída do Túnel do Tempo",
     icon: "compass",
     validation: "qr",
     storeSlug: null,
@@ -867,8 +869,8 @@ export const CHALLENGES: readonly ChallengeSeed[] = [
   {
     ref: "descarte",
     seal: "mao-verde",
-    title: "Descarte vidro no ponto de reciclagem",
-    howTo: "QR Code no ponto de descarte · Bloco 82",
+    title: "Descarte 30 cápsulas de café no Sustentarp",
+    howTo: "QR Code com prazo no ponto do Sustentarp · Bloco 82",
     icon: "recycle",
     validation: "qr",
     storeSlug: null,
@@ -881,6 +883,7 @@ export const CHALLENGES: readonly ChallengeSeed[] = [
     seal: "bom-garfo",
     title: "Prove o prato do mês na A Feitoria",
     howTo: "O QR Code vem junto com a conta",
+    product: "Prato do mês",
     icon: "utensils",
     validation: "qr",
     storeSlug: "a-feitoria",
@@ -903,8 +906,8 @@ export const CHALLENGES: readonly ChallengeSeed[] = [
   {
     ref: "cultural",
     seal: "cultural",
-    title: "Visite o Corredor Cultural",
-    howTo: "QR Code no totem do corredor",
+    title: "Faça o Circuito Cultural",
+    howTo: "QR Code no último ponto do Circuito",
     icon: "palette",
     validation: "qr",
     storeSlug: null,

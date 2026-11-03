@@ -565,6 +565,7 @@ class Seeder {
             icon: ch.icon,
             validation: ch.validation,
             store_id: ch.storeSlug ? this.ids.stores.get(ch.storeSlug) : null,
+            product: ch.product ?? null,
             event_id: ch.eventTitle && offset === 0 ? this.ids.events.get(ch.eventTitle) : null,
             sort_order: i + 1,
             status: "active",
