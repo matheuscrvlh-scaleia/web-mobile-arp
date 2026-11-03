@@ -48,7 +48,7 @@ export function MapPage() {
 
   const list = floors.data ?? [];
   const requested = params.get("andar");
-  // Sem andar na URL: o térreo (nível 0) ou o mais baixo.
+  // Sem andar na URL: o 1º andar (nível 0) ou o mais baixo.
   const floor = list.find((f) => f.id === requested) ?? list.find((f) => f.level === 0) ?? list[0];
   const floorId = floor?.id;
 
@@ -162,7 +162,7 @@ export function MapPage() {
           <EmptyState
             icon={Layers}
             title="Nenhum andar cadastrado"
-            description="Crie o térreo para começar a desenhar o mapa."
+            description="Crie o 1º andar para começar a desenhar o mapa."
             action={
               canEditMap && (
                 <Button icon={Layers} onClick={() => setCreatingFloor(true)}>

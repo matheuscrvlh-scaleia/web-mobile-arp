@@ -176,3 +176,7 @@ export type Phase = z.infer<typeof phaseSchema>;
 /** Tons de cartão herdados do app (cupons, eventos sem foto). */
 export const toneSchema = z.enum(["green", "ink", "clay", "sand", "deep"]);
 export type Tone = z.infer<typeof toneSchema>;
+
+/** Cupons usam só dois tons: verde e off-white ("sand"). Sem laranja (Fase 2). */
+export const couponToneSchema = z.enum(["green", "sand"]);
+export type CouponTone = z.infer<typeof couponToneSchema>;

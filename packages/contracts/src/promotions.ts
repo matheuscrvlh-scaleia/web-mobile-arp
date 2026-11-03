@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   centsSchema,
+  couponToneSchema,
   cursorQuerySchema,
   hexColorSchema,
   iconNameSchema,
@@ -10,7 +11,6 @@ import {
   paginated,
   paginationQuerySchema,
   refSchema,
-  toneSchema,
 } from "./common";
 import { storeKindSchema } from "./directory";
 
@@ -71,7 +71,7 @@ export const couponSchema = z.object({
   endsAt: isoDateTimeSchema.nullable(),
   totalQuantity: z.number().int(),
   redeemWindowHours: z.number().int(),
-  tone: toneSchema,
+  tone: couponToneSchema,
   icon: iconNameSchema,
   imageUrl: z.string().nullable(),
   /** Economia estimada por uso (para o "você economizou" do app). */
@@ -95,7 +95,7 @@ const couponFields = {
   endsAt: isoDateTimeSchema.nullable().optional(),
   totalQuantity: z.number().int().min(1).max(100_000),
   redeemWindowHours: z.number().int().min(1).max(720),
-  tone: toneSchema,
+  tone: couponToneSchema,
   icon: iconNameSchema,
   imageUrl: mediaUrlSchema.nullable().optional(),
   savingsCents: centsSchema.nullable().optional(),

@@ -1,12 +1,12 @@
 import { z } from "zod";
 import {
+  couponToneSchema,
   hexColorSchema,
   iconNameSchema,
   idSchema,
   isoDateTimeSchema,
   paginated,
   paginationQuerySchema,
-  toneSchema,
 } from "../common";
 import { storeKindSchema } from "../directory";
 
@@ -44,7 +44,7 @@ export const couponCardSchema = z.object({
   endsAt: isoDateTimeSchema.nullable(),
   /** Prazo para usar depois de pegar. */
   redeemWindowHours: z.number().int(),
-  tone: toneSchema,
+  tone: couponToneSchema,
   icon: iconNameSchema,
   imageUrl: z.string().nullable(),
   savingsCents: z.number().int().nullable(),
@@ -81,7 +81,7 @@ export const claimSchema = z.object({
     headline: z.string(),
     headlineSub: z.string().nullable(),
     scheduleNote: z.string().nullable(),
-    tone: toneSchema,
+    tone: couponToneSchema,
     icon: iconNameSchema,
     imageUrl: z.string().nullable(),
     savingsCents: z.number().int().nullable(),

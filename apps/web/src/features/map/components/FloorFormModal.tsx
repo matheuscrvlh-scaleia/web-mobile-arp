@@ -62,7 +62,7 @@ export function FloorFormModal({
       onClose={close}
       busy={save.isPending}
       title={floor ? `Editar ${floor.label}` : "Novo andar"}
-      description="O nível define a ordem no elevador do app (0 = térreo; negativo = subsolo)."
+      description="O nível define a ordem no elevador do app (0 = 1º andar; negativo = subsolo)."
       footer={
         <>
           <Button variant="secondary" onClick={close} disabled={save.isPending}>
@@ -75,7 +75,12 @@ export function FloorFormModal({
       }
     >
       <form id="form-andar" onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
-        <Field label="Nome" required hint="Ex.: Térreo, 1º andar" error={errors.label?.message}>
+        <Field
+          label="Nome"
+          required
+          hint="Ex.: 1º andar, 2º andar (nunca Térreo)"
+          error={errors.label?.message}
+        >
           <Input autoFocus {...form.register("label")} />
         </Field>
         <FieldRow>

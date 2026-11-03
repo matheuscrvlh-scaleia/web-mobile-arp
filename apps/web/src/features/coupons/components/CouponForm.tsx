@@ -1,4 +1,4 @@
-import type { Coupon } from "@arp/contracts";
+import { type Coupon, couponToneSchema } from "@arp/contracts";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMemo, useState } from "react";
 import { Controller, type UseFormReturn, useForm, useWatch } from "react-hook-form";
@@ -171,7 +171,13 @@ export function CouponForm({
               <Controller
                 control={control}
                 name="tone"
-                render={({ field }) => <TonePicker value={field.value} onChange={field.onChange} />}
+                render={({ field }) => (
+                  <TonePicker
+                    value={field.value}
+                    onChange={field.onChange}
+                    options={couponToneSchema.options}
+                  />
+                )}
               />
             </Field>
             <FieldRow>

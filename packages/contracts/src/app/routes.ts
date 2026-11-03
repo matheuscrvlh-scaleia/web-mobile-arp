@@ -57,6 +57,8 @@ export const APP_ROUTES = {
   agenda: {
     days: r("GET", "/agenda", "Dias com eventos no intervalo (?from&to)", open),
     get: r("GET", "/events/:id", "Evento", open),
+    /** HTML com Open Graph: prévia com foto e texto no WhatsApp; abre o app ou mostra o resumo. */
+    share: r("GET", "/events/:id/share", "Página do evento para compartilhar", open),
     interest: r("PUT", "/events/:id/interest", "Tenho interesse"),
     removeInterest: r("DELETE", "/events/:id/interest", "Remover interesse"),
   },

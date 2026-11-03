@@ -10,6 +10,7 @@ import type { ClaimCouponUseCase } from "../../promotions";
 import type { AppReads } from "../infra/app-reads";
 import type { FeedQueries } from "../infra/feed.queries";
 import type { VisitorQueries } from "../infra/visitor.queries";
+import { renderEventSharePage } from "./event-share-page";
 import type { OptionalVisitor } from "./optional-visitor";
 
 export interface AppBrowseRoutesDeps {
@@ -98,6 +99,19 @@ export function appBrowseRoutes(deps: AppBrowseRoutesDeps): FastifyPluginAsyncZo
       async (request) => reads.agenda(request.query),
       shared,
     );
+
+    // Página pública para compartilhar no WhatsApp (prévia com foto pelas tags Open Graph).
+    r.route(APP_ROUTES.agenda.share, { params: idParamsSchema }, async (request, reply) => {
+      const event = orNotFound(
+        await reads.event(request.params.id, null, clock.now()),
+        "Evento não encontrado",
+      );
+      const origin = `${request.protocol}://${request.host}`;
+      return reply
+        .header("cache-control", "public, max-age=300")
+        .type("text/html; charset=utf-8")
+        .send(renderEventSharePage(event, origin));
+    });
 
     r.route(
       APP_ROUTES.agenda.get,

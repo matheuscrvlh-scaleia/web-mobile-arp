@@ -2,7 +2,8 @@ import { BusinessRuleError, ValidationError } from "../../../shared/domain/error
 import { applyPatch } from "../../../shared/domain/patch";
 
 export type CouponStatus = "draft" | "active" | "paused" | "ended";
-export type CouponTone = "green" | "ink" | "clay" | "sand" | "deep";
+/** Só verde e off-white (Fase 2). */
+export type CouponTone = "green" | "sand";
 
 export interface CouponProps {
   id: string;

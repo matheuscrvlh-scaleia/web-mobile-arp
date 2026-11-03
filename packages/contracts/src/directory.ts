@@ -51,7 +51,7 @@ export type MapShape = z.infer<typeof mapShapeSchema>;
 
 export const floorSchema = z.object({
   id: idSchema,
-  /** 0 = térreo, 1 = 1º andar… (negativo = subsolo). Único. */
+  /** 0 = 1º andar, 1 = 2º andar… (negativo = subsolo). Único. O app nunca diz "Térreo". */
   level: z.number().int(),
   label: z.string(),
   shortLabel: z.string(),

@@ -7,7 +7,7 @@ export const TONE_LABEL: Record<Tone, string> = {
   green: "Verde",
   ink: "Tinta",
   clay: "Argila",
-  sand: "Areia",
+  sand: "Off-white",
   deep: "Mata",
 };
 
@@ -15,22 +15,25 @@ export const TONE_LABEL: Record<Tone, string> = {
  * Tom do cartão do app (cupons, eventos sem foto): rádios nativos com a
  * amostra do degradê e o nome (a cor não vem sozinha).
  */
-export function TonePicker({
+export function TonePicker<T extends Tone = Tone>({
   value,
   onChange,
   label = "Tom do cartão",
   disabled = false,
+  options = toneSchema.options as readonly Tone[] as readonly T[],
 }: {
-  value: Tone | null | undefined;
-  onChange: (tone: Tone) => void;
+  value: T | null | undefined;
+  onChange: (tone: T) => void;
   label?: string;
   disabled?: boolean;
+  /** Tons oferecidos (cupons: só verde e off-white). */
+  options?: readonly T[];
 }) {
   const name = useId();
   return (
     <fieldset className="flex flex-wrap gap-2" disabled={disabled}>
       <legend className="sr-only">{label}</legend>
-      {toneSchema.options.map((t) => {
+      {options.map((t) => {
         const on = t === value;
         return (
           <label

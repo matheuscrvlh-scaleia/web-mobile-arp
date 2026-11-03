@@ -1,5 +1,6 @@
 import {
   type AppSettings,
+  type CouponTone,
   type MapShape,
   type MapShapeKind,
   PERMISSIONS,
@@ -135,8 +136,8 @@ const shapes = (list: ShapeTuple[]): MapShape[] =>
 export const FLOORS = [
   {
     level: 0,
-    label: "Térreo",
-    shortLabel: "T",
+    label: "1º andar",
+    shortLabel: "1º",
     layout: shapes([
       ["block", "Bloco 80", 20, 40, 150, 160],
       ["block", "Bloco 81", 190, 40, 150, 120],
@@ -147,8 +148,8 @@ export const FLOORS = [
   },
   {
     level: 1,
-    label: "1º andar",
-    shortLabel: "1",
+    label: "2º andar",
+    shortLabel: "2º",
     layout: shapes([
       ["block", "Bloco 80", 20, 40, 150, 170],
       ["block", "Bloco 81", 190, 40, 150, 170],
@@ -159,8 +160,8 @@ export const FLOORS = [
   },
   {
     level: 2,
-    label: "2º andar",
-    shortLabel: "2",
+    label: "3º andar",
+    shortLabel: "3º",
     layout: shapes([
       ["terrace", "Terraço", 20, 40, 150, 150],
       ["block", "Bloco 81", 190, 40, 150, 170],
@@ -504,7 +505,7 @@ export interface CouponSeed {
   endsAt: When | null;
   totalQuantity: number;
   redeemWindowHours: number;
-  tone: Tone;
+  tone: CouponTone;
   icon: string;
   image: string | null;
   savingsCents: number;
@@ -551,7 +552,7 @@ export const COUPONS: readonly CouponSeed[] = [
     endsAt: null,
     totalQuantity: 30,
     redeemWindowHours: 12,
-    tone: "ink",
+    tone: "sand",
     icon: "cake-slice",
     image: "cp-sobremesa.jpg",
     savingsCents: 2200,
@@ -571,7 +572,7 @@ export const COUPONS: readonly CouponSeed[] = [
     endsAt: { nextSunday: "22:00" },
     totalQuantity: 20,
     redeemWindowHours: 48,
-    tone: "clay",
+    tone: "green",
     icon: "shirt",
     image: "cp-roupa.jpg",
     savingsCents: 4500,
@@ -611,7 +612,7 @@ export const COUPONS: readonly CouponSeed[] = [
     endsAt: { monthEnd: true },
     totalQuantity: 25,
     redeemWindowHours: 24,
-    tone: "deep",
+    tone: "green",
     icon: "book-open",
     image: "cp-livros.jpg",
     savingsCents: 2000,
@@ -631,7 +632,7 @@ export const COUPONS: readonly CouponSeed[] = [
     endsAt: null,
     totalQuantity: 50,
     redeemWindowHours: 24,
-    tone: "green",
+    tone: "sand",
     icon: "ice-cream-cone",
     image: "cp-brigadeiro.jpg",
     savingsCents: 900,
@@ -651,7 +652,7 @@ export const COUPONS: readonly CouponSeed[] = [
     endsAt: { day: -55, time: "23:30" },
     totalQuantity: 40,
     redeemWindowHours: 24,
-    tone: "clay",
+    tone: "green",
     icon: "pizza",
     image: "massafina.jpg",
     savingsCents: 2500,
@@ -671,7 +672,7 @@ export const COUPONS: readonly CouponSeed[] = [
     endsAt: { day: -35, time: "15:00" },
     totalQuantity: 30,
     redeemWindowHours: 12,
-    tone: "ink",
+    tone: "sand",
     icon: "fish",
     image: "kiro.jpg",
     savingsCents: 3200,
@@ -731,7 +732,7 @@ export const COUPONS: readonly CouponSeed[] = [
     endsAt: { day: 40, time: "20:00" },
     totalQuantity: 20,
     redeemWindowHours: 24,
-    tone: "ink",
+    tone: "green",
     icon: "scissors",
     image: "barbearia.jpg",
     savingsCents: 3500,
@@ -932,7 +933,7 @@ export const EVENTS: readonly EventSeed[] = [
     image: "festa.webp",
     tone: null,
     icon: null,
-    place: "Ruas internas · Térreo",
+    place: "Ruas internas · 1º andar",
     level: 0,
     storeSlug: null,
     recurrence: "range",
@@ -1013,7 +1014,7 @@ export const EVENTS: readonly EventSeed[] = [
     image: "ev-ceramica.jpg",
     tone: "clay",
     icon: "palette",
-    place: "Casa Mata · Bloco 81 · 2º",
+    place: "Casa Mata · Bloco 81 · 3º andar",
     level: 2,
     storeSlug: "casa-mata",
     recurrence: "range",
@@ -1033,7 +1034,7 @@ export const EVENTS: readonly EventSeed[] = [
     image: "ev-cinema.jpg",
     tone: null,
     icon: null,
-    place: "Terraço · 2º andar",
+    place: "Terraço · 3º andar",
     level: 2,
     storeSlug: null,
     recurrence: "single",
@@ -1053,7 +1054,7 @@ export const EVENTS: readonly EventSeed[] = [
     image: "ev-yoga.jpg",
     tone: "ink",
     icon: "sun",
-    place: "Terraço · 2º andar",
+    place: "Terraço · 3º andar",
     level: 2,
     storeSlug: "alto-pilates",
     recurrence: "weekly",

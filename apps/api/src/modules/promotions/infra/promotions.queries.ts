@@ -3,10 +3,10 @@ import type {
   Coupon,
   CouponClaim,
   CouponStatus,
+  CouponTone,
   ListClaimsQuery,
   ListCouponsQuery,
   StoreKind,
-  Tone,
 } from "@arp/contracts";
 import {
   decodeCursor,
@@ -34,7 +34,7 @@ interface CouponRow {
   ends_at: Date | null;
   total_quantity: number;
   redeem_window_hours: number;
-  tone: Tone;
+  tone: CouponTone;
   icon: string;
   image_url: string | null;
   savings_cents: number | null;
