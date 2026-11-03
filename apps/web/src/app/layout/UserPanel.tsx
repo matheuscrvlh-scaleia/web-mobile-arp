@@ -1,7 +1,7 @@
-import { KeyRound, LogOut, Moon, Store, Sun } from "lucide-react";
+import { Bell, LogOut, Moon, Store, Sun } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
-import { useAuth, useCurrentUser } from "@/shared/auth";
+import { useAuth, useCurrentUser, usePermission } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
 import { useTheme } from "@/shared/theme/theme";
 import { Avatar } from "@/shared/ui";
@@ -37,15 +37,26 @@ export function ThemeToggle() {
   );
 }
 
-/** Pé do menu: tema, cartão do usuário (com a loja, se lojista) e sair. */
+/** Pé do menu: tema, notificações, cartão do usuário (com a loja, se lojista) e sair. */
 export function UserPanel() {
   const user = useCurrentUser();
   const { signOut } = useAuth();
+  const canNotify = usePermission("notifications.view");
   const [leaving, setLeaving] = useState(false);
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2 rounded-2xl bg-neutral-100 p-1.5">
         <ThemeToggle />
+        {canNotify && (
+          <Link
+            to={PATHS.notifications}
+            aria-label="Notificações"
+            title="Notificações"
+            className="grid size-9 shrink-0 place-items-center rounded-xl bg-white text-neutral-500 shadow-sm ring-1 ring-black/5 transition hover:text-neutral-900"
+          >
+            <Bell className="size-4" aria-hidden />
+          </Link>
+        )}
       </div>
       <div className="flex items-center gap-3 px-1">
         <Avatar name={user.name} />
@@ -62,14 +73,6 @@ export function UserPanel() {
             )}
           </span>
         </span>
-        <Link
-          to={PATHS.changePassword}
-          aria-label="Trocar senha"
-          title="Trocar senha"
-          className="grid size-9 place-items-center rounded-xl text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900"
-        >
-          <KeyRound className="size-4" aria-hidden />
-        </Link>
         <button
           type="button"
           aria-label="Sair"
