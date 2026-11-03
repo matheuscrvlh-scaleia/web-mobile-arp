@@ -13,6 +13,8 @@ export interface ChallengeProps {
   icon: string;
   validation: ChallengeValidation;
   storeId: string | null;
+  /** Produto do parceiro (desafio de produto). */
+  product: string | null;
   eventId: string | null;
   sortOrder: number;
   status: ChallengeStatus;

@@ -43,6 +43,8 @@ export function createGamificationModule(core: CoreDeps) {
 
   const routes: FastifyPluginAsyncZod = gamificationRoutes({
     queries,
+    qrCodes: deps.qrCodes,
+    clock,
     createSeal: new CreateSealUseCase(deps),
     updateSeal: new UpdateSealUseCase(deps),
     createCampaign: new CreateCampaignUseCase(deps),

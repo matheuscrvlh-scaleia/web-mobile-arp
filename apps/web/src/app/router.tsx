@@ -47,6 +47,16 @@ const routes: RouteObject[] = [
               (m) => m.ChangePasswordPage,
             ),
           },
+          // Telão do QR: tela cheia, sem o menu.
+          guarded("challenges.view", [
+            {
+              path: "telao/:id",
+              lazy: page(
+                () => import("@/features/challenges/pages/QrScreenPage"),
+                (m) => m.QrScreenPage,
+              ),
+            },
+          ]),
           {
             element: <AppShell />,
             errorElement: <RouteErrorPage />,
@@ -188,6 +198,13 @@ const routes: RouteObject[] = [
                   lazy: page(
                     () => import("@/features/seals/pages/SealsPage"),
                     (m) => m.SealsPage,
+                  ),
+                },
+                {
+                  path: "clube",
+                  lazy: page(
+                    () => import("@/features/club/pages/ClubPage"),
+                    (m) => m.ClubPage,
                   ),
                 },
               ]),

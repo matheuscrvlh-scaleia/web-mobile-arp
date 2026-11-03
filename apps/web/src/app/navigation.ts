@@ -6,6 +6,7 @@ import {
   BriefcaseBusiness,
   CalendarDays,
   ClipboardCheck,
+  Gift,
   History,
   Hourglass,
   LayoutDashboard,
@@ -85,6 +86,7 @@ const STAFF_NAV: NavSection[] = [
       item("Campanhas", PATHS.campaigns, Trophy, ROUTES.campaigns.list.permission),
       item("Desafios", PATHS.challenges, Target, ROUTES.challenges.list.permission),
       item("Selos", PATHS.seals, Award, ROUTES.seals.list.permission),
+      item("Clube ARP", PATHS.club(), Gift, ROUTES.prizes.list.permission),
     ],
   },
   {

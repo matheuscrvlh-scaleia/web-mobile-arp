@@ -29,7 +29,9 @@ export type DomainErrorCode =
   | "CLAIM_WRONG_DAY"
   | "QR_INVALID"
   | "QR_EXPIRED"
-  | "SEAL_ALREADY_EARNED";
+  | "SEAL_ALREADY_EARNED"
+  | "PRIZE_OUT_OF_STOCK"
+  | "NOT_ENOUGH_POINTS";
 
 /** Erros por campo: { campo: [mensagens] } (mesmo formato do VALIDATION_ERROR do Zod). */
 export type FieldErrors = Record<string, string[]>;

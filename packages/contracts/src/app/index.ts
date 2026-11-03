@@ -6,6 +6,7 @@
 export * from "./agenda";
 export * from "./auth";
 export * from "./challenges";
+export * from "./club";
 export * from "./coupons";
 export * from "./engagement";
 export * from "./home";

@@ -13,6 +13,7 @@ import {
   listEarnedSealsQuerySchema,
   qrCodeListSchema,
   qrCodeSchema,
+  qrCurrentSchema,
   ROUTES,
   replaceTiersBodySchema,
   sealListSchema,
@@ -24,6 +25,7 @@ import {
 } from "@arp/contracts";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { APP_CONTENT_CACHE_PREFIX } from "../../../shared/application/ports/cache";
+import type { Clock } from "../../../shared/application/ports/clock";
 import { orNotFound } from "../../../shared/domain/errors";
 import { staffOf } from "../../../shared/infra/http/auth";
 import { createRouter } from "../../../shared/infra/http/router";
@@ -44,10 +46,14 @@ import type { UpdateCampaignUseCase } from "../application/update-campaign.use-c
 import type { UpdateChallengeUseCase } from "../application/update-challenge.use-case";
 import type { UpdateQrCodeUseCase } from "../application/update-qr-code.use-case";
 import type { UpdateSealUseCase } from "../application/update-seal.use-case";
+import type { QrCodeRepository } from "../domain/repositories";
 import type { GamificationQueries } from "../infra/gamification.queries";
 
 export interface GamificationRoutesDeps {
   queries: GamificationQueries;
+  /** Leitura do QR para o código atual (telão). */
+  qrCodes: QrCodeRepository;
+  clock: Clock;
   createSeal: CreateSealUseCase;
   updateSeal: UpdateSealUseCase;
   createCampaign: CreateCampaignUseCase;
@@ -224,8 +230,9 @@ export function gamificationRoutes(deps: GamificationRoutesDeps): FastifyPluginA
           {
             challengeId: request.params.id,
             label: request.body.label,
+            ttlSeconds: request.body.ttlSeconds,
+            rotating: request.body.rotating,
             validFrom: toDate(request.body.validFrom),
-            validUntil: toDate(request.body.validUntil),
           },
           staffOf(request),
         );
@@ -234,14 +241,33 @@ export function gamificationRoutes(deps: GamificationRoutesDeps): FastifyPluginA
     );
 
     r.route(
+      ROUTES.qrCodes.current,
+      { params: idParamsSchema, response: { 200: qrCurrentSchema } },
+      async (request) => {
+        const qr = orNotFound(
+          await deps.qrCodes.findById(request.params.id),
+          "QR Code não encontrado",
+        );
+        const { payload, expiresAt } = qr.current(deps.clock.now());
+        const s = qr.toState();
+        return {
+          payload,
+          expiresAt: expiresAt.toISOString(),
+          ttlSeconds: s.ttlSeconds,
+          rotating: s.rotating,
+        };
+      },
+    );
+
+    r.route(
       ROUTES.qrCodes.update,
       { params: idParamsSchema, body: updateQrCodeBodySchema, response: { 200: qrCodeSchema } },
       async (request) => {
-        const { validFrom, validUntil, ...changes } = request.body;
+        const { validFrom, ...changes } = request.body;
         await deps.updateQrCode.execute(
           {
             id: request.params.id,
-            changes: { ...changes, validFrom: toDate(validFrom), validUntil: toDate(validUntil) },
+            changes: { ...changes, validFrom: toDate(validFrom) },
           },
           staffOf(request),
         );

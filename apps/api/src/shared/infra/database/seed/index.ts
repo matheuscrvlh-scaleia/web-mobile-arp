@@ -51,6 +51,14 @@ import { addDays, createSeedClock, HOUR_MS, type SeedClock, weekdayOf, zoned } f
 const SEED = 20_261_101;
 const SEED_LOCK_KEY = 7_310_528_605;
 const SYNTHETIC_VISITORS = 60;
+/** Lojinha do Clube ARP: [nome, tipo, pontos, estoque, descrição]. */
+const PRIZES = [
+  ["Ecobag ARP", "souvenir", 30, 50, "Sacola de algodão com a marca da ARP."],
+  ["Caneca ARP", "souvenir", 50, 30, "Caneca de cerâmica do Corredor Cultural."],
+  ["Pôster de artista local", "artist", 80, 15, "Impressão assinada de um artista do Circuito."],
+  ["Café especial no parceiro", "partner", 40, 40, "Um café coado numa loja parceira."],
+] as const;
+
 const DAYS_PT = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
 
 export interface SeedDeps {
@@ -231,6 +239,13 @@ class Seeder {
           gives_seal: item.givesSeal ?? false,
           sort_order: i + 1,
         },
+      );
+    }
+    for (const [i, [name, kind, points, stock, description]] of PRIZES.entries()) {
+      await this.ensure(
+        "gamification.prizes",
+        { name },
+        { kind, points, stock, description, sort_order: i + 1 },
       );
     }
   }
@@ -503,6 +518,8 @@ class Seeder {
           gradient_to: seal.to,
           sort_order: i + 1,
           status: "active",
+          // Fase 2: evento pode ser ganho de novo (um por código).
+          repeatable: seal.slug === "agito",
           created_at: createdAt,
           updated_at: createdAt,
         },
@@ -564,6 +581,9 @@ class Seeder {
               // Token de verdade (crypto): quem conhece a semente do seed não adivinha.
               token: randomBytes(18).toString("base64url"),
               status: "active",
+              // Todo QR tem prazo (Fase 2): os de exemplo valem até o fim do mês.
+              ttl_seconds: 604800,
+              valid_until: endsAt,
               created_at: created,
               updated_at: created,
             },
@@ -1000,6 +1020,8 @@ const COUNTED_TABLES = [
   "gamification.qr_codes",
   "gamification.earned_seals",
   "gamification.qr_scans",
+  "gamification.prizes",
+  "gamification.prize_redemptions",
   "marketing.highlights",
   "marketing.push_notifications",
   "platform.settings",

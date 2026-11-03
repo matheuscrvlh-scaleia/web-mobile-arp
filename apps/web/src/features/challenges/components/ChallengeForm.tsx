@@ -52,6 +52,7 @@ export function challengeToFormValues(
     icon: c?.icon ?? "award",
     validation: c?.validation ?? "qr",
     storeId: c?.store?.id ?? null,
+    product: c?.product ?? null,
     eventId: c?.event?.id ?? null,
     sortOrder: c?.sortOrder ?? 0,
     status: c?.status ?? "active",
@@ -282,6 +283,26 @@ export function ChallengeForm({
                 />
               </Field>
             </FieldRow>
+            <Field
+              label="Produto do parceiro"
+              optional
+              hint="Desafio de produto: o lojista da loja gera o QR e os selos entram na cobrança."
+              error={errors.product?.message}
+            >
+              <Controller
+                control={control}
+                name="product"
+                render={({ field }) => (
+                  <Input
+                    maxLength={80}
+                    placeholder="Ex.: Café coado"
+                    value={field.value ?? ""}
+                    onChange={(e) => field.onChange(e.target.value || null)}
+                    onBlur={field.onBlur}
+                  />
+                )}
+              />
+            </Field>
           </FormSection>
 
           <FormSection title="Exibição" description="Ordem na lista do app e se aparece.">

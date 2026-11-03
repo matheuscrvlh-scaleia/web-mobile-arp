@@ -9,6 +9,10 @@ export interface ScanAwarded {
   sealId: string;
   challengeId: string;
   campaignId: string;
+  /** Pontos deste selo. */
+  points: number;
+  /** Pontos do visitante depois da leitura. */
+  totalPoints: number;
 }
 
 type Outcome = { result: Exclude<ScanResult, "awarded"> } | ({ result: "awarded" } & ScanAwarded);
@@ -43,19 +47,22 @@ export class ScanQrCodeUseCase {
     const record = (qrCodeId: string | null, result: ScanResult) =>
       awards.recordScan({ qrCodeId, visitorId: actor.id, result, at: now });
 
-    const token = parseQrPayload(payload);
-    const context = token ? await awards.findQrContext(token) : null;
-    if (!context || !context.qr.isActive || !context.challenge.acceptsQr) {
+    const parsed = parseQrPayload(payload);
+    const context = parsed ? await awards.findQrContext(parsed.token) : null;
+    if (!parsed || !context || !context.qr.isActive || !context.challenge.acceptsQr) {
       await record(context?.qr.id ?? null, "invalid");
       return { result: "invalid" };
     }
 
-    const { qr, challenge, campaign } = context;
-    if (!campaign.isLiveAt(now) || !qr.isWithinWindow(now)) {
+    const { qr, challenge, campaign, seal } = context;
+    // Telão: código de janela passada (print) também cai aqui.
+    if (!campaign.isLiveAt(now) || !qr.accepts(parsed, now)) {
       await record(qr.id, "expired");
       return { result: "expired" };
     }
-    if (await awards.hasEarned(actor.id, challenge.id)) {
+    const qrWindow = parsed.window ?? 0;
+    const repeat = seal.repeatable ? { qrCodeId: qr.id, qrWindow } : undefined;
+    if (await awards.hasEarned(actor.id, challenge.id, repeat)) {
       await record(qr.id, "duplicate");
       return { result: "duplicate" };
     }
@@ -71,6 +78,10 @@ export class ScanQrCodeUseCase {
           campaignId: campaign.id,
           qrCodeId: qr.id,
           earnedAt: now,
+          points: seal.points,
+          expiresAt: addMonths(now, seal.validityMonths),
+          repeatable: seal.repeatable,
+          qrWindow,
         }),
       );
     } catch (err) {
@@ -84,7 +95,12 @@ export class ScanQrCodeUseCase {
       action: "seal.earn",
       entityType: "earned_seal",
       entityId: earnedSealId,
-      changes: { challengeId: challenge.id, sealId: challenge.sealId, qrCodeId: qr.id },
+      changes: {
+        challengeId: challenge.id,
+        sealId: challenge.sealId,
+        qrCodeId: qr.id,
+        points: seal.points,
+      },
     });
     return {
       result: "awarded",
@@ -92,6 +108,19 @@ export class ScanQrCodeUseCase {
       sealId: challenge.sealId,
       challengeId: challenge.id,
       campaignId: campaign.id,
+      points: seal.points,
+      totalPoints: await awards.totalPoints(actor.id, now),
     };
   }
+}
+
+/** Mesma conta do banco (make_interval(months)): fim de mês cai no último dia. */
+function addMonths(at: Date, months: number): Date {
+  const d = new Date(at);
+  const day = d.getUTCDate();
+  d.setUTCDate(1);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+  d.setUTCDate(Math.min(day, last));
+  return d;
 }

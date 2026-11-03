@@ -47,6 +47,7 @@ export interface QrScanContext {
   qr: QrCode;
   challenge: Challenge;
   campaign: Campaign;
+  seal: { points: number; validityMonths: number; repeatable: boolean };
 }
 
 export interface SealAward {
@@ -56,11 +57,21 @@ export interface SealAward {
   campaignId: string;
   qrCodeId: string | null;
   earnedAt: Date;
+  points: number;
+  expiresAt: Date;
+  repeatable: boolean;
+  /** Janela do telão (0 no QR fixo). */
+  qrWindow: number;
 }
 
 export interface SealAwardRepository {
   findQrContext(token: string): Promise<QrScanContext | null>;
-  hasEarned(visitorId: string, challengeId: string): Promise<boolean>;
+  hasEarned(
+    visitorId: string,
+    challengeId: string,
+    repeat?: { qrCodeId: string; qrWindow: number },
+  ): Promise<boolean>;
+  totalPoints(visitorId: string, now: Date): Promise<number>;
   /** SealAlreadyEarnedError se o visitante já tiver o selo do desafio (corrida). */
   award(data: SealAward): Promise<string>;
   recordScan(scan: {

@@ -1,4 +1,5 @@
 import { ConflictError } from "../../../shared/domain/errors";
+import { visitorPointsSql } from "../../../shared/infra/database/club-points";
 import type { Database } from "../../../shared/infra/database/database";
 import {
   type ConstraintErrors,
@@ -44,10 +45,13 @@ interface SealRow {
   gradient_to: string;
   sort_order: number;
   status: SealStatus;
+  points: number;
+  validity_months: number;
+  repeatable: boolean;
 }
 
 const SEAL_COLUMNS = sql.raw(
-  "id, slug, name, description, icon, gradient_from, gradient_to, sort_order, status",
+  "id, slug, name, description, icon, gradient_from, gradient_to, sort_order, status, points, validity_months, repeatable",
 );
 
 const sealToDomain = (r: SealRow) =>
@@ -61,6 +65,9 @@ const sealToDomain = (r: SealRow) =>
     gradientTo: r.gradient_to,
     sortOrder: r.sort_order,
     status: r.status,
+    points: r.points,
+    validityMonths: r.validity_months,
+    repeatable: r.repeatable,
   });
 
 const SEAL_ERRORS: ConstraintErrors = {
@@ -90,9 +97,11 @@ export class PgSealRepository implements SealRepository {
       () =>
         this.db.one<SealRow>(sql`
           insert into gamification.seals
-            (slug, name, description, icon, gradient_from, gradient_to, sort_order, status)
+            (slug, name, description, icon, gradient_from, gradient_to, sort_order, status,
+             points, validity_months, repeatable)
           values (${d.slug}, ${d.name}, ${d.description}, ${d.icon}, ${d.gradientFrom},
-                  ${d.gradientTo}, ${d.sortOrder}, ${d.status})
+                  ${d.gradientTo}, ${d.sortOrder}, ${d.status}, ${d.points}, ${d.validityMonths},
+                  ${d.repeatable})
           returning ${SEAL_COLUMNS}
         `),
       SEAL_ERRORS,
@@ -108,7 +117,8 @@ export class PgSealRepository implements SealRepository {
           update gamification.seals
           set slug = ${s.slug}, name = ${s.name}, description = ${s.description}, icon = ${s.icon},
               gradient_from = ${s.gradientFrom}, gradient_to = ${s.gradientTo},
-              sort_order = ${s.sortOrder}, status = ${s.status}
+              sort_order = ${s.sortOrder}, status = ${s.status}, points = ${s.points},
+              validity_months = ${s.validityMonths}, repeatable = ${s.repeatable}
           where id = ${s.id}
         `),
       SEAL_ERRORS,
@@ -192,13 +202,14 @@ interface ChallengeRow {
   icon: string;
   validation: ChallengeValidation;
   store_id: string | null;
+  product: string | null;
   event_id: string | null;
   sort_order: number;
   status: ChallengeStatus;
 }
 
 const CHALLENGE_COLUMNS = sql.raw(
-  "id, campaign_id, seal_id, title, how_to, icon, validation, store_id, event_id, sort_order, status",
+  "id, campaign_id, seal_id, title, how_to, icon, validation, store_id, product, event_id, sort_order, status",
 );
 
 const challengeToDomain = (r: ChallengeRow) =>
@@ -211,6 +222,7 @@ const challengeToDomain = (r: ChallengeRow) =>
     icon: r.icon,
     validation: r.validation,
     storeId: r.store_id,
+    product: r.product,
     eventId: r.event_id,
     sortOrder: r.sort_order,
     status: r.status,
@@ -229,9 +241,10 @@ export class PgChallengeRepository implements ChallengeRepository {
   async create(d: NewChallenge): Promise<Challenge> {
     const row = await this.db.one<ChallengeRow>(sql`
       insert into gamification.challenges
-        (campaign_id, seal_id, title, how_to, icon, validation, store_id, event_id, sort_order, status)
+        (campaign_id, seal_id, title, how_to, icon, validation, store_id, product, event_id, sort_order,
+         status)
       values (${d.campaignId}, ${d.sealId}, ${d.title}, ${d.howTo}, ${d.icon}, ${d.validation},
-              ${d.storeId}, ${d.eventId}, ${d.sortOrder}, ${d.status})
+              ${d.storeId}, ${d.product}, ${d.eventId}, ${d.sortOrder}, ${d.status})
       returning ${CHALLENGE_COLUMNS}
     `);
     return challengeToDomain(row);
@@ -242,7 +255,7 @@ export class PgChallengeRepository implements ChallengeRepository {
     await this.db.query(sql`
       update gamification.challenges
       set seal_id = ${s.sealId}, title = ${s.title}, how_to = ${s.howTo}, icon = ${s.icon},
-          validation = ${s.validation}, store_id = ${s.storeId}, event_id = ${s.eventId},
+          validation = ${s.validation}, store_id = ${s.storeId}, product = ${s.product}, event_id = ${s.eventId},
           sort_order = ${s.sortOrder}, status = ${s.status}
       where id = ${s.id}
     `);
@@ -270,9 +283,15 @@ interface QrRow {
   valid_from: Date | null;
   valid_until: Date | null;
   status: QrCodeStatus;
+  ttl_seconds: number;
+  rotating: boolean;
+  rotation_secret: string | null;
+  created_by: string | null;
 }
 
-const QR_COLUMNS = sql.raw("id, challenge_id, token, label, valid_from, valid_until, status");
+const QR_COLUMNS = sql.raw(
+  "id, challenge_id, token, label, valid_from, valid_until, status, ttl_seconds, rotating, rotation_secret, created_by",
+);
 
 const qrToDomain = (r: QrRow) =>
   QrCode.restore({
@@ -283,6 +302,10 @@ const qrToDomain = (r: QrRow) =>
     validFrom: r.valid_from,
     validUntil: r.valid_until,
     status: r.status,
+    ttlSeconds: r.ttl_seconds,
+    rotating: r.rotating,
+    rotationSecret: r.rotation_secret,
+    createdBy: r.created_by,
   });
 
 export class PgQrCodeRepository implements QrCodeRepository {
@@ -300,9 +323,10 @@ export class PgQrCodeRepository implements QrCodeRepository {
       () =>
         this.db.one<QrRow>(sql`
           insert into gamification.qr_codes
-            (challenge_id, token, label, valid_from, valid_until, status)
+            (challenge_id, token, label, valid_from, valid_until, status, ttl_seconds, rotating,
+             rotation_secret, created_by)
           values (${d.challengeId}, ${d.token}, ${d.label}, ${d.validFrom}, ${d.validUntil},
-                  ${d.status})
+                  ${d.status}, ${d.ttlSeconds}, ${d.rotating}, ${d.rotationSecret}, ${d.createdBy})
           returning ${QR_COLUMNS}
         `),
       { qr_codes_token_key: () => new QrTokenCollisionError() },
@@ -314,8 +338,7 @@ export class PgQrCodeRepository implements QrCodeRepository {
     const s = qr.toState();
     await this.db.query(sql`
       update gamification.qr_codes
-      set label = ${s.label}, valid_from = ${s.validFrom}, valid_until = ${s.validUntil},
-          status = ${s.status}
+      set label = ${s.label}, valid_from = ${s.validFrom}, status = ${s.status}
       where id = ${s.id}
     `);
   }
@@ -334,8 +357,16 @@ export class PgSealAwardRepository implements SealAwardRepository {
       valid_from: Date | null;
       valid_until: Date | null;
       qr_status: QrCodeStatus;
+      ttl_seconds: number;
+      rotating: boolean;
+      rotation_secret: string | null;
+      created_by: string | null;
+      seal_points: number;
+      seal_validity_months: number;
+      seal_repeatable: boolean;
       challenge_id: string;
       seal_id: string;
+      product: string | null;
       title: string;
       how_to: string;
       icon: string;
@@ -352,13 +383,17 @@ export class PgSealAwardRepository implements SealAwardRepository {
       campaign_status: CampaignStatus;
     }>(sql`
       select q.id as qr_id, q.token, q.label, q.valid_from, q.valid_until, q.status as qr_status,
+             q.ttl_seconds, q.rotating, q.rotation_secret, q.created_by,
              ch.id as challenge_id, ch.seal_id, ch.title, ch.how_to, ch.icon, ch.validation,
-             ch.store_id, ch.event_id, ch.sort_order, ch.status as challenge_status,
+             ch.store_id, ch.product, ch.event_id, ch.sort_order, ch.status as challenge_status,
              c.id as campaign_id, c.name as campaign_name, c.description as campaign_description,
-             c.starts_at, c.ends_at, c.status as campaign_status
+             c.starts_at, c.ends_at, c.status as campaign_status,
+             s.points as seal_points, s.validity_months as seal_validity_months,
+             s.repeatable as seal_repeatable
       from gamification.qr_codes q
       join gamification.challenges ch on ch.id = q.challenge_id
       join gamification.campaigns c on c.id = ch.campaign_id
+      join gamification.seals s on s.id = ch.seal_id
       where q.token = ${token}
     `);
     if (!r) return null;
@@ -371,7 +406,16 @@ export class PgSealAwardRepository implements SealAwardRepository {
         valid_from: r.valid_from,
         valid_until: r.valid_until,
         status: r.qr_status,
+        ttl_seconds: r.ttl_seconds,
+        rotating: r.rotating,
+        rotation_secret: r.rotation_secret,
+        created_by: r.created_by,
       }),
+      seal: {
+        points: r.seal_points,
+        validityMonths: r.seal_validity_months,
+        repeatable: r.seal_repeatable,
+      },
       challenge: challengeToDomain({
         id: r.challenge_id,
         campaign_id: r.campaign_id,
@@ -381,6 +425,7 @@ export class PgSealAwardRepository implements SealAwardRepository {
         icon: r.icon,
         validation: r.validation,
         store_id: r.store_id,
+        product: r.product,
         event_id: r.event_id,
         sort_order: r.sort_order,
         status: r.challenge_status,
@@ -396,10 +441,20 @@ export class PgSealAwardRepository implements SealAwardRepository {
     };
   }
 
-  hasEarned(visitorId: string, challengeId: string): Promise<boolean> {
+  /** Uso único: já ganhou (mesmo vencido). Repetível: já ganhou com este código e janela. */
+  hasEarned(
+    visitorId: string,
+    challengeId: string,
+    repeat?: { qrCodeId: string; qrWindow: number },
+  ): Promise<boolean> {
     return this.db.exists(sql`
       select 1 from gamification.earned_seals
       where visitor_id = ${visitorId} and challenge_id = ${challengeId}
+        ${
+          repeat
+            ? sql`and repeatable and qr_code_id = ${repeat.qrCodeId} and qr_window = ${repeat.qrWindow}`
+            : sql`and not repeatable`
+        }
     `);
   }
 
@@ -408,14 +463,26 @@ export class PgSealAwardRepository implements SealAwardRepository {
       () =>
         this.db.one<{ id: string }>(sql`
           insert into gamification.earned_seals
-            (visitor_id, challenge_id, seal_id, campaign_id, qr_code_id, earned_at)
+            (visitor_id, challenge_id, seal_id, campaign_id, qr_code_id, earned_at,
+             points, expires_at, repeatable, qr_window)
           values (${d.visitorId}, ${d.challengeId}, ${d.sealId}, ${d.campaignId}, ${d.qrCodeId},
-                  ${d.earnedAt})
+                  ${d.earnedAt}, ${d.points}, ${d.expiresAt}, ${d.repeatable}, ${d.qrWindow})
           returning id
         `),
-      { earned_seals_visitor_challenge_key: () => new SealAlreadyEarnedError() },
+      {
+        earned_seals_once_key: () => new SealAlreadyEarnedError(),
+        earned_seals_repeat_key: () => new SealAlreadyEarnedError(),
+      },
     );
     return id;
+  }
+
+  /** Pontos do visitante agora (selos valendo menos trocas; nunca negativo). */
+  async totalPoints(visitorId: string, now: Date): Promise<number> {
+    const { total } = await this.db.one<{ total: number }>(
+      sql`select ${visitorPointsSql(sql`${visitorId}::uuid`, now)} as total`,
+    );
+    return total;
   }
 
   async recordScan(scan: {

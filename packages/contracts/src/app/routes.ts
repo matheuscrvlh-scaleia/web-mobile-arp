@@ -71,6 +71,13 @@ export const APP_ROUTES = {
     list: r("GET", "/challenges", "Desafios do mês com progresso", open),
     scan: r("POST", "/challenges/scan", "Ler QR Code de selo"),
   },
+  /* Clube ARP (Fase 2): pontos, selos, lojinha e ranking. */
+  club: {
+    get: r("GET", "/club", "Clube ARP: pontos, selos, lojinha e ranking", open),
+    redeem: r("POST", "/club/prizes/:id/redeem", "Trocar pontos por prêmio"),
+    joinRanking: r("PUT", "/club/ranking", "Entrar no ranking com apelido"),
+    leaveRanking: r("DELETE", "/club/ranking", "Sair do ranking"),
+  },
   pushTokens: {
     register: r("POST", "/push-tokens", "Registrar token de push do aparelho"),
     remove: r("DELETE", "/push-tokens", "Desvincular token de push do aparelho"),

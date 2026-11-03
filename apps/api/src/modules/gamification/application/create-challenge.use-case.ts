@@ -8,8 +8,9 @@ import {
   type GamificationDeps,
 } from "./gamification-deps";
 
-export type CreateChallengeInput = Omit<NewChallenge, "storeId" | "eventId"> & {
+export type CreateChallengeInput = Omit<NewChallenge, "storeId" | "eventId" | "product"> & {
   storeId?: string | null;
+  product?: string | null;
   eventId?: string | null;
 };
 
@@ -21,6 +22,7 @@ export class CreateChallengeUseCase {
     const data: NewChallenge = {
       ...input,
       storeId: input.storeId ?? null,
+      product: input.product ?? null,
       eventId: input.eventId ?? null,
     };
     return uow.run(async () => {

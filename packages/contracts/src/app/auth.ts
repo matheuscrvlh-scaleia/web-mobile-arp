@@ -101,6 +101,8 @@ export type VisitorProfile = z.infer<typeof visitorProfileSchema>;
 export const monthSummarySchema = z.object({
   /** Selos ganhos na campanha no ar. */
   sealsEarned: z.number().int(),
+  /** Pontos no Clube ARP agora. */
+  clubPoints: z.number().int(),
   /** Desafios ativos da campanha no ar. */
   sealsTotal: z.number().int(),
   /** Cupons pegos aguardando uso (dentro do prazo). */

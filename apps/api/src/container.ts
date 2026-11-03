@@ -2,6 +2,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import type { Env } from "./config/env";
 import { createAgendaModule } from "./modules/agenda";
 import { createAppApiModule, createSocialIdentityVerifier } from "./modules/app-api";
+import { createClubModule } from "./modules/club";
 import { createContentModule } from "./modules/content";
 import { createDashboardModule } from "./modules/dashboard";
 import { createDirectoryModule } from "./modules/directory";
@@ -203,6 +204,7 @@ export async function createContainer(options: ContainerOptions): Promise<Contai
     { name: "dashboard", routes: createDashboardModule(core).routes },
     { name: "platform", routes: createPlatformModule(core).routes },
     { name: "content", routes: createContentModule(core).routes },
+    { name: "club", routes: createClubModule(core, { isVisitorActive }).routes },
     { name: "app-api", routes: appApi.routes },
     {
       name: "merchant",

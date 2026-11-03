@@ -1,24 +1,20 @@
-import { createQrCodeBodySchema, type QrCode } from "@arp/contracts";
+import { createQrCodeBodySchema, QR_TTL_OPTIONS, type QrCode } from "@arp/contracts";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import type { z } from "zod";
 import { applyApiErrors, errorMessage } from "@/shared/api";
 import { pickDirty } from "@/shared/lib/forms";
-import { Button, DateTimeInput, Field, FieldRow, Input, Modal, toast } from "@/shared/ui";
+import { Button, DateTimeInput, Field, Input, Modal, Select, Switch, toast } from "@/shared/ui";
 import { useCreateQrCode, useUpdateQrCode } from "../api";
 
-/** O do contrato + a janela coerente (a API também confere). */
-const qrFormSchema = createQrCodeBodySchema.refine(
-  (v) => !v.validFrom || !v.validUntil || new Date(v.validUntil) > new Date(v.validFrom),
-  { message: "O fim precisa ser depois do início", path: ["validUntil"] },
-);
-type QrFormInput = z.input<typeof qrFormSchema>;
-type QrFormValues = z.output<typeof qrFormSchema>;
-const FIELDS = ["label", "validFrom", "validUntil"];
+type QrFormInput = z.input<typeof createQrCodeBodySchema>;
+type QrFormValues = z.output<typeof createQrCodeBodySchema>;
+const FIELDS = ["label", "ttlSeconds", "rotating", "validFrom"];
 
 /**
- * Gerar ou editar um QR Code: rótulo (onde fica) e, se quiser, a janela
- * em que ele vale. Ao gerar, devolve o QR novo para já imprimir.
+ * Gerar ou editar um QR Code. Todo QR tem prazo (Fase 2): fixo, vale do
+ * início até o prazo; telão, o código muda sozinho a cada prazo e o anterior
+ * deixa de valer (print não serve). O prazo não muda depois de gerado.
  */
 export function QrCodeFormModal({
   challengeId,
@@ -36,11 +32,12 @@ export function QrCodeFormModal({
   const update = useUpdateQrCode();
   const saving = create.isPending || update.isPending;
   const form = useForm<QrFormInput, unknown, QrFormValues>({
-    resolver: zodResolver(qrFormSchema),
+    resolver: zodResolver(createQrCodeBodySchema),
     defaultValues: {
       label: qrCode?.label ?? "",
+      ttlSeconds: qrCode?.ttlSeconds ?? 86_400,
+      rotating: qrCode?.rotating ?? false,
       validFrom: qrCode?.validFrom ?? null,
-      validUntil: qrCode?.validUntil ?? null,
     },
   });
   const { errors } = form.formState;
@@ -51,7 +48,11 @@ export function QrCodeFormModal({
 
   const onSubmit = form.handleSubmit((values) => {
     if (qrCode) {
-      const body = pickDirty(values, form.formState.dirtyFields);
+      const { label, validFrom } = pickDirty(values, form.formState.dirtyFields);
+      const body = {
+        ...(label !== undefined && { label }),
+        ...(validFrom !== undefined && { validFrom }),
+      };
       if (Object.keys(body).length === 0) return onClose();
       update.mutate(
         { id: qrCode.id, body },
@@ -81,7 +82,7 @@ export function QrCodeFormModal({
       onClose={onClose}
       busy={saving}
       title={qrCode ? "Editar QR Code" : "Gerar QR Code"}
-      description="Sem janela, o QR vale enquanto a campanha estiver no ar."
+      description="Todo QR Code tem prazo. Para outro prazo, gere outro QR."
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={saving}>
@@ -102,35 +103,47 @@ export function QrCodeFormModal({
         >
           <Input autoFocus maxLength={60} {...form.register("label")} />
         </Field>
-        <FieldRow>
-          <Field label="Vale a partir de" optional error={errors.validFrom?.message}>
-            <Controller
-              control={form.control}
-              name="validFrom"
-              render={({ field }) => (
-                <DateTimeInput
-                  value={field.value}
-                  onChange={field.onChange}
-                  onBlur={field.onBlur}
-                />
-              )}
+        <Field
+          label="Prazo"
+          required
+          hint={qrCode ? "O prazo não muda depois de gerado." : undefined}
+          error={errors.ttlSeconds?.message}
+        >
+          <Select disabled={!!qrCode} {...form.register("ttlSeconds", { valueAsNumber: true })}>
+            {QR_TTL_OPTIONS.map((o) => (
+              <option key={o.seconds} value={o.seconds}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Controller
+          control={form.control}
+          name="rotating"
+          render={({ field }) => (
+            <Switch
+              checked={field.value ?? false}
+              onCheckedChange={field.onChange}
+              disabled={!!qrCode}
+              label="Modo telão"
+              description="O código muda sozinho a cada prazo, na tela. O anterior deixa de valer (print não serve)."
             />
-          </Field>
-          <Field label="Vale até" optional error={errors.validUntil?.message}>
-            <Controller
-              control={form.control}
-              name="validUntil"
-              render={({ field }) => (
-                <DateTimeInput
-                  value={field.value}
-                  onChange={field.onChange}
-                  onBlur={field.onBlur}
-                />
-              )}
-            />
-          </Field>
-        </FieldRow>
-        <p className="text-xs text-neutral-500">Horário de Brasília.</p>
+          )}
+        />
+        <Field
+          label="Começa a valer"
+          optional
+          hint="Vazio = agora. Horário de Brasília."
+          error={errors.validFrom?.message}
+        >
+          <Controller
+            control={form.control}
+            name="validFrom"
+            render={({ field }) => (
+              <DateTimeInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} />
+            )}
+          />
+        </Field>
       </form>
     </Modal>
   );

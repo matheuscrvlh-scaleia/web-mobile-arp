@@ -43,6 +43,12 @@ export const challengeItemSchema = z.object({
   /** O visitante logado já ganhou o selo deste desafio. */
   earned: z.boolean(),
   earnedAt: isoDateTimeSchema.nullable(),
+  /** Pontos do selo no Clube ARP. */
+  points: z.number().int(),
+  /** Pode ser feito de novo (senão, uso único). */
+  repeatable: z.boolean(),
+  /** Produto do parceiro (desafio de produto). */
+  product: z.string().nullable(),
 });
 export type ChallengeItem = z.infer<typeof challengeItemSchema>;
 
@@ -76,5 +82,9 @@ export const scanResultSchema = z.object({
   campaign: refSchema,
   earnedAt: isoDateTimeSchema,
   progress: campaignProgressSchema,
+  /** Pontos que este selo deu. */
+  points: z.number().int(),
+  /** Total de pontos no Clube ARP depois do selo. */
+  totalPoints: z.number().int(),
 });
 export type ScanResult = z.infer<typeof scanResultSchema>;

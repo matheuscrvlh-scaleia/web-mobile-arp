@@ -29,6 +29,9 @@ interface SealRow {
   gradient_to: string;
   sort_order: number;
   status: "active" | "archived";
+  points: number;
+  validity_months: number;
+  repeatable: boolean;
   earned_count: number;
   created_at: Date;
   updated_at: Date;
@@ -44,6 +47,9 @@ const toSeal = (r: SealRow): Seal => ({
   gradientTo: r.gradient_to,
   sortOrder: r.sort_order,
   status: r.status,
+  points: r.points,
+  validityMonths: r.validity_months,
+  repeatable: r.repeatable,
   earnedCount: r.earned_count,
   createdAt: iso(r.created_at),
   updatedAt: iso(r.updated_at),
@@ -83,6 +89,7 @@ interface ChallengeRow {
   validation: ChallengeValidation;
   store_id: string | null;
   store_name: string | null;
+  product: string | null;
   event_id: string | null;
   event_title: string | null;
   sort_order: number;
@@ -97,7 +104,7 @@ const CHALLENGE_SELECT = sql`
   select ch.id, ch.campaign_id, c.name as campaign_name,
          s.id as seal_id, s.name as seal_name, s.icon as seal_icon,
          s.gradient_from as seal_gradient_from, s.gradient_to as seal_gradient_to,
-         ch.title, ch.how_to, ch.icon, ch.validation, ch.store_id, st.name as store_name,
+         ch.title, ch.how_to, ch.icon, ch.validation, ch.store_id, st.name as store_name, ch.product,
          ch.event_id, e.title as event_title, ch.sort_order, ch.status, ch.created_at, ch.updated_at,
          (select count(*) from gamification.earned_seals es where es.challenge_id = ch.id)
            as completions_count,
@@ -124,6 +131,7 @@ const toChallenge = (r: ChallengeRow): Challenge => ({
   icon: r.icon,
   validation: r.validation,
   store: r.store_id ? { id: r.store_id, name: r.store_name ?? "" } : null,
+  product: r.product,
   event: r.event_id ? { id: r.event_id, title: r.event_title ?? "" } : null,
   sortOrder: r.sort_order,
   status: r.status,
@@ -143,6 +151,10 @@ interface QrRow {
   valid_from: Date | null;
   valid_until: Date | null;
   status: "active" | "revoked";
+  ttl_seconds: number;
+  rotating: boolean;
+  created_by: string | null;
+  created_by_name: string | null;
   awarded: number;
   duplicate: number;
   expired: number;
@@ -151,8 +163,10 @@ interface QrRow {
 
 const QR_SELECT = sql`
   select q.id, q.challenge_id, q.token, q.label, q.valid_from, q.valid_until, q.status, q.created_at,
+         q.ttl_seconds, q.rotating, q.created_by, u.name as created_by_name,
          sc.awarded, sc.duplicate, sc.expired
   from gamification.qr_codes q
+  left join identity.users u on u.id = q.created_by
   cross join lateral (
     select count(*) filter (where s.result = 'awarded') as awarded,
            count(*) filter (where s.result = 'duplicate') as duplicate,
@@ -169,6 +183,9 @@ const toQrCode = (r: QrRow): QrCode => ({
   payload: qrPayload(r.token),
   validFrom: isoOrNull(r.valid_from),
   validUntil: isoOrNull(r.valid_until),
+  ttlSeconds: r.ttl_seconds,
+  rotating: r.rotating,
+  createdBy: r.created_by ? { id: r.created_by, name: r.created_by_name ?? "" } : null,
   status: r.status,
   scans: { awarded: r.awarded, duplicate: r.duplicate, expired: r.expired },
   createdAt: iso(r.created_at),
@@ -217,7 +234,8 @@ export class GamificationQueries {
   async listSeals(id?: string): Promise<Seal[]> {
     const rows = await this.db.many<SealRow>(sql`
       select s.id, s.slug, s.name, s.description, s.icon, s.gradient_from, s.gradient_to,
-             s.sort_order, s.status, s.created_at, s.updated_at,
+             s.sort_order, s.status, s.points, s.validity_months, s.repeatable,
+             s.created_at, s.updated_at,
              (select count(*) from gamification.earned_seals e where e.seal_id = s.id) as earned_count
       from gamification.seals s
       ${sql.where([id && sql`s.id = ${id}`])}

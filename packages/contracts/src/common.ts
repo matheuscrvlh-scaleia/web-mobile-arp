@@ -152,6 +152,8 @@ export const ERROR_CODES = [
   "QR_INVALID",
   "QR_EXPIRED",
   "SEAL_ALREADY_EARNED",
+  "PRIZE_OUT_OF_STOCK",
+  "NOT_ENOUGH_POINTS",
 ] as const;
 export const errorCodeSchema = z.enum(ERROR_CODES);
 export type ErrorCode = z.infer<typeof errorCodeSchema>;

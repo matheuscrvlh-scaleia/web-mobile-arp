@@ -38,6 +38,10 @@ export const PATHS = {
   challengesOf: (campaignId: string) => `/desafios${toQuery({ campaignId })}`,
   challengeNew: (campaignId?: string) => `/desafios/novo${toQuery({ campaignId })}`,
   challenge: (id: string) => `/desafios/${id}`,
+  /** QR em modo telão, em tela cheia (abre em outra aba). */
+  qrScreen: (id: string) => `/telao/${id}`,
+  club: (tab?: "lojinha" | "trocas" | "ranking" | "selos") =>
+    `/clube${tab && tab !== "lojinha" ? `?aba=${tab}` : ""}`,
   seals: "/selos",
   /** Aba "Conquistados" dos selos, com filtros. */
   earnedSeals: (filters: EarnedSealFilters = {}) =>

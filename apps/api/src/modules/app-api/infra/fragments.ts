@@ -187,6 +187,9 @@ export interface ChallengeRow {
   event_id: string | null;
   event_title: string | null;
   earned_at: Date | null;
+  points: number;
+  repeatable: boolean;
+  product: string | null;
 }
 
 /** Desafios com selo, loja, evento e se o visitante já ganhou (aliases ch, se, cst, cev, es). */
@@ -196,13 +199,16 @@ export const challengeSelect = (visitorId: string | null) => sql`
          se.gradient_from as seal_gradient_from, se.gradient_to as seal_gradient_to,
          cst.id as store_id, cst.slug as store_slug, cst.name as store_name,
          cev.id as event_id, cev.title as event_title,
-         es.earned_at
+         es.earned_at, se.points, se.repeatable, ch.product
   from gamification.challenges ch
   join gamification.seals se on se.id = ch.seal_id
   left join directory.stores cst on cst.id = ch.store_id
   left join agenda.events cev on cev.id = ch.event_id
-  left join gamification.earned_seals es
-    on es.challenge_id = ch.id and es.visitor_id = ${visitorId}::uuid
+  -- Repetível pode ter vários: vale o último.
+  left join lateral (
+    select max(e.earned_at) as earned_at from gamification.earned_seals e
+    where e.challenge_id = ch.id and e.visitor_id = ${visitorId}::uuid
+  ) es on true
 `;
 
 export function toChallengeItem(r: ChallengeRow): App.ChallengeItem {
@@ -225,5 +231,8 @@ export function toChallengeItem(r: ChallengeRow): App.ChallengeItem {
     event: r.event_id ? { id: r.event_id, title: r.event_title ?? "" } : null,
     earned: r.earned_at !== null,
     earnedAt: isoOrNull(r.earned_at),
+    points: r.points,
+    repeatable: r.repeatable,
+    product: r.product,
   };
 }

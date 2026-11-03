@@ -15,6 +15,7 @@ import {
   IconPicker,
   Input,
   Modal,
+  Switch,
   Textarea,
   toast,
 } from "@/shared/ui";
@@ -50,6 +51,9 @@ export function sealToFormValues(seal: Seal | undefined, nextOrder: number): Sea
     gradientTo: seal?.gradientTo ?? "#2f7d3d",
     sortOrder: seal?.sortOrder ?? nextOrder,
     status: seal?.status ?? "active",
+    points: seal?.points ?? 10,
+    validityMonths: seal?.validityMonths ?? 6,
+    repeatable: seal?.repeatable ?? false,
   };
 }
 
@@ -178,6 +182,46 @@ export function SealFormModal({
                 />
               </Field>
             </FieldRow>
+            <FieldRow>
+              <Field
+                label="Pontos"
+                required
+                hint="Pontos no Clube ARP"
+                error={errors.points?.message}
+              >
+                <Input
+                  type="number"
+                  min={1}
+                  max={1000}
+                  {...register("points", { valueAsNumber: true })}
+                />
+              </Field>
+              <Field
+                label="Validade (meses)"
+                required
+                hint="Vencido, os pontos saem do total (máx. 12)"
+                error={errors.validityMonths?.message}
+              >
+                <Input
+                  type="number"
+                  min={1}
+                  max={12}
+                  {...register("validityMonths", { valueAsNumber: true })}
+                />
+              </Field>
+            </FieldRow>
+            <Controller
+              control={control}
+              name="repeatable"
+              render={({ field }) => (
+                <Switch
+                  checked={field.value ?? false}
+                  onCheckedChange={field.onChange}
+                  label="Repetível"
+                  description="Pode ser ganho de novo (um por QR Code). Desligado = uso único."
+                />
+              )}
+            />
             <fieldset className="flex flex-col gap-2">
               <legend className="mb-2 text-xs font-medium text-neutral-600">
                 Degradês prontos

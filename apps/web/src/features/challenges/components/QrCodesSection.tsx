@@ -5,6 +5,7 @@ import {
   CircleCheck,
   Clock,
   Copy,
+  MonitorPlay,
   Pencil,
   Plus,
   Printer,
@@ -16,9 +17,11 @@ import {
 import { QRCodeSVG } from "qrcode.react";
 import { useState } from "react";
 import { useAuth } from "@/shared/auth";
+import { PATHS } from "@/shared/config/paths";
 import { formatNumber } from "@/shared/lib/format";
 import {
   Button,
+  ButtonLink,
   Can,
   Card,
   CardHeader,
@@ -214,6 +217,7 @@ function QrCodeItem({
         <p className="mt-1 flex items-center gap-1.5 text-xs text-neutral-500">
           <Clock className="size-3.5 shrink-0" aria-hidden />
           {qrWindowText(qr)}
+          {qr.createdBy && ` · gerado por ${qr.createdBy.name}`}
         </p>
         <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600">
           <Scan label="selos dados" value={qr.scans.awarded} icon={CircleCheck} />
@@ -222,7 +226,12 @@ function QrCodeItem({
         </dl>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
-        {!revoked && (
+        {!revoked && qr.rotating && (
+          <ButtonLink size="sm" icon={MonitorPlay} to={PATHS.qrScreen(qr.id)} target="_blank">
+            Abrir telão<span className="sr-only"> {qr.label}</span>
+          </ButtonLink>
+        )}
+        {!revoked && !qr.rotating && (
           <>
             <Button size="sm" icon={Printer} onClick={onPrint}>
               Imprimir<span className="sr-only"> {qr.label}</span>

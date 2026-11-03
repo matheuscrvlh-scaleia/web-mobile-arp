@@ -11,6 +11,12 @@ export interface SealProps {
   gradientTo: string;
   sortOrder: number;
   status: SealStatus;
+  /** Pontos no Clube ARP. */
+  points: number;
+  /** Meses até vencer. */
+  validityMonths: number;
+  /** Pode ser ganho de novo. */
+  repeatable: boolean;
 }
 
 export type NewSeal = Omit<SealProps, "id">;

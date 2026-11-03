@@ -107,6 +107,8 @@ export interface EarnedSealRow {
   campaign_id: string;
   qr_code_id: string | null;
   earned_at: Date;
+  points: number;
+  expires_at: Date;
 }
 
 export interface ScanRow {
@@ -531,6 +533,9 @@ export function generateActivity(input: ActivityInput): Activity {
           campaign_id: campaign.id,
           qr_code_id: qrCodeId,
           earned_at: earnedAt,
+          // Padrão do selo: 10 pontos, vence em 6 meses.
+          points: 10,
+          expires_at: plus(earnedAt, 182 * DAY_MS),
         });
         touch(visitor, earnedAt);
         if (!qrCodeId) continue;

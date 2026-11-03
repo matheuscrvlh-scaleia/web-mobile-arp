@@ -1,5 +1,6 @@
 import type { StaffActor } from "../../../shared/application/actor";
 import { snapshot } from "../../../shared/application/audit-changes";
+import { assertStoreAccess } from "../../../shared/application/store-scope";
 import { NotFoundError } from "../../../shared/domain/errors";
 import { QrTokenCollisionError } from "../domain/errors";
 import { QrCode } from "../domain/qr-code";
@@ -16,20 +17,28 @@ export class CreateQrCodeUseCase {
     input: {
       challengeId: string;
       label: string;
+      /** Prazo obrigatório (Fase 2): não existe QR sem prazo. */
+      ttlSeconds: number;
+      /** Modo telão: renova sozinho a cada prazo. */
+      rotating: boolean;
       validFrom?: Date | null;
-      validUntil?: Date | null;
     },
     actor: StaffActor,
   ): Promise<string> {
+    QrCode.assertValidTtl(input.ttlSeconds);
+    const { challenges, qrCodes, random, audit, clock, uow } = this.deps;
+    const now = clock.now();
     const validFrom = input.validFrom ?? null;
-    const validUntil = input.validUntil ?? null;
-    QrCode.assertValidWindow(validFrom, validUntil);
-    const { challenges, qrCodes, random, audit, uow } = this.deps;
+    // Fixo: vale do início (ou de agora) até o prazo. Telão: o prazo é de cada código.
+    const validUntil = input.rotating
+      ? null
+      : new Date((validFrom ?? now).getTime() + input.ttlSeconds * 1000);
 
     return uow.run(async () => {
-      if (!(await challenges.findById(input.challengeId))) {
-        throw new NotFoundError(CHALLENGE_NOT_FOUND);
-      }
+      const challenge = await challenges.findById(input.challengeId);
+      if (!challenge) throw new NotFoundError(CHALLENGE_NOT_FOUND);
+      // Lojista só gera QR de desafio da própria loja.
+      assertStoreAccess(actor, challenge.toState().storeId);
       for (let attempt = 1; ; attempt++) {
         try {
           // Savepoint: a colisão desfaz só o insert.
@@ -41,6 +50,10 @@ export class CreateQrCodeUseCase {
               validFrom,
               validUntil,
               status: "active",
+              ttlSeconds: input.ttlSeconds,
+              rotating: input.rotating,
+              rotationSecret: input.rotating ? random.token(TOKEN_BYTES) : null,
+              createdBy: actor.id,
             }),
           );
           await audit.log({

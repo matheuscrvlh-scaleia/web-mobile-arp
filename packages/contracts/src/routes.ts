@@ -103,6 +103,25 @@ export const ROUTES = {
     update: r("PATCH", "/coupons/:id", "coupons.manage", "Editar promoção"),
     changeStatus: r("POST", "/coupons/:id/status", "coupons.manage", "Ativar, pausar ou encerrar"),
   },
+  prizes: {
+    list: r("GET", "/prizes", "challenges.view", "Prêmios da lojinha (com quem está perto)"),
+    create: r("POST", "/prizes", "challenges.manage", "Criar prêmio"),
+    update: r("PATCH", "/prizes/:id", "challenges.manage", "Editar prêmio / estoque"),
+    remove: r("DELETE", "/prizes/:id", "challenges.manage", "Apagar prêmio sem trocas"),
+  },
+  prizeRedemptions: {
+    list: r("GET", "/prize-redemptions", "challenges.view", "Trocas da lojinha (paginado)"),
+    deliver: r(
+      "POST",
+      "/prize-redemptions/:id/deliver",
+      "challenges.manage",
+      "Marcar prêmio como entregue",
+    ),
+  },
+  clubReports: {
+    ranking: r("GET", "/club/ranking", "challenges.view", "Ranking de visitantes (apelidos)"),
+    seals: r("GET", "/club/seals-report", "challenges.view", "Selos dados por loja e produto"),
+  },
   claims: {
     list: r("GET", "/coupon-claims", "coupons.view", "Cupons pegos (paginado, filtros)"),
     lookup: r("GET", "/coupon-claims/lookup", "coupons.redeem", "Consultar código (?code)"),
@@ -132,6 +151,7 @@ export const ROUTES = {
     list: r("GET", "/challenges/:id/qr-codes", "challenges.view", "QR Codes do desafio"),
     create: r("POST", "/challenges/:id/qr-codes", "challenges.manage", "Gerar QR Code"),
     update: r("PATCH", "/qr-codes/:id", "challenges.manage", "Editar / revogar QR Code"),
+    current: r("GET", "/qr-codes/:id/current", "challenges.view", "Código para mostrar agora"),
   },
   earnedSeals: {
     list: r("GET", "/earned-seals", "challenges.view", "Selos conquistados (paginado)"),

@@ -1,6 +1,7 @@
 import type { App } from "@arp/contracts";
 import { offsetOf, toCountedPage } from "../../../shared/application/pagination";
 import { BUSINESS_TIME_ZONE } from "../../../shared/domain/time";
+import { visitorPointsSql } from "../../../shared/infra/database/club-points";
 import type { Database } from "../../../shared/infra/database/database";
 import { type SqlFragment, sql } from "../../../shared/infra/database/sql";
 import { iso } from "../../../shared/infra/presenters";
@@ -69,6 +70,7 @@ export class VisitorQueries {
       active_claims: number;
       savings_month: number;
       savings_total: number;
+      club_points: number;
     }>(sql`
       with live as (select ${liveCampaignId(now)} as id),
            month_start as (
@@ -76,7 +78,8 @@ export class VisitorQueries {
                     at time zone ${BUSINESS_TIME_ZONE} as at
            )
       select
-        (select count(*) from gamification.earned_seals es
+        ${visitorPointsSql(sql`${visitorId}::uuid`, now)} as club_points,
+        (select count(distinct es.challenge_id) from gamification.earned_seals es
          where es.visitor_id = ${visitorId} and es.campaign_id = (select id from live)) as seals_earned,
         (select count(*) from gamification.challenges ch
          where ch.status = 'active' and ch.campaign_id = (select id from live)) as seals_total,
@@ -96,6 +99,7 @@ export class VisitorQueries {
       activeClaims: row.active_claims,
       savingsMonthCents: row.savings_month,
       savingsTotalCents: row.savings_total,
+      clubPoints: row.club_points,
     };
   }
 
@@ -166,7 +170,7 @@ export class VisitorQueries {
   async progress(visitorId: string | null, campaignId: string): Promise<App.CampaignProgress> {
     const row = await this.db.one<{ earned: number; total: number; tiers: Tier[] }>(sql`
       select
-        (select count(*) from gamification.earned_seals es
+        (select count(distinct es.challenge_id) from gamification.earned_seals es
          where es.campaign_id = ${campaignId} and es.visitor_id = ${visitorId}::uuid) as earned,
         (select count(*) from gamification.challenges ch
          where ch.campaign_id = ${campaignId} and ch.status = 'active') as total,
@@ -183,6 +187,8 @@ export class VisitorQueries {
   async scanResult(visitorId: string, earnedSealId: string): Promise<App.ScanResult | null> {
     const row = await this.db.maybeOne<{
       earned_at: Date;
+      points: number;
+      total_points: number;
       campaign_id: string;
       campaign_name: string;
       challenge_id: string;
@@ -193,7 +199,8 @@ export class VisitorQueries {
       gradient_from: string;
       gradient_to: string;
     }>(sql`
-      select es.earned_at, ca.id as campaign_id, ca.name as campaign_name,
+      select es.earned_at, es.points, ${visitorPointsSql(sql`${visitorId}::uuid`, new Date())} as total_points,
+             ca.id as campaign_id, ca.name as campaign_name,
              ch.id as challenge_id, ch.title as challenge_title,
              se.id as seal_id, se.name as seal_name, se.icon as seal_icon,
              se.gradient_from, se.gradient_to
@@ -216,6 +223,8 @@ export class VisitorQueries {
       campaign: { id: row.campaign_id, name: row.campaign_name },
       earnedAt: iso(row.earned_at),
       progress: await this.progress(visitorId, row.campaign_id),
+      points: row.points,
+      totalPoints: row.total_points,
     };
   }
 }
