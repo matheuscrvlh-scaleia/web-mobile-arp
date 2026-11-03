@@ -1,7 +1,9 @@
 import type { StaffActor } from "../../../shared/application/actor";
 import { diff } from "../../../shared/application/audit-changes";
 import { NotFoundError } from "../../../shared/domain/errors";
+import { toLocal } from "../../../shared/domain/time";
 import { assertClaimFromStore } from "../domain/claim";
+import { ClaimWrongDayError } from "../domain/errors";
 import type { PromotionsDeps } from "./promotions-deps";
 
 export const CODE_NOT_FOUND = "Código não encontrado";
@@ -22,7 +24,12 @@ export class RedeemClaimUseCase {
 
       const { claim } = found;
       const before = claim.toState();
-      claim.redeem(actor.id, clock.now());
+      const now = clock.now();
+      claim.redeem(actor.id, now);
+      // Fase 2: fora dos dias escolhidos (no fuso da ARP), recusa, mesmo dentro do prazo.
+      if (!found.weekdays.includes(toLocal(now).weekday)) {
+        throw new ClaimWrongDayError(found.weekdays);
+      }
       await claims.save(claim);
       await audit.log({
         actor,

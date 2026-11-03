@@ -21,6 +21,7 @@ export interface CreateCouponInput {
   imageUrl?: string | null;
   savingsCents?: number | null;
   status: "draft" | "active";
+  weekdays: number[];
 }
 
 /** Cria uma promoção. Lojista só cria na própria loja. */
@@ -46,6 +47,10 @@ export class CreateCouponUseCase {
       imageUrl: input.imageUrl ?? null,
       savingsCents: input.savingsCents ?? null,
       status: input.status,
+      weekdays: input.weekdays,
+      // Cupom do lojista espera a ARP; o da equipe da ARP já nasce aprovado.
+      review: actor.storeId ? "pending" : "approved",
+      reviewNote: null,
       createdBy: actor.id,
     };
     Coupon.assertValidNew(data, clock.now());

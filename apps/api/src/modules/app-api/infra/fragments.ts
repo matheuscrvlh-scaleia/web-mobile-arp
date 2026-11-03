@@ -14,7 +14,8 @@ type Kind = App.StoreRef["kind"];
 
 /** Cupom no ar (exige os aliases c = cupom e s = loja). */
 export const liveCoupon = (now: Date): SqlFragment => sql`
-  c.status = 'active' and c.starts_at <= ${now} and (c.ends_at is null or c.ends_at > ${now})
+  c.status = 'active' and c.review = 'approved'
+  and c.starts_at <= ${now} and (c.ends_at is null or c.ends_at > ${now})
   and s.status = 'active'
 `;
 
@@ -27,6 +28,7 @@ export const liveCampaignId = (now: Date): SqlFragment => sql`(
 
 export interface CouponCardRow {
   id: string;
+  weekdays: number[];
   title: string;
   headline: string;
   headline_sub: string | null;
@@ -56,7 +58,7 @@ export interface CouponCardRow {
 export const couponCardSelect = (now: Date, extraColumns: SqlFragment = sql.empty) => sql`
   select c.id, c.title, c.headline, c.headline_sub, c.description, c.schedule_note,
          c.starts_at, c.ends_at, c.redeem_window_hours, c.tone, c.icon, c.image_url,
-         c.savings_cents, c.total_quantity,
+         c.savings_cents, c.total_quantity, c.weekdays,
          greatest(c.total_quantity - st.taken, 0) as remaining,
          s.id as store_id, s.slug as store_slug, s.name as store_name, s.icon as store_icon,
          s.brand_color as store_brand_color, sc.kind as store_kind
@@ -95,12 +97,14 @@ export function toCouponCard(r: CouponCardRow): App.CouponCard {
     icon: r.icon,
     imageUrl: r.image_url,
     savingsCents: r.savings_cents,
+    weekdays: r.weekdays,
     stock: { total: r.total_quantity, remaining: r.remaining },
   };
 }
 
 export interface ClaimRow {
   id: string;
+  weekdays: number[];
   code: string;
   status: ClaimStatus;
   claimed_at: Date;
@@ -126,7 +130,7 @@ export interface ClaimRow {
 export const claimSelect = sql`
   select cc.id, cc.code, cc.status, cc.claimed_at, cc.expires_at, cc.redeemed_at,
          c.id as coupon_id, c.title, c.headline, c.headline_sub, c.schedule_note, c.tone, c.icon,
-         c.image_url, c.savings_cents,
+         c.image_url, c.savings_cents, c.weekdays,
          s.id as store_id, s.slug as store_slug, s.name as store_name, s.icon as store_icon,
          s.brand_color as store_brand_color, sc.kind as store_kind
   from promotions.coupon_claims cc
@@ -153,6 +157,7 @@ export function toClaim(r: ClaimRow, now: Date): App.Claim {
       icon: r.icon,
       imageUrl: r.image_url,
       savingsCents: r.savings_cents,
+      weekdays: r.weekdays,
     },
     store: {
       id: r.store_id,

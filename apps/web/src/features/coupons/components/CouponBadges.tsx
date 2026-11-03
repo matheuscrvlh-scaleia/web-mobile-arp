@@ -1,5 +1,13 @@
-import type { CouponStatus } from "@arp/contracts";
-import { CircleCheck, CircleStop, type LucideIcon, Pause, PencilLine } from "lucide-react";
+import { COUPON_REVIEW_LABEL, type CouponReview, type CouponStatus } from "@arp/contracts";
+import {
+  CircleCheck,
+  CircleStop,
+  CircleX,
+  Hourglass,
+  type LucideIcon,
+  Pause,
+  PencilLine,
+} from "lucide-react";
 import { StatusBadge, type StatusTone } from "@/shared/ui";
 
 export const COUPON_STATUS: Record<
@@ -18,6 +26,19 @@ export function CouponStatusBadge({ status }: { status: CouponStatus }) {
   return (
     <StatusBadge tone={s.tone} icon={s.icon}>
       {s.label}
+    </StatusBadge>
+  );
+}
+
+/** Revisão da ARP (Fase 2). Aprovado não ganha selo: é o normal. */
+export function CouponReviewBadge({ review }: { review: CouponReview }) {
+  if (review === "approved") return null;
+  return (
+    <StatusBadge
+      tone={review === "pending" ? "warning" : "danger"}
+      icon={review === "pending" ? Hourglass : CircleX}
+    >
+      {COUPON_REVIEW_LABEL[review]}
     </StatusBadge>
   );
 }

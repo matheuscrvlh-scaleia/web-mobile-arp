@@ -87,6 +87,7 @@ export function couponToFormValues(
     icon: coupon?.icon ?? "ticket-percent",
     imageUrl: coupon?.imageUrl ?? null,
     status: "draft",
+    weekdays: coupon?.weekdays ?? [0, 1, 2, 3, 4, 5, 6],
     savings: centsToInput(coupon?.savingsCents),
   };
 }

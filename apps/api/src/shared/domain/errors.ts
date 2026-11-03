@@ -26,6 +26,7 @@ export type DomainErrorCode =
   | "CLAIM_EXPIRED"
   | "CLAIM_CANCELLED"
   | "CLAIM_WRONG_STORE"
+  | "CLAIM_WRONG_DAY"
   | "QR_INVALID"
   | "QR_EXPIRED"
   | "SEAL_ALREADY_EARNED";

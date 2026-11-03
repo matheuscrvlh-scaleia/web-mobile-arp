@@ -5,6 +5,7 @@ import {
   couponPageSchema,
   couponSchema,
   type ListCouponsQuery,
+  type ReviewCouponBody,
   ROUTES,
   type UpdateCouponBody,
 } from "@arp/contracts";
@@ -30,6 +31,8 @@ export const couponsApi = {
     apiRequest(ROUTES.coupons.update, couponSchema, { params: { id }, body }),
   changeStatus: (id: string, status: CouponStatus) =>
     apiRequest(ROUTES.coupons.changeStatus, couponSchema, { params: { id }, body: { status } }),
+  review: (id: string, body: ReviewCouponBody) =>
+    apiRequest(ROUTES.coupons.review, couponSchema, { params: { id }, body }),
 };
 
 export const couponKeys = {
@@ -91,6 +94,15 @@ export function useUpdateCoupon(id: string) {
 }
 
 /** Ativar, pausar ou encerrar. Otimista no detalhe e nas listas em cache. */
+/** Aprovar ou recusar o cupom do lojista (coupons.approve). */
+export function useReviewCoupon() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string } & ReviewCouponBody) => couponsApi.review(id, body),
+    onSuccess: (coupon) => couponSaved(qc, coupon),
+  });
+}
+
 export function useChangeCouponStatus() {
   const qc = useQueryClient();
   return useMutation({

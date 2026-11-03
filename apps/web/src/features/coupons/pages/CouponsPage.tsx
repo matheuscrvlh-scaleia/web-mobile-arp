@@ -21,7 +21,7 @@ import {
   Table,
 } from "@/shared/ui";
 import { useCoupons } from "../api";
-import { CouponStatusBadge } from "../components/CouponBadges";
+import { CouponReviewBadge, CouponStatusBadge } from "../components/CouponBadges";
 import { CouponCard, couponCardData } from "../components/CouponCard";
 import { CouponFilters } from "../components/CouponFilters";
 import { CouponStatusActions } from "../components/CouponStatusActions";
@@ -51,7 +51,16 @@ const COLUMNS: Column<Coupon>[] = [
       </Link>
     ),
   },
-  { key: "status", header: "Situação", cell: (c) => <CouponStatusBadge status={c.status} /> },
+  {
+    key: "status",
+    header: "Situação",
+    cell: (c) => (
+      <span className="inline-flex flex-wrap gap-1">
+        <CouponStatusBadge status={c.status} />
+        <CouponReviewBadge review={c.review} />
+      </span>
+    ),
+  },
   {
     key: "stock",
     header: "Restam",
@@ -227,6 +236,7 @@ function CouponTile({ coupon }: { coupon: Coupon }) {
       </Link>
       <div className="flex flex-wrap items-center gap-2 px-2 pb-1">
         <CouponStatusBadge status={coupon.status} />
+        <CouponReviewBadge review={coupon.review} />
         <span className="text-xs text-neutral-500">{couponPeriodShort(coupon)}</span>
         <span className="ml-auto flex flex-wrap gap-1">
           <CouponStatusActions coupon={coupon} />

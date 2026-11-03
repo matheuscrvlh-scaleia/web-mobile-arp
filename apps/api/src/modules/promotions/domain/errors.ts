@@ -42,6 +42,19 @@ export class ClaimCancelledError extends DomainError {
   }
 }
 
+const WEEKDAY_SHORT = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+
+/** Cupom usado fora dos dias escolhidos pelo lojista (Fase 2). */
+export class ClaimWrongDayError extends DomainError {
+  override readonly name = "ClaimWrongDayError";
+  constructor(weekdays: readonly number[]) {
+    const days = [...weekdays.filter((d) => d !== 0), ...weekdays.filter((d) => d === 0)]
+      .map((d) => WEEKDAY_SHORT[d])
+      .join(", ");
+    super("CLAIM_WRONG_DAY", `Recusado: este cupom só vale ${days}`, 422);
+  }
+}
+
 export class ClaimWrongStoreError extends DomainError {
   override readonly name = "ClaimWrongStoreError";
   constructor() {

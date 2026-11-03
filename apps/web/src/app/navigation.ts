@@ -7,6 +7,7 @@ import {
   CalendarDays,
   ClipboardCheck,
   History,
+  Hourglass,
   LayoutDashboard,
   type LucideIcon,
   Map as MapIcon,
@@ -68,6 +69,12 @@ const STAFF_NAV: NavSection[] = [
     title: "Cupons",
     items: [
       item("Promoções", PATHS.coupons, TicketPercent, ROUTES.coupons.list.permission),
+      item(
+        "Aprovar cupons",
+        `${PATHS.coupons}?review=pending`,
+        Hourglass,
+        ROUTES.coupons.review.permission,
+      ),
       item("Validar cupom", PATHS.redeem, ClipboardCheck, ROUTES.claims.redeem.permission),
       item("Cupons pegos", PATHS.claims, Wallet, ROUTES.claims.list.permission),
     ],

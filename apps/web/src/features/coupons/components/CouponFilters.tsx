@@ -1,4 +1,6 @@
 import {
+  COUPON_REVIEW_LABEL,
+  couponReviewSchema,
   couponStatusSchema,
   type ListCouponsQuery,
   STORE_KIND_LABEL,
@@ -10,7 +12,7 @@ import { useStoreOptions } from "@/features/stores";
 import { Button, FilterBar, SearchInput, Segmented, Select } from "@/shared/ui";
 import { COUPON_STATUS } from "./CouponBadges";
 
-type Filters = Pick<ListCouponsQuery, "storeId" | "status" | "kind">;
+type Filters = Pick<ListCouponsQuery, "storeId" | "status" | "kind" | "review">;
 
 const KIND_OPTIONS: { value: StoreKind | "all"; label: string }[] = [
   { value: "all", label: "Todas" },
@@ -81,6 +83,19 @@ export function CouponFilters({
           </option>
         ))}
       </Select>
+      <Select
+        aria-label="Revisão da ARP"
+        placeholder="Qualquer revisão"
+        value={filters.review ?? ""}
+        onChange={(e) => onChange({ review: (e.target.value || undefined) as Filters["review"] })}
+        className="w-full sm:w-48"
+      >
+        {couponReviewSchema.options.map((r) => (
+          <option key={r} value={r}>
+            {COUPON_REVIEW_LABEL[r]}
+          </option>
+        ))}
+      </Select>
       {active && (
         <Button
           variant="ghost"
@@ -88,7 +103,7 @@ export function CouponFilters({
           icon={FilterX}
           onClick={() => {
             onSearch("");
-            onChange({ storeId: undefined, status: undefined, kind: undefined });
+            onChange({ storeId: undefined, status: undefined, kind: undefined, review: undefined });
           }}
         >
           Limpar filtros

@@ -48,6 +48,8 @@ export const couponCardSchema = z.object({
   icon: iconNameSchema,
   imageUrl: z.string().nullable(),
   savingsCents: z.number().int().nullable(),
+  /** Dias em que pode ser usado (0 = domingo); ver weekdaysLabel. */
+  weekdays: z.array(z.number().int()),
   stock: couponStockSchema,
 });
 export type CouponCard = z.infer<typeof couponCardSchema>;
@@ -85,6 +87,8 @@ export const claimSchema = z.object({
     icon: iconNameSchema,
     imageUrl: z.string().nullable(),
     savingsCents: z.number().int().nullable(),
+    /** Dias em que pode ser usado: "Meu cupom" avisa quando hoje não é dia. */
+    weekdays: z.array(z.number().int()),
   }),
   store: storeRefSchema,
 });

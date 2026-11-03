@@ -416,6 +416,7 @@ class Seeder {
           headline_sub: c.headlineSub,
           description: c.description,
           schedule_note: c.scheduleNote,
+          weekdays: c.weekdays ?? [0, 1, 2, 3, 4, 5, 6],
           starts_at: startsAt,
           ends_at: c.endsAt ? this.when(c.endsAt) : null,
           total_quantity: c.totalQuantity,

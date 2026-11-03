@@ -2,6 +2,7 @@ import type {
   ClaimStatus,
   Coupon,
   CouponClaim,
+  CouponReview,
   CouponStatus,
   CouponTone,
   ListClaimsQuery,
@@ -40,6 +41,9 @@ interface CouponRow {
   image_url: string | null;
   savings_cents: number | null;
   status: CouponStatus;
+  weekdays: number[];
+  review: CouponReview;
+  review_note: string | null;
   created_at: Date;
   updated_at: Date;
   store_id: string;
@@ -57,7 +61,8 @@ function couponSelect(now: Date, extraColumns: SqlFragment = sql.empty): SqlFrag
   return sql`
     select c.id, c.title, c.headline, c.headline_sub, c.description, c.schedule_note, c.starts_at,
            c.ends_at, c.total_quantity, c.redeem_window_hours, c.tone, c.icon, c.image_url,
-           c.savings_cents, c.status, c.created_at, c.updated_at,
+           c.savings_cents, c.status, c.weekdays, c.review, c.review_note,
+           c.created_at, c.updated_at,
            s.id as store_id, s.name as store_name, s.icon as store_icon,
            s.brand_color as store_brand_color, cat.kind as store_kind,
            st.waiting, st.redeemed, st.returned ${extraColumns}
@@ -100,6 +105,9 @@ function toCoupon(r: CouponRow): Coupon {
     imageUrl: r.image_url,
     savingsCents: r.savings_cents,
     status: r.status,
+    weekdays: r.weekdays,
+    review: r.review,
+    reviewNote: r.review_note,
     stock: {
       total: r.total_quantity,
       waiting: r.waiting,
@@ -180,6 +188,7 @@ export class PromotionsQueries implements ClaimReader {
       ${sql.where([
         query.storeId && sql`c.store_id = ${query.storeId}`,
         query.status && sql`c.status = ${query.status}`,
+        query.review && sql`c.review = ${query.review}`,
         query.kind && storeHasKind(query.kind),
         query.q && sql`public.f_unaccent(lower(c.title)) like ${sql.containsPattern(query.q)}`,
       ])}

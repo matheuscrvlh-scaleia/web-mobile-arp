@@ -97,6 +97,7 @@ export const ROUTES = {
 
   coupons: {
     list: r("GET", "/coupons", "coupons.view", "Promoções (paginado, filtros)"),
+    review: r("POST", "/coupons/:id/review", "coupons.approve", "Aprovar ou recusar cupom"),
     get: r("GET", "/coupons/:id", "coupons.view", "Promoção com estoque"),
     create: r("POST", "/coupons", "coupons.manage", "Criar promoção"),
     update: r("PATCH", "/coupons/:id", "coupons.manage", "Editar promoção"),

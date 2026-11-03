@@ -12,6 +12,8 @@ export interface CouponRepository {
 }
 
 export interface ClaimWithStore {
+  /** Dias em que o cupom pode ser usado (0 = domingo). */
+  weekdays: number[];
   claim: Claim;
   storeId: string;
 }

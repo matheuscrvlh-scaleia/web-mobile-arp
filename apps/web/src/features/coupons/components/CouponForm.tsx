@@ -31,6 +31,7 @@ import {
   couponFormSchema,
   couponToFormValues,
 } from "./coupon-form-schema";
+import { WeekdaysPicker } from "./WeekdaysPicker";
 
 export type CouponForm = UseFormReturn<CouponFormInput, unknown, CouponFormValues>;
 export interface CouponFormContext {
@@ -310,6 +311,20 @@ export function CouponForm({
               error={errors.scheduleNote?.message}
             >
               <Input maxLength={80} {...register("scheduleNote", nullable)} />
+            </Field>
+            <Field
+              label="Dias em que vale"
+              required
+              hint="Fora destes dias, a validação no caixa recusa o cupom."
+              error={errors.weekdays?.message}
+            >
+              <Controller
+                control={control}
+                name="weekdays"
+                render={({ field }) => (
+                  <WeekdaysPicker value={field.value ?? []} onChange={field.onChange} />
+                )}
+              />
             </Field>
           </FormSection>
 

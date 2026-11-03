@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  ALL_WEEKDAYS,
   centsSchema,
   couponToneSchema,
   cursorQuerySchema,
@@ -11,6 +12,7 @@ import {
   paginated,
   paginationQuerySchema,
   refSchema,
+  weekdaysSchema,
 } from "./common";
 import { storeKindSchema } from "./directory";
 
@@ -25,6 +27,19 @@ import { storeKindSchema } from "./directory";
  */
 
 export const COUPON_CODE_PATTERN = /^ARP-[A-Z0-9]{6}$/;
+
+/**
+ * Revisão da ARP (Fase 2): cupom criado ou editado pelo lojista fica
+ * "pending" até alguém com coupons.approve aprovar. Só "approved" vai ao app.
+ * Cupom criado pela equipe da ARP já nasce aprovado.
+ */
+export const couponReviewSchema = z.enum(["pending", "approved", "rejected"]);
+export type CouponReview = z.infer<typeof couponReviewSchema>;
+export const COUPON_REVIEW_LABEL: Record<CouponReview, string> = {
+  pending: "Aguardando ARP",
+  approved: "Aprovado",
+  rejected: "Recusado",
+};
 export const couponCodeSchema = z
   .string()
   .trim()
@@ -77,6 +92,11 @@ export const couponSchema = z.object({
   /** Economia estimada por uso (para o "você economizou" do app). */
   savingsCents: z.number().int().nullable(),
   status: couponStatusSchema,
+  /** Dias em que pode ser usado (0 = domingo). */
+  weekdays: z.array(z.number().int()),
+  review: couponReviewSchema,
+  /** Motivo da recusa (o lojista vê). */
+  reviewNote: z.string().nullable(),
   stock: couponStockSchema,
   createdAt: isoDateTimeSchema,
   updatedAt: isoDateTimeSchema,
@@ -99,6 +119,8 @@ const couponFields = {
   icon: iconNameSchema,
   imageUrl: mediaUrlSchema.nullable().optional(),
   savingsCents: centsSchema.nullable().optional(),
+  /** Dias em que pode ser usado; fora deles, a validação recusa. Padrão: todos. */
+  weekdays: weekdaysSchema.default([...ALL_WEEKDAYS]),
 };
 
 const endsAfterStart = (v: { startsAt?: string; endsAt?: string | null }) =>
@@ -116,7 +138,7 @@ export type CreateCouponInput = z.input<typeof createCouponBodySchema>;
 
 /** Não dá para baixar o total abaixo do que já foi pego (regra no domínio). */
 export const updateCouponBodySchema = z
-  .object(couponFields)
+  .object({ ...couponFields, weekdays: weekdaysSchema })
   .omit({ storeId: true })
   .partial()
   .refine(endsAfterStart, endsAfterStartIssue);
@@ -125,9 +147,22 @@ export type UpdateCouponBody = z.infer<typeof updateCouponBodySchema>;
 export const changeCouponStatusBodySchema = z.object({ status: couponStatusSchema });
 export type ChangeCouponStatusBody = z.infer<typeof changeCouponStatusBodySchema>;
 
+/** Aprovar ou recusar (com motivo) o cupom do lojista. */
+export const reviewCouponBodySchema = z
+  .object({
+    decision: z.enum(["approve", "reject"]),
+    note: z.string().trim().max(300).optional(),
+  })
+  .refine((b) => b.decision === "approve" || (b.note ?? "").length > 0, {
+    message: "Diga ao lojista o motivo da recusa",
+    path: ["note"],
+  });
+export type ReviewCouponBody = z.infer<typeof reviewCouponBodySchema>;
+
 export const listCouponsQuerySchema = paginationQuerySchema.extend({
   storeId: idSchema.optional(),
   status: couponStatusSchema.optional(),
+  review: couponReviewSchema.optional(),
   kind: storeKindSchema.optional(),
 });
 export type ListCouponsQuery = z.infer<typeof listCouponsQuerySchema>;

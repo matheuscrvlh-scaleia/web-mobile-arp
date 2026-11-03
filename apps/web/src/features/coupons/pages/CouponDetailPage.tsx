@@ -33,9 +33,10 @@ import {
   SkeletonGrid,
 } from "@/shared/ui";
 import { useCoupon } from "../api";
-import { CouponStatusBadge } from "../components/CouponBadges";
+import { CouponReviewBadge, CouponStatusBadge } from "../components/CouponBadges";
 import { CouponCard, couponCardData } from "../components/CouponCard";
 import { CouponLoadError } from "../components/CouponLoadError";
+import { CouponReviewCard } from "../components/CouponReviewActions";
 import { CouponStatusActions } from "../components/CouponStatusActions";
 import { StockGrid } from "../components/StockGrid";
 import { couponPeriodLong } from "../lib/period";
@@ -69,6 +70,7 @@ export function CouponDetailPage() {
         description={
           <span className="inline-flex flex-wrap items-center gap-2">
             <CouponStatusBadge status={c.status} />
+            <CouponReviewBadge review={c.review} />
             {c.store.name}
           </span>
         }
@@ -86,6 +88,7 @@ export function CouponDetailPage() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
         <div className="flex flex-col gap-4">
+          <CouponReviewCard coupon={c} />
           <div className="vidro rounded-[2rem] p-2">
             <CouponCard data={couponCardData(c)} />
           </div>

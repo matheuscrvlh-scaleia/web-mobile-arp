@@ -2,6 +2,8 @@ import { BusinessRuleError, ValidationError } from "../../../shared/domain/error
 import { applyPatch } from "../../../shared/domain/patch";
 
 export type CouponStatus = "draft" | "active" | "paused" | "ended";
+/** Revisão da ARP: só "approved" aparece no app. */
+export type CouponReview = "pending" | "approved" | "rejected";
 /** Só verde e off-white (Fase 2). */
 export type CouponTone = "green" | "sand";
 
@@ -22,11 +24,17 @@ export interface CouponProps {
   imageUrl: string | null;
   savingsCents: number | null;
   status: CouponStatus;
+  /** Dias em que pode ser usado (0 = domingo), em ordem. */
+  weekdays: number[];
+  review: CouponReview;
+  reviewNote: string | null;
   createdBy: string | null;
 }
 
 export type NewCoupon = Omit<CouponProps, "id">;
-export type CouponChanges = Partial<Omit<CouponProps, "id" | "storeId" | "status" | "createdBy">>;
+export type CouponChanges = Partial<
+  Omit<CouponProps, "id" | "storeId" | "status" | "createdBy" | "review" | "reviewNote">
+>;
 
 const HOUR_MS = 3_600_000;
 
@@ -82,10 +90,33 @@ export class Coupon {
     return this.props.title;
   }
 
-  /** Dá para pegar agora: ativa e dentro de [startsAt, endsAt). */
+  get review(): CouponReview {
+    return this.props.review;
+  }
+
+  /** Dá para pegar agora: ativa, aprovada pela ARP e dentro de [startsAt, endsAt). */
   isClaimableAt(now: Date): boolean {
-    const { status, startsAt, endsAt } = this.props;
-    return status === "active" && startsAt <= now && (endsAt === null || now < endsAt);
+    const { status, review, startsAt, endsAt } = this.props;
+    return (
+      status === "active" &&
+      review === "approved" &&
+      startsAt <= now &&
+      (endsAt === null || now < endsAt)
+    );
+  }
+
+  /** Revisão da ARP (Fase 2): aprova ou recusa com motivo. */
+  decide(decision: "approve" | "reject", note: string | null): void {
+    this.props = {
+      ...this.props,
+      review: decision === "approve" ? "approved" : "rejected",
+      reviewNote: decision === "approve" ? null : note,
+    };
+  }
+
+  /** O lojista mudou o cupom: volta para a fila da ARP. */
+  resubmit(): void {
+    this.props = { ...this.props, review: "pending", reviewNote: null };
   }
 
   /** Prazo de uso de um pego feito agora. */
@@ -113,7 +144,7 @@ export class Coupon {
     }
     const next = applyPatch(this.props, changes);
     assertPeriod(next.startsAt, next.endsAt);
-    this.props = next;
+    this.props = { ...next, weekdays: sortedDays(next.weekdays) };
   }
 
   changeStatus(status: CouponStatus, now: Date): void {
@@ -130,6 +161,12 @@ export class Coupon {
   toState(): CouponProps {
     return { ...this.props };
   }
+}
+
+function sortedDays(days: readonly number[]): number[] {
+  const unique = [...new Set(days)].sort((a, b) => a - b);
+  if (unique.length === 0) throw ValidationError.field("weekdays", "Escolha ao menos um dia");
+  return unique;
 }
 
 function assertPeriod(startsAt: Date, endsAt: Date | null): void {

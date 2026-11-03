@@ -36,6 +36,11 @@ export const PERMISSION_CATALOG = [
         description: "Criar, pausar e encerrar promoções.",
       },
       {
+        key: "coupons.approve",
+        label: "Aprovar cupons",
+        description: "Revisar e aprovar ou recusar os cupons criados pelos lojistas.",
+      },
+      {
         key: "coupons.redeem",
         label: "Validar cupons",
         description: "Validar o código do visitante no caixa.",

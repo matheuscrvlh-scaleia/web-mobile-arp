@@ -40,6 +40,7 @@ export const ROLES: readonly RoleSeed[] = [
       "map.view",
       "coupons.view",
       "coupons.manage",
+      "coupons.approve",
       "challenges.view",
       "challenges.manage",
       "events.view",
@@ -533,6 +534,8 @@ export interface CouponSeed {
   headlineSub: string | null;
   description: string | null;
   scheduleNote: string;
+  /** Dias em que vale (0 = domingo); sem o campo, todos. */
+  weekdays?: number[];
   startsAt: When;
   endsAt: When | null;
   totalQuantity: number;
@@ -580,6 +583,7 @@ export const COUPONS: readonly CouponSeed[] = [
     headlineSub: "a sobremesa",
     description: "Na compra do almoço executivo, a sobremesa do dia é por conta da casa.",
     scheduleNote: "Seg a sex, 11h às 15h",
+    weekdays: [1, 2, 3, 4, 5],
     startsAt: { day: -40, time: "00:00" },
     endsAt: null,
     totalQuantity: 30,

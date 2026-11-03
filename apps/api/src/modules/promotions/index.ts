@@ -9,6 +9,7 @@ import { ExpireOverdueClaimsUseCase } from "./application/expire-overdue-claims.
 import { LookupClaimUseCase } from "./application/lookup-claim.use-case";
 import type { PromotionsDeps } from "./application/promotions-deps";
 import { RedeemClaimUseCase } from "./application/redeem-claim.use-case";
+import { ReviewCouponUseCase } from "./application/review-coupon.use-case";
 import { UpdateCouponUseCase } from "./application/update-coupon.use-case";
 import { promotionsRoutes } from "./http/promotions.routes";
 import {
@@ -47,6 +48,7 @@ export function createPromotionsModule(core: CoreDeps) {
     createCoupon: new CreateCouponUseCase(deps),
     updateCoupon: new UpdateCouponUseCase(deps),
     changeCouponStatus: new ChangeCouponStatusUseCase(deps),
+    reviewCoupon: new ReviewCouponUseCase(deps),
     lookupClaim,
     redeemClaim,
   });

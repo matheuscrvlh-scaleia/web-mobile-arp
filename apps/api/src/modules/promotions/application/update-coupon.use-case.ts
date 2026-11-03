@@ -24,8 +24,10 @@ export class UpdateCouponUseCase {
           ? await coupons.countTaken(coupon.id, clock.now())
           : 0;
       coupon.update(input.changes, taken);
+      if (!hasChanges(diff(before, coupon.toState()))) return [];
+      // Lojista mudou o cupom: volta para a revisão da ARP antes de ir ao app.
+      if (actor.storeId) coupon.resubmit();
       const changes = diff(before, coupon.toState());
-      if (!hasChanges(changes)) return [];
       await coupons.save(coupon);
       await audit.log({
         actor,

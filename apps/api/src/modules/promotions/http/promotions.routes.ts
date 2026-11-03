@@ -11,6 +11,7 @@ import {
   lookupClaimQuerySchema,
   ROUTES,
   redeemClaimBodySchema,
+  reviewCouponBodySchema,
   updateCouponBodySchema,
 } from "@arp/contracts";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
@@ -26,6 +27,7 @@ import type { CreateCouponUseCase } from "../application/create-coupon.use-case"
 import type { LookupClaimUseCase } from "../application/lookup-claim.use-case";
 import { COUPON_NOT_FOUND } from "../application/promotions-deps";
 import { CODE_NOT_FOUND, type RedeemClaimUseCase } from "../application/redeem-claim.use-case";
+import type { ReviewCouponUseCase } from "../application/review-coupon.use-case";
 import type { UpdateCouponUseCase } from "../application/update-coupon.use-case";
 import type { PromotionsQueries } from "../infra/promotions.queries";
 
@@ -34,6 +36,7 @@ export interface PromotionsRoutesDeps {
   createCoupon: CreateCouponUseCase;
   updateCoupon: UpdateCouponUseCase;
   changeCouponStatus: ChangeCouponStatusUseCase;
+  reviewCoupon: ReviewCouponUseCase;
   lookupClaim: LookupClaimUseCase;
   redeemClaim: RedeemClaimUseCase;
 }
@@ -119,6 +122,18 @@ export function promotionsRoutes(deps: PromotionsRoutesDeps): FastifyPluginAsync
       async (request) => {
         await deps.changeCouponStatus.execute(
           { id: request.params.id, status: request.body.status },
+          staffOf(request),
+        );
+        return coupon(request.params.id);
+      },
+    );
+
+    r.route(
+      ROUTES.coupons.review,
+      { params: idParamsSchema, body: reviewCouponBodySchema, response: { 200: couponSchema } },
+      async (request) => {
+        await deps.reviewCoupon.execute(
+          { id: request.params.id, ...request.body },
           staffOf(request),
         );
         return coupon(request.params.id);

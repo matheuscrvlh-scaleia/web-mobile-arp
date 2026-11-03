@@ -147,6 +147,7 @@ export const ERROR_CODES = [
   "CLAIM_EXPIRED",
   "CLAIM_CANCELLED",
   "CLAIM_WRONG_STORE",
+  "CLAIM_WRONG_DAY",
   // Domínio: selos
   "QR_INVALID",
   "QR_EXPIRED",
@@ -176,6 +177,35 @@ export type Phase = z.infer<typeof phaseSchema>;
 /** Tons de cartão herdados do app (cupons, eventos sem foto). */
 export const toneSchema = z.enum(["green", "ink", "clay", "sand", "deep"]);
 export type Tone = z.infer<typeof toneSchema>;
+
+/* Dias da semana do cupom (Fase 2) ---------------------------------------- */
+
+/** 0 = domingo … 6 = sábado (igual a Date.getDay()). */
+export const ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const;
+export const WEEKDAY_SHORT = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"] as const;
+
+/** Dias em que o cupom pode ser usado: ao menos um, sem repetir, em ordem. */
+export const weekdaysSchema = z
+  .array(z.number().int().min(0).max(6))
+  .min(1, "Escolha ao menos um dia")
+  .max(7)
+  .refine((l) => new Set(l).size === l.length, "Dia repetido")
+  .transform((l) => [...l].sort((a, b) => a - b));
+
+/** "todos os dias", "seg a sex", "sáb e dom", "seg, qua e sex". */
+export function weekdaysLabel(days: readonly number[]): string {
+  const set = [...new Set(days)].sort((a, b) => a - b);
+  if (set.length === 7) return "todos os dias";
+  if (set.join() === "1,2,3,4,5") return "seg a sex";
+  if (set.join() === "0,6") return "sáb e dom";
+  // começa na segunda (domingo por último), como no calendário do comércio
+  const names = [...set.filter((d) => d !== 0), ...set.filter((d) => d === 0)].map(
+    (d) => WEEKDAY_SHORT[d] ?? "",
+  );
+  return names.length === 1
+    ? (names[0] ?? "")
+    : `${names.slice(0, -1).join(", ")} e ${names.at(-1)}`;
+}
 
 /** Cupons usam só dois tons: verde e off-white ("sand"). Sem laranja (Fase 2). */
 export const couponToneSchema = z.enum(["green", "sand"]);

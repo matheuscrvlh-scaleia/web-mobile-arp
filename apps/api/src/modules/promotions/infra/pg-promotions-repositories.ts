@@ -2,7 +2,13 @@ import type { Database } from "../../../shared/infra/database/database";
 import { translateConstraintErrors } from "../../../shared/infra/database/errors";
 import { sql } from "../../../shared/infra/database/sql";
 import { Claim, type ClaimStatus, type NewClaim } from "../domain/claim";
-import { Coupon, type CouponStatus, type CouponTone, type NewCoupon } from "../domain/coupon";
+import {
+  Coupon,
+  type CouponReview,
+  type CouponStatus,
+  type CouponTone,
+  type NewCoupon,
+} from "../domain/coupon";
 import { ClaimCodeCollisionError, CouponAlreadyClaimedError } from "../domain/errors";
 import type {
   ClaimRepository,
@@ -30,12 +36,15 @@ interface CouponRow {
   image_url: string | null;
   savings_cents: number | null;
   status: CouponStatus;
+  weekdays: number[];
+  review: CouponReview;
+  review_note: string | null;
   created_by: string | null;
 }
 
 const COUPON_COLUMNS = sql.raw(`id, store_id, title, headline, headline_sub, description,
   schedule_note, starts_at, ends_at, total_quantity, redeem_window_hours, tone, icon, image_url,
-  savings_cents, status, created_by`);
+  savings_cents, status, weekdays, review, review_note, created_by`);
 
 const couponToDomain = (r: CouponRow) =>
   Coupon.restore({
@@ -55,6 +64,9 @@ const couponToDomain = (r: CouponRow) =>
     imageUrl: r.image_url,
     savingsCents: r.savings_cents,
     status: r.status,
+    weekdays: r.weekdays,
+    review: r.review,
+    reviewNote: r.review_note,
     createdBy: r.created_by,
   });
 
@@ -79,11 +91,13 @@ export class PgCouponRepository implements CouponRepository {
     const row = await this.db.one<CouponRow>(sql`
       insert into promotions.coupons
         (store_id, title, headline, headline_sub, description, schedule_note, starts_at, ends_at,
-         total_quantity, redeem_window_hours, tone, icon, image_url, savings_cents, status, created_by)
+         total_quantity, redeem_window_hours, tone, icon, image_url, savings_cents, status,
+         weekdays, review, review_note, created_by)
       values
         (${d.storeId}, ${d.title}, ${d.headline}, ${d.headlineSub}, ${d.description},
          ${d.scheduleNote}, ${d.startsAt}, ${d.endsAt}, ${d.totalQuantity}, ${d.redeemWindowHours},
-         ${d.tone}, ${d.icon}, ${d.imageUrl}, ${d.savingsCents}, ${d.status}, ${d.createdBy})
+         ${d.tone}, ${d.icon}, ${d.imageUrl}, ${d.savingsCents}, ${d.status},
+         ${d.weekdays}::smallint[], ${d.review}, ${d.reviewNote}, ${d.createdBy})
       returning ${COUPON_COLUMNS}
     `);
     return couponToDomain(row);
@@ -97,7 +111,8 @@ export class PgCouponRepository implements CouponRepository {
           description = ${s.description}, schedule_note = ${s.scheduleNote},
           starts_at = ${s.startsAt}, ends_at = ${s.endsAt}, total_quantity = ${s.totalQuantity},
           redeem_window_hours = ${s.redeemWindowHours}, tone = ${s.tone}, icon = ${s.icon},
-          image_url = ${s.imageUrl}, savings_cents = ${s.savingsCents}, status = ${s.status}
+          image_url = ${s.imageUrl}, savings_cents = ${s.savingsCents}, status = ${s.status},
+          weekdays = ${s.weekdays}::smallint[], review = ${s.review}, review_note = ${s.reviewNote}
       where id = ${s.id}
     `);
   }
@@ -148,15 +163,17 @@ export class PgClaimRepository implements ClaimRepository {
   constructor(private readonly db: Database) {}
 
   async findByCodeForUpdate(code: string): Promise<ClaimWithStore | null> {
-    const row = await this.db.maybeOne<ClaimRow & { store_id: string }>(sql`
+    const row = await this.db.maybeOne<ClaimRow & { store_id: string; weekdays: number[] }>(sql`
       select cl.id, cl.coupon_id, cl.visitor_id, cl.code, cl.status, cl.claimed_at, cl.expires_at,
-             cl.redeemed_at, cl.redeemed_by, c.store_id
+             cl.redeemed_at, cl.redeemed_by, c.store_id, c.weekdays
       from promotions.coupon_claims cl
       join promotions.coupons c on c.id = cl.coupon_id
       where cl.code = ${code}
       for update of cl
     `);
-    return row ? { claim: claimToDomain(row), storeId: row.store_id } : null;
+    return row
+      ? { claim: claimToDomain(row), storeId: row.store_id, weekdays: row.weekdays }
+      : null;
   }
 
   async claimSlot(
