@@ -218,7 +218,7 @@ export function gamificationRoutes(deps: GamificationRoutesDeps): FastifyPluginA
       { params: idParamsSchema, response: { 200: qrCodeListSchema } },
       async (request) => {
         await challenge(request.params.id);
-        return { data: await queries.listQrCodes(request.params.id) };
+        return { data: await queries.listQrCodes(request.params.id, staffOf(request)) };
       },
     );
 

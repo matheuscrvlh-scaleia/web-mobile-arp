@@ -105,22 +105,41 @@ export const ROUTES = {
   },
   prizes: {
     list: r("GET", "/prizes", "challenges.view", "Prêmios da lojinha (com quem está perto)"),
-    create: r("POST", "/prizes", "challenges.manage", "Criar prêmio"),
-    update: r("PATCH", "/prizes/:id", "challenges.manage", "Editar prêmio / estoque"),
-    remove: r("DELETE", "/prizes/:id", "challenges.manage", "Apagar prêmio sem trocas"),
+    create: r("POST", "/prizes", "club.manage", "Criar prêmio"),
+    update: r("PATCH", "/prizes/:id", "club.manage", "Editar prêmio / estoque"),
+    remove: r("DELETE", "/prizes/:id", "club.manage", "Apagar prêmio sem trocas"),
   },
   prizeRedemptions: {
-    list: r("GET", "/prize-redemptions", "challenges.view", "Trocas da lojinha (paginado)"),
+    list: r("GET", "/prize-redemptions", "club.manage", "Trocas da lojinha (paginado)"),
     deliver: r(
       "POST",
       "/prize-redemptions/:id/deliver",
-      "challenges.manage",
+      "club.manage",
       "Marcar prêmio como entregue",
     ),
   },
   clubReports: {
-    ranking: r("GET", "/club/ranking", "challenges.view", "Ranking de visitantes (apelidos)"),
-    seals: r("GET", "/club/seals-report", "challenges.view", "Selos dados por loja e produto"),
+    ranking: r("GET", "/club/ranking", "reports.view", "Ranking de visitantes (apelidos)"),
+    seals: r("GET", "/club/seals-report", "reports.view", "Selos dados por loja e produto"),
+    coupons: r("GET", "/reports/coupons-by-store", "reports.view", "Cupons usados por loja"),
+  },
+  /** Cadastro de lojista pelo link (Fase 2): a ARP gera o link e aprova. */
+  merchantSignups: {
+    invite: r(
+      "POST",
+      "/merchant-invites",
+      "merchants.approve",
+      "Gerar link de cadastro de lojista",
+    ),
+    invitation: r("GET", "/merchant-invites/:token", null, "Loja do link de cadastro", {
+      public: true,
+    }),
+    signup: r("POST", "/merchant-invites/:token/signup", null, "Lojista se cadastra pelo link", {
+      public: true,
+    }),
+    list: r("GET", "/merchant-signups", "merchants.approve", "Cadastros de lojista pendentes"),
+    approve: r("POST", "/merchant-signups/:id/approve", "merchants.approve", "Aprovar lojista"),
+    reject: r("POST", "/merchant-signups/:id/reject", "merchants.approve", "Recusar lojista"),
   },
   claims: {
     list: r("GET", "/coupon-claims", "coupons.view", "Cupons pegos (paginado, filtros)"),
@@ -149,9 +168,9 @@ export const ROUTES = {
   },
   qrCodes: {
     list: r("GET", "/challenges/:id/qr-codes", "challenges.view", "QR Codes do desafio"),
-    create: r("POST", "/challenges/:id/qr-codes", "challenges.manage", "Gerar QR Code"),
+    create: r("POST", "/challenges/:id/qr-codes", "qr_codes.generate", "Gerar QR Code"),
     update: r("PATCH", "/qr-codes/:id", "challenges.manage", "Editar / revogar QR Code"),
-    current: r("GET", "/qr-codes/:id/current", "challenges.view", "Código para mostrar agora"),
+    current: r("GET", "/qr-codes/:id/current", "qr_codes.generate", "Código para mostrar agora"),
   },
   earnedSeals: {
     list: r("GET", "/earned-seals", "challenges.view", "Selos conquistados (paginado)"),

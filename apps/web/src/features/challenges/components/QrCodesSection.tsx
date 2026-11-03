@@ -77,10 +77,10 @@ export function QrCodesSection({ challenge }: { challenge: Challenge }) {
     <Card>
       <CardHeader
         title="QR Codes"
-        description="O visitante lê no app e ganha o selo uma vez. Imprima e deixe onde o desafio acontece."
+        description="Todo QR Code tem prazo. Você vê só os que gerou. Fixo: imprima; telão: abra em tela cheia."
         icon={QrIcon}
         action={
-          <Can permission="challenges.manage">
+          <Can permission="qr_codes.generate">
             <Button size="sm" icon={Plus} onClick={() => setDialog({ kind: "create" })}>
               Gerar QR Code
             </Button>
@@ -130,7 +130,11 @@ export function QrCodesSection({ challenge }: { challenge: Challenge }) {
           challengeId={challenge.id}
           qrCode={dialog.kind === "edit" ? dialog.qr : undefined}
           onClose={close}
-          onCreated={(qr) => setDialog({ kind: "print", qr })}
+          onCreated={(qr) =>
+            qr.rotating
+              ? window.open(PATHS.qrScreen(qr.id), "_blank")
+              : setDialog({ kind: "print", qr })
+          }
         />
       )}
       <QrPrintModal

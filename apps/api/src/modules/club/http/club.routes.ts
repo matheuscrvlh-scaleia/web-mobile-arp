@@ -1,5 +1,7 @@
 import {
   App,
+  couponsByStoreQuerySchema,
+  couponsByStoreSchema,
   createPrizeBodySchema,
   idParamsSchema,
   listPrizeRedemptionsQuerySchema,
@@ -95,6 +97,11 @@ export function clubRoutes(deps: ClubRoutesDeps): FastifyPluginAsyncZod {
     r.route(ROUTES.clubReports.ranking, { response: { 200: rankingListSchema } }, async () => ({
       data: (await queries.ranking(clock.now(), RANKING_PANEL_LIMIT)).top,
     }));
+    r.route(
+      ROUTES.clubReports.coupons,
+      { querystring: couponsByStoreQuerySchema, response: { 200: couponsByStoreSchema } },
+      async (request) => ({ data: await queries.couponsByStore(request.query) }),
+    );
     r.route(
       ROUTES.clubReports.seals,
       { querystring: sealsReportQuerySchema, response: { 200: sealsReportSchema } },

@@ -320,10 +320,20 @@ export class GamificationQueries {
     return (await this.listChallenges({ id }))[0] ?? null;
   }
 
-  async listQrCodes(challengeId: string): Promise<QrCode[]> {
-    const rows = await this.db.many<QrRow>(
-      sql`${QR_SELECT} where q.challenge_id = ${challengeId} order by q.created_at, q.id`,
-    );
+  /**
+   * QR Codes do desafio que esta pessoa gerou (Fase 2: cada um vê os seus).
+   * Os antigos, sem autor, aparecem para a equipe da ARP (sem loja).
+   */
+  async listQrCodes(
+    challengeId: string,
+    viewer: { id: string; storeId: string | null },
+  ): Promise<QrCode[]> {
+    const legacy = viewer.storeId === null ? sql`or q.created_by is null` : sql.empty;
+    const rows = await this.db.many<QrRow>(sql`
+      ${QR_SELECT}
+      where q.challenge_id = ${challengeId} and (q.created_by = ${viewer.id} ${legacy})
+      order by q.created_at, q.id
+    `);
     return rows.map(toQrCode);
   }
 

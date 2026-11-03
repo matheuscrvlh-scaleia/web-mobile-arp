@@ -5,7 +5,7 @@ import type { Clock } from "../../../shared/application/ports/clock";
 import type { PasswordHasher } from "../../../shared/application/ports/password-hasher";
 import type { TokenService } from "../../../shared/application/ports/token-service";
 import type { UnitOfWork } from "../../../shared/application/ports/unit-of-work";
-import { UnauthenticatedError } from "../../../shared/domain/errors";
+import { ForbiddenError, UnauthenticatedError } from "../../../shared/domain/errors";
 import type { MerchantAccountRepository } from "../domain/repositories";
 import { type MerchantStoreReader, merchantScopeOf } from "./merchant-scope";
 import {
@@ -24,6 +24,8 @@ export interface MerchantLoginDeps {
   audit: AuditLogger;
   clock: Clock;
   uow: UnitOfWork;
+  /** Hash da senha de um cadastro pelo link ainda pendente (Fase 2). */
+  pendingSignupHash?: (email: string) => Promise<string | null>;
 }
 
 export const INVALID_CREDENTIALS_MESSAGE = "E-mail ou senha incorretos";
@@ -41,6 +43,14 @@ export class MerchantLoginUseCase {
 
   constructor(private readonly deps: MerchantLoginDeps) {}
 
+  /** Cadastro pelo link ainda não aprovado: com a senha certa, avisa em vez de "senha errada". */
+  private async assertNotPending(email: string, password: string): Promise<void> {
+    const hash = await this.deps.pendingSignupHash?.(email);
+    if (hash && (await this.deps.hasher.verify(hash, password))) {
+      throw new ForbiddenError("Seu cadastro está aguardando a aprovação da ARP.");
+    }
+  }
+
   async execute(input: {
     email: string;
     password: string;
@@ -50,6 +60,7 @@ export class MerchantLoginUseCase {
     const account = await accounts.findByEmail(input.email);
     const hash = account?.passwordHash ?? (await this.getDummyHash());
     const valid = await hasher.verify(hash, input.password);
+    if (!account) await this.assertNotPending(input.email, input.password);
     if (!account || !valid || account.status !== "active") {
       throw new UnauthenticatedError(INVALID_CREDENTIALS_MESSAGE, "INVALID_CREDENTIALS");
     }

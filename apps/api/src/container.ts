@@ -10,6 +10,7 @@ import { createGamificationModule } from "./modules/gamification";
 import { createIdentityModule } from "./modules/identity";
 import { createMarketingModule } from "./modules/marketing";
 import { createMerchantModule } from "./modules/merchant";
+import { createMerchantSignupModule } from "./modules/merchant-signup";
 import { createPlatformModule } from "./modules/platform";
 import { createPromotionsModule } from "./modules/promotions";
 import { createVisitorsModule } from "./modules/visitors";
@@ -205,6 +206,7 @@ export async function createContainer(options: ContainerOptions): Promise<Contai
     { name: "platform", routes: createPlatformModule(core).routes },
     { name: "content", routes: createContentModule(core).routes },
     { name: "club", routes: createClubModule(core, { isVisitorActive }).routes },
+    { name: "merchant-signup", routes: createMerchantSignupModule(core).routes },
     { name: "app-api", routes: appApi.routes },
     {
       name: "merchant",

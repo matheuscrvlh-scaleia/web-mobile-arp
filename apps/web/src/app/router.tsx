@@ -37,6 +37,14 @@ const routes: RouteObject[] = [
           },
         ],
       },
+      // Link de cadastro de lojista (público: abre logado ou não).
+      {
+        path: "cadastro-lojista/:token",
+        lazy: page(
+          () => import("@/features/merchants/pages/MerchantSignupPage"),
+          (m) => m.MerchantSignupPage,
+        ),
+      },
       {
         element: <RequireAuth />,
         children: [
@@ -48,7 +56,7 @@ const routes: RouteObject[] = [
             ),
           },
           // Telão do QR: tela cheia, sem o menu.
-          guarded("challenges.view", [
+          guarded("qr_codes.generate", [
             {
               path: "telao/:id",
               lazy: page(
@@ -205,6 +213,24 @@ const routes: RouteObject[] = [
                   lazy: page(
                     () => import("@/features/club/pages/ClubPage"),
                     (m) => m.ClubPage,
+                  ),
+                },
+              ]),
+              guarded("reports.view", [
+                {
+                  path: "relatorios",
+                  lazy: page(
+                    () => import("@/features/club/pages/ReportsPage"),
+                    (m) => m.ReportsPage,
+                  ),
+                },
+              ]),
+              guarded("merchants.approve", [
+                {
+                  path: "lojistas",
+                  lazy: page(
+                    () => import("@/features/merchants/pages/MerchantsPage"),
+                    (m) => m.MerchantsPage,
                   ),
                 },
               ]),

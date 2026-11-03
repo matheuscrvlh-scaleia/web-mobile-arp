@@ -7,7 +7,9 @@ import {
   hexColorSchema,
   iconNameSchema,
   idSchema,
+  isoDateSchema,
   isoDateTimeSchema,
+  listOf,
   mediaUrlSchema,
   paginated,
   paginationQuerySchema,
@@ -204,3 +206,14 @@ export type LookupClaimQuery = z.infer<typeof lookupClaimQuerySchema>;
  */
 export const redeemClaimBodySchema = z.object({ code: couponCodeSchema });
 export type RedeemClaimBody = z.infer<typeof redeemClaimBodySchema>;
+
+/** Relatório: cupons pegos e usados por loja no período (dias em São Paulo). */
+export const couponsByStoreQuerySchema = z.object({ from: isoDateSchema, to: isoDateSchema });
+export type CouponsByStoreQuery = z.infer<typeof couponsByStoreQuerySchema>;
+export const couponsByStoreRowSchema = z.object({
+  store: refSchema,
+  claimed: z.number().int(),
+  used: z.number().int(),
+});
+export type CouponsByStoreRow = z.infer<typeof couponsByStoreRowSchema>;
+export const couponsByStoreSchema = listOf(couponsByStoreRowSchema);

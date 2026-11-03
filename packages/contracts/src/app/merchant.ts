@@ -162,6 +162,24 @@ export const merchantCouponStatsSchema = z.object({
 });
 export type MerchantCouponStats = z.infer<typeof merchantCouponStatsSchema>;
 
+/** Clube ARP visto pelo lojista (Fase 2). Nunca mostra números de outras lojas. */
+export const merchantClubSchema = z.object({
+  /** Selos dados no mês corrente nos desafios da loja (base da cobrança). */
+  sealsMonth: z.number().int(),
+  /** Posição da loja em cupons usados no mês (null = nenhum uso ainda). */
+  couponsRank: z.number().int().nullable(),
+  /** Desafios da loja no ar com validação por QR (o lojista gera o código). */
+  challenges: z.array(
+    z.object({
+      id: idSchema,
+      title: z.string(),
+      product: z.string().nullable(),
+      sealName: z.string(),
+    }),
+  ),
+});
+export type MerchantClub = z.infer<typeof merchantClubSchema>;
+
 export const merchantOverviewSchema = z.object({
   period: merchantPeriodSchema,
   /** Primeiro e último dia (São Paulo) da janela. */
@@ -174,5 +192,6 @@ export const merchantOverviewSchema = z.object({
   redemptionsByHour: z.array(z.object({ hour: z.number().int(), count: z.number().int() })),
   /** Últimos usos do período (até 10), código mascarado (ex.: ARP-***4HX). */
   lastRedemptions: z.array(z.object({ code: z.string(), redeemedAt: isoDateTimeSchema })),
+  club: merchantClubSchema,
 });
 export type MerchantOverview = z.infer<typeof merchantOverviewSchema>;

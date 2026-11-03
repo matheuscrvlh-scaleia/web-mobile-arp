@@ -50,9 +50,54 @@ export class MerchantQueries implements MerchantOverviewReader {
         coupons: await this.liveCoupons(req),
         redemptionsByHour: await this.redemptionsByHour(req),
         lastRedemptions: await this.lastRedemptions(req),
+        club: await this.club(req),
       }),
       { isolationLevel: "repeatable read", readOnly: true },
     );
+  }
+
+  /** Clube ARP da loja: selos do mês, posição em cupons usados e desafios com QR. */
+  private async club({ storeId, now }: MerchantOverviewRequest): Promise<App.MerchantClub> {
+    const monthStart = sql`(date_trunc(month, ${now}::timestamptz at time zone ${TZ}) at time zone ${TZ})`;
+    const row = await this.db.one<{ seals_month: number; coupons_rank: number | null }>(sql`
+      select
+        (select count(*)::int from gamification.earned_seals es
+         join gamification.challenges ch on ch.id = es.challenge_id
+         where ch.store_id = ${storeId} and es.earned_at >= ${monthStart}) as seals_month,
+        (with used as (
+           select c.store_id, count(*) as n
+           from promotions.coupon_claims cc
+           join promotions.coupons c on c.id = cc.coupon_id
+           where cc.status = redeemed and cc.redeemed_at >= ${monthStart}
+           group by c.store_id
+         )
+         select r::int from (select store_id, rank() over (order by n desc) as r from used) ranked
+         where store_id = ${storeId}) as coupons_rank
+    `);
+    const challenges = await this.db.many<{
+      id: string;
+      title: string;
+      product: string | null;
+      seal_name: string;
+    }>(sql`
+      select ch.id, ch.title, ch.product, s.name as seal_name
+      from gamification.challenges ch
+      join gamification.seals s on s.id = ch.seal_id
+      join gamification.campaigns c on c.id = ch.campaign_id
+      where ch.store_id = ${storeId} and ch.status = active and ch.validation = qr
+        and c.status = published and c.starts_at <= ${now} and c.ends_at > ${now}
+      order by ch.sort_order, ch.title
+    `);
+    return {
+      sealsMonth: row.seals_month,
+      couponsRank: row.coupons_rank,
+      challenges: challenges.map((c) => ({
+        id: c.id,
+        title: c.title,
+        product: c.product,
+        sealName: c.seal_name,
+      })),
+    };
   }
 
   private async liveCoupons({

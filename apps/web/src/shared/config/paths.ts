@@ -40,6 +40,8 @@ export const PATHS = {
   challenge: (id: string) => `/desafios/${id}`,
   /** QR em modo telão, em tela cheia (abre em outra aba). */
   qrScreen: (id: string) => `/telao/${id}`,
+  reports: "/relatorios",
+  merchants: "/lojistas",
   club: (tab?: "lojinha" | "trocas" | "ranking" | "selos") =>
     `/clube${tab && tab !== "lojinha" ? `?aba=${tab}` : ""}`,
   seals: "/selos",

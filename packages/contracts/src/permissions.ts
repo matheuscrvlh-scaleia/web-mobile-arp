@@ -58,7 +58,33 @@ export const PERMISSION_CATALOG = [
       {
         key: "challenges.manage",
         label: "Gerenciar desafios",
-        description: "Campanhas, selos, faixas de benefício e QR Codes.",
+        description: "Campanhas, selos e desafios; revogar QR Codes.",
+      },
+      {
+        key: "qr_codes.generate",
+        label: "Gerar QR Code",
+        description:
+          "Gerar QR Code com prazo (e telão). O lojista só para a própria loja. Cada pessoa vê os que gerou.",
+      },
+    ],
+  },
+  {
+    group: "Clube ARP",
+    items: [
+      {
+        key: "club.manage",
+        label: "Gerenciar o Clube",
+        description: "Prêmios da lojinha, estoque e entrega das trocas.",
+      },
+    ],
+  },
+  {
+    group: "Relatórios",
+    items: [
+      {
+        key: "reports.view",
+        label: "Ver relatórios",
+        description: "Cupons usados e selos dados por loja e produto; ranking de visitantes.",
       },
     ],
   },
@@ -130,6 +156,11 @@ export const PERMISSION_CATALOG = [
         key: "users.manage",
         label: "Gerenciar usuários",
         description: "Usuários, cargos e permissões.",
+      },
+      {
+        key: "merchants.approve",
+        label: "Aprovar lojistas",
+        description: "Gerar o link de cadastro e aprovar ou recusar lojistas.",
       },
       { key: "audit.view", label: "Ver histórico", description: "Registro de alterações." },
       {

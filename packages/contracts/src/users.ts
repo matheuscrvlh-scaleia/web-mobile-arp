@@ -94,3 +94,55 @@ export type ResetPasswordBody = z.infer<typeof resetPasswordBodySchema>;
 
 export const resetPasswordResponseSchema = z.object({ temporaryPassword: z.string() });
 export type ResetPasswordResponse = z.infer<typeof resetPasswordResponseSchema>;
+
+/* Cadastro de lojista pelo link (Fase 2) --------------------------------- */
+
+/** A ARP gera um link para a loja; quem abre se cadastra e espera a aprovação. */
+export const createMerchantInviteBodySchema = z.object({ storeId: idSchema });
+export type CreateMerchantInviteBody = z.infer<typeof createMerchantInviteBodySchema>;
+
+export const merchantInviteSchema = z.object({
+  /** Vai no fim do link (/cadastro-lojista/<token>). Só aparece aqui, uma vez. */
+  token: z.string(),
+  store: refSchema,
+  expiresAt: isoDateTimeSchema,
+});
+export type MerchantInvite = z.infer<typeof merchantInviteSchema>;
+
+export const merchantInviteTokenParamsSchema = z.object({ token: z.string().min(16).max(128) });
+
+/** O que a página pública do link mostra antes do cadastro. */
+export const merchantInvitationSchema = z.object({
+  store: refSchema,
+  expiresAt: isoDateTimeSchema,
+});
+export type MerchantInvitation = z.infer<typeof merchantInvitationSchema>;
+
+export const merchantSignupBodySchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  email: z.email().trim().toLowerCase(),
+  /** WhatsApp para o aviso de aprovação. */
+  phone: z.string().trim().min(8).max(20).nullable().default(null),
+  password: passwordSchema,
+});
+export type MerchantSignupBody = z.infer<typeof merchantSignupBodySchema>;
+
+export const merchantSignupStatusSchema = z.enum(["pending", "approved", "rejected"]);
+export type MerchantSignupStatus = z.infer<typeof merchantSignupStatusSchema>;
+
+export const merchantSignupSchema = z.object({
+  id: idSchema,
+  store: refSchema,
+  name: z.string(),
+  email: z.string(),
+  phone: z.string().nullable(),
+  status: merchantSignupStatusSchema,
+  createdAt: isoDateTimeSchema,
+  decidedAt: isoDateTimeSchema.nullable(),
+});
+export type MerchantSignup = z.infer<typeof merchantSignupSchema>;
+export const merchantSignupListSchema = listOf(merchantSignupSchema);
+export const listMerchantSignupsQuerySchema = z.object({
+  status: merchantSignupStatusSchema.optional(),
+});
+export type ListMerchantSignupsQuery = z.infer<typeof listMerchantSignupsQuerySchema>;

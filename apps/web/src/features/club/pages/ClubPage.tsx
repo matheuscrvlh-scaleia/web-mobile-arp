@@ -1,4 +1,5 @@
 import {
+  type Permission,
   PRIZE_KIND_LABEL,
   type Prize,
   type PrizeRedemption,
@@ -6,7 +7,7 @@ import {
   type RankingEntry,
   type SealsReportRow,
 } from "@arp/contracts";
-import { BarChart3, Gift, Medal, PackageCheck, Pencil, Plus, Store, Trash2 } from "lucide-react";
+import { Gift, Medal, PackageCheck, Pencil, Plus, Store, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { errorMessage } from "@/shared/api";
 import { useAuth } from "@/shared/auth";
@@ -47,24 +48,22 @@ import {
 } from "../api";
 import { PrizeFormModal } from "../components/PrizeFormModal";
 
-type Tab = "lojinha" | "trocas" | "ranking" | "selos";
-const TABS: TabItem<Tab>[] = [
-  { value: "lojinha", label: "Lojinha", icon: Gift },
-  { value: "trocas", label: "Trocas", icon: PackageCheck },
-  { value: "ranking", label: "Ranking", icon: Medal },
-  { value: "selos", label: "Selos por loja", icon: BarChart3 },
+type Tab = "lojinha" | "trocas" | "ranking";
+const TABS: (TabItem<Tab> & { permission: Permission | null })[] = [
+  { value: "lojinha", label: "Lojinha", icon: Gift, permission: null },
+  { value: "trocas", label: "Trocas", icon: PackageCheck, permission: "club.manage" },
+  { value: "ranking", label: "Ranking", icon: Medal, permission: "reports.view" },
 ];
 
-/** Clube ARP (Fase 2): lojinha, trocas, ranking e selos dados por loja/produto. */
+/** Clube ARP (Fase 2): lojinha, trocas e ranking (cada aba com a sua permissão). */
 export function ClubPage() {
-  const { can, user } = useAuth();
-  const merchant = !!user?.store;
-  const canEdit = can("challenges.manage");
-  const tabs = merchant ? TABS.filter((t) => t.value === "selos") : TABS;
+  const { can } = useAuth();
+  const canEdit = can("club.manage");
+  const tabs = TABS.filter((t) => t.permission === null || can(t.permission));
   const [tab, setTab] = useSearchParamOption<Tab>(
     "aba",
     tabs.map((t) => t.value),
-    merchant ? "selos" : "lojinha",
+    "lojinha",
   );
 
   return (
@@ -86,10 +85,8 @@ export function ClubPage() {
           <PrizesTab canEdit={canEdit} />
         ) : tab === "trocas" ? (
           <RedemptionsTab canEdit={canEdit} />
-        ) : tab === "ranking" ? (
-          <RankingTab />
         ) : (
-          <SealsReportTab />
+          <RankingTab />
         )}
       </TabPanel>
     </>
@@ -385,7 +382,7 @@ function RankingTab() {
 
 /* Selos por loja ---------------------------------------------------------- */
 
-function SealsReportTab() {
+export function SealsReportTab() {
   const today = todayIso();
   const [from, setFrom] = useState(addDaysIso(today, -29));
   const [to, setTo] = useState(today);

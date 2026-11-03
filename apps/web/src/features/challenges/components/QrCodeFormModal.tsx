@@ -68,8 +68,9 @@ export function QrCodeFormModal({
       create.mutate(values, {
         onSuccess: (qr) => {
           toast.success("QR Code gerado.");
-          onCreated?.(qr);
+          // Fecha antes: quem abriu pode abrir outro diálogo (imprimir) no lugar.
           onClose();
+          onCreated?.(qr);
         },
         onError,
       });

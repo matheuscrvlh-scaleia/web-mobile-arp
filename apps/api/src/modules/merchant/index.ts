@@ -1,6 +1,7 @@
 import type { AuthUser, CouponClaim } from "@arp/contracts";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import type { CoreDeps } from "../../shared/infra/core";
+import { sql } from "../../shared/infra/database/sql";
 import type { SessionService } from "../identity";
 import type { LookupClaimUseCase, RedeemClaimUseCase } from "../promotions";
 import { GetMerchantOverviewUseCase } from "./application/get-merchant-overview.use-case";
@@ -56,6 +57,13 @@ export function createMerchantModule(core: CoreDeps, deps: MerchantModuleDeps) {
           audit,
           clock,
           uow,
+          pendingSignupHash: async (email) =>
+            (
+              await db.maybeOne<{ password_hash: string }>(sql`
+                select password_hash from identity.merchant_signups
+                where lower(email) = ${email.toLowerCase()} and status = 'pending'
+              `)
+            )?.password_hash ?? null,
         }),
         refresh: new RefreshMerchantSessionUseCase({ accounts, stores, sessions, tokens }),
         logout: new MerchantLogoutUseCase({ sessions }),

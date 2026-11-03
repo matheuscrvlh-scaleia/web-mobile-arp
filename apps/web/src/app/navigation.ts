@@ -21,6 +21,7 @@ import {
   Target,
   TicketPercent,
   Trophy,
+  UserPlus,
   UserRound,
   Users,
   Wallet,
@@ -87,6 +88,7 @@ const STAFF_NAV: NavSection[] = [
       item("Desafios", PATHS.challenges, Target, ROUTES.challenges.list.permission),
       item("Selos", PATHS.seals, Award, ROUTES.seals.list.permission),
       item("Clube ARP", PATHS.club(), Gift, ROUTES.prizes.list.permission),
+      item("Relatórios", PATHS.reports, BarChart3, ROUTES.clubReports.coupons.permission),
     ],
   },
   {
@@ -120,6 +122,7 @@ const STAFF_NAV: NavSection[] = [
     title: "Administração",
     items: [
       item("Usuários", PATHS.users, Users, ROUTES.users.list.permission),
+      item("Lojistas", PATHS.merchants, UserPlus, ROUTES.merchantSignups.list.permission),
       item("Cargos", PATHS.roles, ShieldCheck, ROUTES.roles.list.permission),
       item("Histórico", PATHS.audit, History, ROUTES.auditLogs.permission),
       item("Configurações", PATHS.settings, Settings, ROUTES.settings.get.permission),

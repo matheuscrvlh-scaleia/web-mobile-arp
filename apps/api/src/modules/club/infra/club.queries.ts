@@ -1,5 +1,7 @@
 import type {
   App,
+  CouponsByStoreQuery,
+  CouponsByStoreRow,
   ListPrizeRedemptionsQuery,
   Prize,
   PrizeKind,
@@ -187,6 +189,35 @@ export class ClubQueries {
       product: r.product,
       seal: { id: r.seal_id, name: r.seal_name },
       count: r.count,
+    }));
+  }
+
+  /** Cupons pegos e usados por loja no período (dias em São Paulo). */
+  async couponsByStore(query: CouponsByStoreQuery): Promise<CouponsByStoreRow[]> {
+    const from = sql`(${query.from}::date)::timestamp at time zone ${BUSINESS_TIME_ZONE}`;
+    const to = sql`(${query.to}::date + 1)::timestamp at time zone ${BUSINESS_TIME_ZONE}`;
+    const rows = await this.db.many<{
+      id: string;
+      name: string;
+      claimed: number;
+      used: number;
+    }>(sql`
+      select st.id, st.name,
+             count(*) filter (where cc.claimed_at >= ${from} and cc.claimed_at < ${to})::int as claimed,
+             count(*) filter (where cc.status = redeemed and cc.redeemed_at >= ${from}
+                                and cc.redeemed_at < ${to})::int as used
+      from promotions.coupon_claims cc
+      join promotions.coupons c on c.id = cc.coupon_id
+      join directory.stores st on st.id = c.store_id
+      where (cc.claimed_at >= ${from} and cc.claimed_at < ${to})
+         or (cc.redeemed_at >= ${from} and cc.redeemed_at < ${to})
+      group by st.id, st.name
+      order by used desc, claimed desc, st.name
+    `);
+    return rows.map((r) => ({
+      store: { id: r.id, name: r.name },
+      claimed: r.claimed,
+      used: r.used,
     }));
   }
 
