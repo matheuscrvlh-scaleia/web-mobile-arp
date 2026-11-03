@@ -1,16 +1,15 @@
 import { type DashboardPeriod, dashboardQuerySchema } from "@arp/contracts";
-import { CircleCheck, CircleX, Clock4, Copy, LineChart, QrCode } from "lucide-react";
+import { CircleCheck, CircleX, Clock4, Copy, LineChart, Loader, QrCode } from "lucide-react";
 import { lazy, Suspense } from "react";
 import { useStoreOptions } from "@/features/stores";
 import { useAuth } from "@/shared/auth";
-import { useUrlState } from "@/shared/hooks";
+import { useDocumentTitle, useUrlState } from "@/shared/hooks";
 import { formatNumber } from "@/shared/lib/format";
 import {
   Card,
   CardHeader,
   ErrorState,
   LoadingRegion,
-  PageHeader,
   Segmented,
   Select,
   Skeleton,
@@ -24,6 +23,7 @@ import {
   TopCouponsCard,
   TopStoresCard,
 } from "../components/DashboardRankings";
+import { WelcomeBanner } from "../components/WelcomeBanner";
 
 const PERIODS: { value: DashboardPeriod; label: string }[] = [
   { value: "7d", label: "7 dias" },
@@ -49,42 +49,48 @@ export function DashboardPage() {
   const overview = useDashboardOverview(query);
   const stores = useStoreOptions({ enabled: !merchant });
   const data = overview.data;
+  useDocumentTitle("Dashboard");
 
   return (
     <>
-      <PageHeader
-        title="Dashboard"
-        description={
-          merchant
-            ? `Como a ${user?.store?.name} está indo no app.`
-            : "Como o app está sendo usado: cadastros, cupons, selos e leituras de QR."
-        }
-        actions={
-          <>
-            {!merchant && (
-              <Select
-                aria-label="Loja"
-                placeholder="Todas as lojas"
-                value={query.storeId ?? ""}
-                onChange={(e) => setQuery({ storeId: e.target.value || undefined })}
-                className="w-52"
-              >
-                {(stores.data ?? []).map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </Select>
-            )}
-            <Segmented
-              label="Período"
-              options={PERIODS}
-              value={query.period}
-              onChange={(period) => setQuery({ period: period === "30d" ? undefined : period })}
-            />
-          </>
-        }
-      />
+      <WelcomeBanner
+        eyebrow={`Dashboard · ${user?.store?.name ?? "App ARP"}`}
+        name={user?.name.split(/\s+/)[0] ?? ""}
+      >
+        {merchant
+          ? `Como a ${user?.store?.name} está indo no app.`
+          : "Como o app está sendo usado: cadastros, cupons, selos e leituras de QR."}
+      </WelcomeBanner>
+      <div className="mt-5 mb-6 flex flex-wrap items-center justify-end gap-2">
+        {/* Trocou loja ou período: os números antigos ficam até os novos chegarem. */}
+        {overview.isPlaceholderData && (
+          <span className="flex items-center gap-1.5 px-3 text-xs text-neutral-500">
+            <Loader className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />
+            Atualizando…
+          </span>
+        )}
+        {!merchant && (
+          <Select
+            aria-label="Loja"
+            placeholder="Todas as lojas"
+            value={query.storeId ?? ""}
+            onChange={(e) => setQuery({ storeId: e.target.value || undefined })}
+            className="w-52"
+          >
+            {(stores.data ?? []).map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </Select>
+        )}
+        <Segmented
+          label="Período"
+          options={PERIODS}
+          value={query.period}
+          onChange={(period) => setQuery({ period: period === "30d" ? undefined : period })}
+        />
+      </div>
 
       {overview.error && !data ? (
         <Card>
