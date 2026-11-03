@@ -191,6 +191,7 @@ export async function createContainer(options: ContainerOptions): Promise<Contai
     },
   });
 
+  const club = createClubModule(core, { isVisitorActive });
   const modules: ModuleRoutes[] = [
     { name: "identity", routes: identity.routes },
     { name: "directory", routes: createDirectoryModule(core).routes },
@@ -205,7 +206,7 @@ export async function createContainer(options: ContainerOptions): Promise<Contai
     { name: "dashboard", routes: createDashboardModule(core).routes },
     { name: "platform", routes: createPlatformModule(core).routes },
     { name: "content", routes: createContentModule(core).routes },
-    { name: "club", routes: createClubModule(core, { isVisitorActive }).routes },
+    { name: "club", routes: club.routes },
     { name: "merchant-signup", routes: createMerchantSignupModule(core).routes },
     { name: "app-api", routes: appApi.routes },
     {
@@ -219,7 +220,13 @@ export async function createContainer(options: ContainerOptions): Promise<Contai
       }).routes,
     },
   ];
-  const jobs: Job[] = [...promotions.jobs, ...marketing.jobs, ...identity.jobs, ...appApi.jobs];
+  const jobs: Job[] = [
+    ...promotions.jobs,
+    ...marketing.jobs,
+    ...identity.jobs,
+    ...appApi.jobs,
+    ...club.jobs,
+  ];
   if (env.RATE_LIMIT_STORE === "postgres") {
     jobs.push({
       name: "delete-expired-rate-limits",

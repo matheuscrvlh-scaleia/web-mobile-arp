@@ -11,6 +11,8 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   parkingInfo: "",
   tourInfo: "",
   jobDays: 30,
+  pointsValidityMonths: 12,
+  pointsExpiryNoticeDays: 15,
 };
 
 export const SETTING_KEYS = Object.keys(DEFAULT_APP_SETTINGS) as (keyof AppSettings)[];

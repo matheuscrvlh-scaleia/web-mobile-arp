@@ -13,6 +13,7 @@ import { PRIZE_NOT_FOUND } from "./domain/club";
 import { appClubRoutes, clubRoutes } from "./http/club.routes";
 import { ClubQueries } from "./infra/club.queries";
 import { PgClubStore, prizeRepository } from "./infra/pg-club-store";
+import { pointsExpiryJob } from "./infra/points-expiry-job";
 
 /** Clube ARP (Fase 2): lojinha, trocas, ranking e relatório de selos. */
 export function createClubModule(
@@ -52,5 +53,8 @@ export function createClubModule(
     await api.register(panel);
     await api.register(app, { prefix: "/app" });
   };
-  return { routes };
+  return {
+    routes,
+    jobs: [pointsExpiryJob({ db, push: core.push, clock, logger: core.logger })],
+  };
 }

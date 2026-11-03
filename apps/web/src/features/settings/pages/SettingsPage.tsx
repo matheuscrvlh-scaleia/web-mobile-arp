@@ -129,6 +129,34 @@ function SettingsForm({ settings }: { settings: AppSettings }) {
               {...register("jobDays", { valueAsNumber: true })}
             />
           </Field>
+          <FieldRow>
+            <Field
+              label="Validade dos pontos (meses)"
+              required
+              hint="Pontos do Clube ARP valem para troca por este tempo (padrão: 12)."
+              error={errors.pointsValidityMonths?.message}
+            >
+              <Input
+                type="number"
+                min={1}
+                max={24}
+                {...register("pointsValidityMonths", { valueAsNumber: true })}
+              />
+            </Field>
+            <Field
+              label="Avisar antes de vencer (dias)"
+              required
+              hint="Push para o visitante quando um selo está para vencer (0 = sem aviso)."
+              error={errors.pointsExpiryNoticeDays?.message}
+            >
+              <Input
+                type="number"
+                min={0}
+                max={60}
+                {...register("pointsExpiryNoticeDays", { valueAsNumber: true })}
+              />
+            </Field>
+          </FieldRow>
         </FormSection>
 
         <FormSection title="Contato e suporte" description="Botões de ajuda no perfil do app.">

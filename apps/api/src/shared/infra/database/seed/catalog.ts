@@ -1182,6 +1182,8 @@ export const SETTINGS: AppSettings = {
   parkingInfo:
     "Pague o estacionamento pelo app e ganhe o selo Sem Fila no mesmo instante. A integração com o sistema do estacionamento ainda será definida.",
   jobDays: 30,
+  pointsValidityMonths: 12,
+  pointsExpiryNoticeDays: 15,
   tourInfo:
     "Um passeio de 40 minutos pela história da fábrica, os blocos e a praça. No fim, leia o QR Code e ganhe o selo Explorador.",
 };

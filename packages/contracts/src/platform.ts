@@ -60,6 +60,10 @@ export const appSettingsSchema = z.object({
   tourInfo: z.string().trim().max(1000),
   /** Dias que uma vaga fica no ar antes de sair sozinha (padrão 30). */
   jobDays: z.number().int().min(1).max(90),
+  /** Meses em que os pontos do Clube valem para troca (padrão 12). */
+  pointsValidityMonths: z.number().int().min(1).max(24),
+  /** Dias antes de vencer para avisar o visitante por push (0 = sem aviso). */
+  pointsExpiryNoticeDays: z.number().int().min(0).max(60),
 });
 export type AppSettings = z.infer<typeof appSettingsSchema>;
 

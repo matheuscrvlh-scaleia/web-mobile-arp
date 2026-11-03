@@ -115,6 +115,8 @@ const FIELD_LABEL: Record<string, string> = {
   parkingInfo: "Estacionamento",
   tourInfo: "Tour da ARP",
   jobDays: "Dias de uma vaga no ar",
+  pointsValidityMonths: "Meses de validade dos pontos",
+  pointsExpiryNoticeDays: "Aviso antes de vencer os pontos",
   mustChangePassword: "Precisa trocar a senha",
   code: "Código",
 };
