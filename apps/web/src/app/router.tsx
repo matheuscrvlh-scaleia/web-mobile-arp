@@ -233,6 +233,24 @@ const routes: RouteObject[] = [
                   ),
                 },
               ]),
+              guarded("content.view", [
+                {
+                  path: "conteudo",
+                  lazy: page(
+                    () => import("@/features/content/pages/ContentPage"),
+                    (m) => m.ContentPage,
+                  ),
+                },
+              ]),
+              guarded("jobs.view", [
+                {
+                  path: "vagas",
+                  lazy: page(
+                    () => import("@/features/content/pages/JobsPage"),
+                    (m) => m.JobsPage,
+                  ),
+                },
+              ]),
               guarded("highlights.view", [
                 {
                   path: "destaques",

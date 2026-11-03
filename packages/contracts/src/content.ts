@@ -1,0 +1,188 @@
+import { z } from "zod";
+import {
+  hexColorSchema,
+  iconNameSchema,
+  idSchema,
+  isoDateTimeSchema,
+  listOf,
+  mediaUrlSchema,
+  patchOf,
+} from "./common";
+
+/*
+ * Conteúdo da ARP (Fase 2): Circuito Cultural, Sustentarp, textos
+ * (história, regras, regulamento do Clube) e vagas de emprego. O painel
+ * edita; o app só lê.
+ */
+
+/* Textos ------------------------------------------------------------------ */
+
+/**
+ * history = Nossa história · rules = Regras da ARP (com PDF) ·
+ * club_rules = Regulamento do Clube ARP · circuit = abertura do Circuito
+ * Cultural (o arquivo é a imagem do mapa do Circuito).
+ */
+export const contentPageKeySchema = z.enum(["history", "rules", "club_rules", "circuit"]);
+export type ContentPageKey = z.infer<typeof contentPageKeySchema>;
+
+export const CONTENT_PAGE_LABEL: Record<ContentPageKey, string> = {
+  history: "Nossa história",
+  rules: "Regras da ARP",
+  club_rules: "Regulamento do Clube ARP",
+  circuit: "Circuito Cultural",
+};
+
+export const contentPageSchema = z.object({
+  key: contentPageKeySchema,
+  title: z.string(),
+  /** Texto corrido; parágrafos separados por linha em branco. */
+  body: z.string(),
+  /** PDF para baixar (regras) ou imagem do mapa (circuit). */
+  fileUrl: z.string().nullable(),
+  updatedAt: isoDateTimeSchema.nullable(),
+});
+export type ContentPage = z.infer<typeof contentPageSchema>;
+export const contentPageListSchema = listOf(contentPageSchema);
+export const contentPageKeyParamsSchema = z.object({ key: contentPageKeySchema });
+
+export const updateContentPageBodySchema = z.object({
+  title: z.string().trim().min(1).max(120).optional(),
+  body: z.string().trim().max(20_000).optional(),
+  fileUrl: mediaUrlSchema.nullable().optional(),
+});
+export type UpdateContentPageBody = z.infer<typeof updateContentPageBodySchema>;
+
+/* Circuito Cultural ------------------------------------------------------- */
+
+export const artPointKindSchema = z.enum(["work", "memory", "sculpture", "mural"]);
+export type ArtPointKind = z.infer<typeof artPointKindSchema>;
+
+export const ART_POINT_KIND_LABEL: Record<ArtPointKind, string> = {
+  work: "Obra",
+  memory: "Memória",
+  sculpture: "Escultura",
+  mural: "Mural e grafite",
+};
+
+export const artPointSchema = z.object({
+  id: idSchema,
+  /** Número do ponto no mapa do Circuito. */
+  number: z.number().int(),
+  name: z.string(),
+  artist: z.string(),
+  place: z.string(),
+  kind: artPointKindSchema,
+  description: z.string(),
+  imageUrl: z.string().nullable(),
+  /** Posição no mapa do Circuito, em % (0–100); null = ainda sem posição. */
+  mapX: z.number().nullable(),
+  mapY: z.number().nullable(),
+  active: z.boolean(),
+});
+export type ArtPoint = z.infer<typeof artPointSchema>;
+export const artPointListSchema = listOf(artPointSchema);
+
+const percent = z.number().min(0).max(100);
+
+export const createArtPointBodySchema = z.object({
+  number: z.number().int().min(1).max(999),
+  name: z.string().trim().min(1).max(120),
+  artist: z.string().trim().max(120).default(""),
+  place: z.string().trim().max(160).default(""),
+  kind: artPointKindSchema,
+  description: z.string().trim().max(600).default(""),
+  imageUrl: mediaUrlSchema.nullable().default(null),
+  mapX: percent.nullable().default(null),
+  mapY: percent.nullable().default(null),
+  active: z.boolean().default(true),
+});
+export type CreateArtPointBody = z.infer<typeof createArtPointBodySchema>;
+export const updateArtPointBodySchema = z.object(patchOf(createArtPointBodySchema.shape));
+export type UpdateArtPointBody = z.infer<typeof updateArtPointBodySchema>;
+
+/* Sustentarp -------------------------------------------------------------- */
+
+export const recyclingItemSchema = z.object({
+  id: idSchema,
+  name: z.string(),
+  icon: iconNameSchema,
+  /** O que pode ser descartado. */
+  accepts: z.string(),
+  /** O que não pode. */
+  rejects: z.string(),
+  /** O que vira depois. */
+  becomes: z.string(),
+  /** Descarte deste item conta para o desafio que dá selo. */
+  givesSeal: z.boolean(),
+  sortOrder: z.number().int(),
+  active: z.boolean(),
+});
+export type RecyclingItem = z.infer<typeof recyclingItemSchema>;
+export const recyclingItemListSchema = listOf(recyclingItemSchema);
+
+export const createRecyclingItemBodySchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  icon: iconNameSchema,
+  accepts: z.string().trim().max(600).default(""),
+  rejects: z.string().trim().max(600).default(""),
+  becomes: z.string().trim().max(600).default(""),
+  givesSeal: z.boolean().default(false),
+  sortOrder: z.number().int().min(0).max(999).default(0),
+  active: z.boolean().default(true),
+});
+export type CreateRecyclingItemBody = z.infer<typeof createRecyclingItemBodySchema>;
+export const updateRecyclingItemBodySchema = z.object(patchOf(createRecyclingItemBodySchema.shape));
+export type UpdateRecyclingItemBody = z.infer<typeof updateRecyclingItemBodySchema>;
+
+/* Vagas ------------------------------------------------------------------- */
+
+/** Prazo padrão de uma vaga no ar (dias); a ARP muda em Configurações. */
+export const JOB_DEFAULT_DAYS = 30;
+
+export const jobSchema = z.object({
+  id: idSchema,
+  store: z.object({
+    id: idSchema,
+    slug: z.string(),
+    name: z.string(),
+    icon: iconNameSchema,
+    brandColor: hexColorSchema,
+  }),
+  title: z.string(),
+  /** Texto da vaga (ou só a imagem). */
+  text: z.string(),
+  imageUrl: z.string().nullable(),
+  /** WhatsApp do lojista para candidatos (só dígitos, com DDD). */
+  whatsapp: z.string(),
+  publishedAt: isoDateTimeSchema,
+  /** Sai do ar sozinha nesta data. */
+  expiresAt: isoDateTimeSchema,
+  /** No ar agora (não venceu). */
+  isLive: z.boolean(),
+});
+export type Job = z.infer<typeof jobSchema>;
+export const jobListSchema = listOf(jobSchema);
+
+export const listJobsQuerySchema = z.object({
+  storeId: idSchema.optional(),
+  /** live = no ar; expired = já saíram do ar. */
+  status: z.enum(["live", "expired"]).optional(),
+});
+export type ListJobsQuery = z.infer<typeof listJobsQuerySchema>;
+
+export const createJobBodySchema = z
+  .object({
+    storeId: idSchema,
+    title: z.string().trim().min(1).max(120),
+    text: z.string().trim().max(1500).default(""),
+    imageUrl: mediaUrlSchema.nullable().default(null),
+    whatsapp: z
+      .string()
+      .trim()
+      .regex(/^\d{10,13}$/, "Só números, com DDD"),
+  })
+  .refine((b) => b.text.length > 0 || b.imageUrl !== null, {
+    message: "Escreva o texto da vaga ou envie uma imagem",
+    path: ["text"],
+  });
+export type CreateJobBody = z.infer<typeof createJobBodySchema>;

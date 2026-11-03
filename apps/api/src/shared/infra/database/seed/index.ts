@@ -33,6 +33,7 @@ import {
   USERS,
   type When,
 } from "./catalog";
+import { ART_POINTS, CONTENT_PAGES, JOBS, RECYCLING_ITEMS } from "./content";
 import { Random } from "./random";
 import { addDays, createSeedClock, HOUR_MS, type SeedClock, weekdayOf, zoned } from "./time";
 
@@ -108,6 +109,7 @@ export async function runSeed(deps: SeedDeps, options: SeedOptions): Promise<See
     const seeder = new Seeder(db, clock, images);
     await seeder.roles();
     await seeder.settings();
+    await seeder.content();
     if (!demo) {
       await seeder.user(USERS[0] as (typeof USERS)[number], adminHash, null);
       return false;
@@ -118,6 +120,7 @@ export async function runSeed(deps: SeedDeps, options: SeedOptions): Promise<See
     await seeder.agenda();
     await seeder.gamification();
     await seeder.marketing();
+    await seeder.jobs();
     return seeder.activity(visitorHash, logger);
   });
 
@@ -199,6 +202,57 @@ class Seeder {
   private createdBefore(at: Date, days = 3): Date {
     const t = Math.min(at.getTime(), this.clock.now.getTime()) - days * 24 * HOUR_MS;
     return new Date(t);
+  }
+
+  /** Textos, Circuito Cultural e Sustentarp (Fase 2). Não sobrescreve o que a ARP editou. */
+  async content(): Promise<void> {
+    for (const page of CONTENT_PAGES) {
+      await this.db.query(sql`
+        insert into content.pages (key, title, body) values (${page.key}, ${page.title}, ${page.body})
+        on conflict (key) do nothing
+      `);
+    }
+    for (const [number, name, artist, place, kind, x, y] of ART_POINTS) {
+      await this.ensure(
+        "content.art_points",
+        { number },
+        { name, artist, place, kind, map_x: x, map_y: y },
+      );
+    }
+    for (const [i, item] of RECYCLING_ITEMS.entries()) {
+      await this.ensure(
+        "content.recycling_items",
+        { name: item.name },
+        {
+          icon: item.icon,
+          accepts: item.accepts,
+          rejects: item.rejects,
+          becomes: item.becomes,
+          gives_seal: item.givesSeal ?? false,
+          sort_order: i + 1,
+        },
+      );
+    }
+  }
+
+  /** Vagas de exemplo (demo), com o WhatsApp da loja. */
+  async jobs(): Promise<void> {
+    for (const [slug, title, text, daysAgo] of JOBS) {
+      const store = STORES.find((s) => s.slug === slug);
+      const storeId = this.ids.stores.get(slug);
+      if (!store || !storeId) continue;
+      const publishedAt = new Date(this.clock.now.getTime() - daysAgo * 24 * HOUR_MS);
+      await this.ensure(
+        "content.jobs",
+        { store_id: storeId, title },
+        {
+          text,
+          whatsapp: `55${(store.whatsapp ?? store.phone ?? "24999999999").replace(/\D/g, "")}`,
+          published_at: publishedAt,
+          expires_at: new Date(publishedAt.getTime() + 30 * 24 * HOUR_MS),
+        },
+      );
+    }
   }
 
   async roles(): Promise<void> {

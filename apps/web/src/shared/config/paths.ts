@@ -16,6 +16,10 @@ export const PATHS = {
   catalog: (tab?: "categorias" | "blocos") =>
     tab === "blocos" ? "/categorias?aba=blocos" : "/categorias",
 
+  content: (tab?: "textos" | "circuito" | "sustentarp") =>
+    tab && tab !== "textos" ? `/conteudo?aba=${tab}` : "/conteudo",
+  jobs: "/vagas",
+
   coupons: "/cupons",
   couponNew: "/cupons/nova",
   coupon: (id: string) => `/cupons/${id}`,

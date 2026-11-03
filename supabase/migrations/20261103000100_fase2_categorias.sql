@@ -8,7 +8,8 @@
  * - store_extra_categories guarda as extras: a loja aparece em todas.
  * - As subcategorias do site entram aqui (se ainda não existirem). As
  *   categorias antigas ficam como estão: a ARP reclassifica as lojas pelo
- *   painel e apaga as que sobrarem sem loja.
+ *   painel e apaga as que sobrarem sem loja. Não há subcategoria própria
+ *   para academias: entram em Serviços › Saúde (como no site, sem criar nova).
  */
 
 alter table directory.store_categories drop constraint store_categories_kind_check;
@@ -46,19 +47,18 @@ values
   ('Produtos Naturais', 'food', 'leaf', 5),
   ('Restaurante', 'food', 'utensils', 6),
   ('Sorveteria', 'food', 'ice-cream-cone', 7),
-  ('Academia', 'service', 'dumbbell', 1),
-  ('Advocacia', 'service', 'landmark', 2),
-  ('Agência e Eventos', 'service', 'party-popper', 3),
-  ('Arquitetura e Engenharia', 'service', 'building-2', 4),
-  ('Ateliê', 'service', 'scissors', 5),
-  ('Contabilidade e Finanças', 'service', 'banknote', 6),
-  ('Ensino', 'service', 'book-open', 7),
-  ('Estética e Beleza', 'service', 'sparkles', 8),
-  ('Fotografia', 'service', 'camera', 9),
-  ('Imobiliária e Corretora', 'service', 'key-round', 10),
-  ('Indústria', 'service', 'hammer', 11),
-  ('Lazer', 'service', 'gamepad-2', 12),
-  ('Saúde', 'service', 'stethoscope', 13),
-  ('Tecnologia', 'service', 'laptop', 14),
-  ('Veterinária', 'service', 'paw-print', 15)
+  ('Advocacia', 'service', 'landmark', 1),
+  ('Agência e Eventos', 'service', 'party-popper', 2),
+  ('Arquitetura e Engenharia', 'service', 'building-2', 3),
+  ('Ateliê', 'service', 'scissors', 4),
+  ('Contabilidade e Finanças', 'service', 'banknote', 5),
+  ('Ensino', 'service', 'book-open', 6),
+  ('Estética e Beleza', 'service', 'sparkles', 7),
+  ('Fotografia', 'service', 'camera', 8),
+  ('Imobiliária e Corretora', 'service', 'key-round', 9),
+  ('Indústria', 'service', 'hammer', 10),
+  ('Lazer', 'service', 'gamepad-2', 11),
+  ('Saúde', 'service', 'stethoscope', 12),
+  ('Tecnologia', 'service', 'laptop', 13),
+  ('Veterinária', 'service', 'paw-print', 14)
 on conflict (name, kind) do nothing;

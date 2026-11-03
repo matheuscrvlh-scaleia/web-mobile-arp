@@ -10,6 +10,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   privacyUrl: null,
   parkingInfo: "",
   tourInfo: "",
+  jobDays: 30,
 };
 
 export const SETTING_KEYS = Object.keys(DEFAULT_APP_SETTINGS) as (keyof AppSettings)[];

@@ -12,6 +12,10 @@ export const ENTITY_LABEL: Record<string, string> = {
   block: "Bloco",
   floor: "Andar",
   map_point: "Ponto do mapa",
+  art_point: "Ponto do Circuito Cultural",
+  recycling_item: "Item do Sustentarp",
+  content_page: "Texto da ARP",
+  job: "Vaga",
   mapPoint: "Ponto do mapa",
   coupon: "Promoção",
   claim: "Cupom pego",
@@ -110,6 +114,7 @@ const FIELD_LABEL: Record<string, string> = {
   privacyUrl: "Privacidade",
   parkingInfo: "Estacionamento",
   tourInfo: "Tour da ARP",
+  jobDays: "Dias de uma vaga no ar",
   mustChangePassword: "Precisa trocar a senha",
   code: "Código",
 };

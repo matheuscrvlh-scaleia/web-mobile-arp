@@ -75,6 +75,13 @@ export const APP_ROUTES = {
     register: r("POST", "/push-tokens", "Registrar token de push do aparelho"),
     remove: r("DELETE", "/push-tokens", "Desvincular token de push do aparelho"),
   },
+  /* Conteúdo (Fase 2): só leitura, sem login. */
+  content: {
+    page: r("GET", "/content/pages/:key", "Texto da ARP (história, regras…)", open),
+    artPoints: r("GET", "/content/art-points", "Pontos do Circuito Cultural", open),
+    recycling: r("GET", "/content/recycling-items", "Itens do Sustentarp", open),
+    jobs: r("GET", "/jobs", "Vagas no ar", open),
+  },
   highlights: {
     impression: r("POST", "/highlights/:id/impression", "Registrar exibição do destaque", open),
     click: r("POST", "/highlights/:id/click", "Registrar clique no destaque", open),

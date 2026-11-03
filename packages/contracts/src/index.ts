@@ -2,6 +2,7 @@ export * from "./agenda";
 export * as App from "./app";
 export * from "./auth";
 export * from "./common";
+export * from "./content";
 export * from "./dashboard";
 export * from "./directory";
 export * from "./gamification";

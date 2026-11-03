@@ -48,6 +48,10 @@ export const ROLES: readonly RoleSeed[] = [
       "highlights.manage",
       "notifications.view",
       "notifications.manage",
+      "content.view",
+      "content.manage",
+      "jobs.view",
+      "jobs.manage",
       "visitors.view",
     ],
     isSystem: false,
@@ -76,6 +80,8 @@ export const ROLES: readonly RoleSeed[] = [
       "coupons.view",
       "coupons.manage",
       "coupons.redeem",
+      "jobs.view",
+      "jobs.manage",
     ],
     isSystem: false,
   },
@@ -188,7 +194,7 @@ export const MAP_POINTS = [
 
 /**
  * Subcategorias das 3 categorias do app (Fase 2): as mesmas do site da ARP
- * (espacoarp.com.br/lojas-e-servicos). "Academia" vem do menu do site.
+ * (espacoarp.com.br/lojas-e-servicos). Academia entra em Serviços › Saúde.
  */
 export const STORE_CATEGORIES: readonly {
   name: string;
@@ -207,21 +213,20 @@ export const STORE_CATEGORIES: readonly {
   { name: "Produtos Naturais", kind: "food", icon: "leaf", sortOrder: 5 },
   { name: "Restaurante", kind: "food", icon: "utensils", sortOrder: 6 },
   { name: "Sorveteria", kind: "food", icon: "ice-cream-cone", sortOrder: 7 },
-  { name: "Academia", kind: "service", icon: "dumbbell", sortOrder: 1 },
-  { name: "Advocacia", kind: "service", icon: "landmark", sortOrder: 2 },
-  { name: "Agência e Eventos", kind: "service", icon: "party-popper", sortOrder: 3 },
-  { name: "Arquitetura e Engenharia", kind: "service", icon: "building-2", sortOrder: 4 },
-  { name: "Ateliê", kind: "service", icon: "scissors", sortOrder: 5 },
-  { name: "Contabilidade e Finanças", kind: "service", icon: "banknote", sortOrder: 6 },
-  { name: "Ensino", kind: "service", icon: "book-open", sortOrder: 7 },
-  { name: "Estética e Beleza", kind: "service", icon: "sparkles", sortOrder: 8 },
-  { name: "Fotografia", kind: "service", icon: "camera", sortOrder: 9 },
-  { name: "Imobiliária e Corretora", kind: "service", icon: "key-round", sortOrder: 10 },
-  { name: "Indústria", kind: "service", icon: "hammer", sortOrder: 11 },
-  { name: "Lazer", kind: "service", icon: "gamepad-2", sortOrder: 12 },
-  { name: "Saúde", kind: "service", icon: "stethoscope", sortOrder: 13 },
-  { name: "Tecnologia", kind: "service", icon: "laptop", sortOrder: 14 },
-  { name: "Veterinária", kind: "service", icon: "paw-print", sortOrder: 15 },
+  { name: "Advocacia", kind: "service", icon: "landmark", sortOrder: 1 },
+  { name: "Agência e Eventos", kind: "service", icon: "party-popper", sortOrder: 2 },
+  { name: "Arquitetura e Engenharia", kind: "service", icon: "building-2", sortOrder: 3 },
+  { name: "Ateliê", kind: "service", icon: "scissors", sortOrder: 4 },
+  { name: "Contabilidade e Finanças", kind: "service", icon: "banknote", sortOrder: 5 },
+  { name: "Ensino", kind: "service", icon: "book-open", sortOrder: 6 },
+  { name: "Estética e Beleza", kind: "service", icon: "sparkles", sortOrder: 7 },
+  { name: "Fotografia", kind: "service", icon: "camera", sortOrder: 8 },
+  { name: "Imobiliária e Corretora", kind: "service", icon: "key-round", sortOrder: 9 },
+  { name: "Indústria", kind: "service", icon: "hammer", sortOrder: 10 },
+  { name: "Lazer", kind: "service", icon: "gamepad-2", sortOrder: 11 },
+  { name: "Saúde", kind: "service", icon: "stethoscope", sortOrder: 12 },
+  { name: "Tecnologia", kind: "service", icon: "laptop", sortOrder: 13 },
+  { name: "Veterinária", kind: "service", icon: "paw-print", sortOrder: 14 },
 ];
 
 /** [dias da semana (0 = dom), abre, fecha]. Fecha <= abre = passa da meia-noite. */
@@ -473,8 +478,7 @@ export const STORES: readonly StoreSeed[] = [
     slug: "alto-pilates",
     name: "Alto Pilates",
     kind: "service",
-    category: "Academia",
-    extraCategories: [["service", "Saúde"]],
+    category: "Saúde",
     block: "Bloco 82",
     level: 2,
     icon: "flower-2",
@@ -1169,6 +1173,7 @@ export const SETTINGS: AppSettings = {
   privacyUrl: null,
   parkingInfo:
     "Pague o estacionamento pelo app e ganhe o selo Sem Fila no mesmo instante. A integração com o sistema do estacionamento ainda será definida.",
+  jobDays: 30,
   tourInfo:
     "Um passeio de 40 minutos pela história da fábrica, os blocos e a praça. No fim, leia o QR Code e ganhe o selo Explorador.",
 };

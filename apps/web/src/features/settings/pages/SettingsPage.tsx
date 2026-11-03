@@ -115,6 +115,20 @@ function SettingsForm({ settings }: { settings: AppSettings }) {
               {...register("couponDefaultWindowHours", { valueAsNumber: true })}
             />
           </Field>
+          <Field
+            label="Dias de uma vaga no ar"
+            required
+            hint="Depois disso, a vaga sai do app sozinha (padrão: 30)."
+            error={errors.jobDays?.message}
+            className="max-w-xs"
+          >
+            <Input
+              type="number"
+              min={1}
+              max={90}
+              {...register("jobDays", { valueAsNumber: true })}
+            />
+          </Field>
         </FormSection>
 
         <FormSection title="Contato e suporte" description="Botões de ajuda no perfil do app.">

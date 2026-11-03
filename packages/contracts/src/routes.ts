@@ -169,6 +169,29 @@ export const ROUTES = {
     cancel: r("POST", "/notifications/:id/cancel", "notifications.manage", "Cancelar agendada"),
   },
 
+  /* Conteúdo (Fase 2): textos, Circuito Cultural, Sustentarp e vagas. */
+  contentPages: {
+    list: r("GET", "/content/pages", "content.view", "Textos da ARP"),
+    update: r("PATCH", "/content/pages/:key", "content.manage", "Editar texto"),
+  },
+  artPoints: {
+    list: r("GET", "/content/art-points", "content.view", "Pontos do Circuito Cultural"),
+    create: r("POST", "/content/art-points", "content.manage", "Criar ponto do Circuito"),
+    update: r("PATCH", "/content/art-points/:id", "content.manage", "Editar ponto do Circuito"),
+    remove: r("DELETE", "/content/art-points/:id", "content.manage", "Apagar ponto do Circuito"),
+  },
+  recyclingItems: {
+    list: r("GET", "/content/recycling-items", "content.view", "Itens do Sustentarp"),
+    create: r("POST", "/content/recycling-items", "content.manage", "Criar item do Sustentarp"),
+    update: r("PATCH", "/content/recycling-items/:id", "content.manage", "Editar item"),
+    remove: r("DELETE", "/content/recycling-items/:id", "content.manage", "Apagar item"),
+  },
+  jobs: {
+    list: r("GET", "/jobs", "jobs.view", "Vagas (?storeId&status)"),
+    create: r("POST", "/jobs", "jobs.manage", "Publicar vaga"),
+    remove: r("DELETE", "/jobs/:id", "jobs.manage", "Tirar vaga do ar"),
+  },
+
   visitors: {
     list: r("GET", "/visitors", "visitors.view", "Visitantes (paginado, filtros)"),
     get: r("GET", "/visitors/:id", "visitors.view", "Visitante com histórico"),

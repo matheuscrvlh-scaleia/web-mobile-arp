@@ -3,6 +3,7 @@ import {
   Award,
   BarChart3,
   Bell,
+  BriefcaseBusiness,
   CalendarDays,
   ClipboardCheck,
   History,
@@ -10,6 +11,7 @@ import {
   type LucideIcon,
   Map as MapIcon,
   Megaphone,
+  Palette,
   Settings,
   ShieldCheck,
   Store,
@@ -90,6 +92,18 @@ const STAFF_NAV: NavSection[] = [
     ],
   },
   {
+    title: "Conteúdo",
+    items: [
+      item(
+        "Textos, Circuito e Sustentarp",
+        PATHS.content(),
+        Palette,
+        ROUTES.contentPages.list.permission,
+      ),
+      item("Vagas", PATHS.jobs, BriefcaseBusiness, ROUTES.jobs.list.permission),
+    ],
+  },
+  {
     title: "Visitantes",
     items: [item("Visitantes", PATHS.visitors, UserRound, ROUTES.visitors.list.permission)],
   },
@@ -126,6 +140,10 @@ function merchantNav(storeId: string): NavSection[] {
         item("Promoções", PATHS.coupons, TicketPercent, ROUTES.coupons.list.permission),
         item("Cupons pegos", PATHS.claims, Wallet, ROUTES.claims.list.permission),
       ],
+    },
+    {
+      title: "Vagas",
+      items: [item("Vagas", PATHS.jobs, BriefcaseBusiness, ROUTES.jobs.list.permission)],
     },
   ];
 }

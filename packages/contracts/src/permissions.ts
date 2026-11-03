@@ -86,6 +86,27 @@ export const PERMISSION_CATALOG = [
     ],
   },
   {
+    group: "Conteúdo",
+    items: [
+      {
+        key: "content.view",
+        label: "Ver conteúdo",
+        description: "Textos, Circuito Cultural e Sustentarp.",
+      },
+      {
+        key: "content.manage",
+        label: "Editar conteúdo",
+        description: "História, regras, regulamento, Circuito Cultural e Sustentarp.",
+      },
+      { key: "jobs.view", label: "Ver vagas", description: "Vagas de emprego das lojas." },
+      {
+        key: "jobs.manage",
+        label: "Gerenciar vagas",
+        description: "Publicar e tirar vagas do ar (o lojista, só as da loja dele).",
+      },
+    ],
+  },
+  {
     group: "Visitantes",
     items: [
       { key: "visitors.view", label: "Ver visitantes", description: "Contas do app e histórico." },

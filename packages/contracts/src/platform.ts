@@ -58,6 +58,8 @@ export const appSettingsSchema = z.object({
   parkingInfo: z.string().trim().max(1000),
   /** Texto do painel "Tour da ARP" do app. */
   tourInfo: z.string().trim().max(1000),
+  /** Dias que uma vaga fica no ar antes de sair sozinha (padrão 30). */
+  jobDays: z.number().int().min(1).max(90),
 });
 export type AppSettings = z.infer<typeof appSettingsSchema>;
 
