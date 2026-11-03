@@ -18,6 +18,8 @@ export interface UserRepository {
   create(data: NewUser): Promise<User>;
   save(user: User): Promise<void>;
   recordLogin(id: string, at: Date): Promise<void>;
+  /** ConflictError se algo ainda aponta para o usuário (cupons, notificações...). */
+  delete(id: string): Promise<void>;
   /** Administradores ativos (cargo do sistema), sem contar o usuário informado. */
   countOtherActiveAdmins(excludeUserId: string): Promise<number>;
 }

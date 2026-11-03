@@ -17,7 +17,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { roleKeys } from "@/features/roles";
-import { apiRequest, updateListItem } from "@/shared/api";
+import { apiCall, apiRequest, updateListItem } from "@/shared/api";
 
 export const usersApi = {
   list: (query: Partial<ListUsersQuery>, signal?: AbortSignal) =>
@@ -29,8 +29,13 @@ export const usersApi = {
     apiRequest(ROUTES.users.create, createUserResponseSchema, { body }),
   update: (id: string, body: UpdateUserBody) =>
     apiRequest(ROUTES.users.update, userSchema, { params: { id }, body }),
-  resetPassword: (id: string) =>
-    apiRequest(ROUTES.users.resetPassword, resetPasswordResponseSchema, { params: { id } }),
+  remove: (id: string) => apiCall(ROUTES.users.remove, { params: { id } }),
+  /** Sem senha, a API gera uma provisória; com ela, vale a escolhida (também provisória). */
+  resetPassword: (id: string, password?: string) =>
+    apiRequest(ROUTES.users.resetPassword, resetPasswordResponseSchema, {
+      params: { id },
+      body: { password },
+    }),
 };
 
 export const userKeys = {
@@ -81,11 +86,26 @@ export function useUpdateUser(id: string) {
   });
 }
 
-/** Gera uma senha provisória (o usuário troca no próximo acesso). */
+/** Exclui de vez (só quem não tem histórico; a API recusa os demais). */
+export function useDeleteUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: usersApi.remove,
+    onSuccess: (_, id) => {
+      qc.removeQueries({ queryKey: userKeys.detail(id) });
+      return Promise.all([
+        qc.invalidateQueries({ queryKey: userKeys.lists() }),
+        qc.invalidateQueries({ queryKey: roleKeys.all }),
+      ]);
+    },
+  });
+}
+
+/** Senha provisória nova (o usuário troca no próximo acesso). */
 export function useResetPassword(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => usersApi.resetPassword(id),
+    mutationFn: (password?: string) => usersApi.resetPassword(id, password),
     onSuccess: () => qc.invalidateQueries({ queryKey: userKeys.detail(id) }),
   });
 }

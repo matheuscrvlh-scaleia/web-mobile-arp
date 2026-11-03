@@ -1,9 +1,9 @@
-import type { User } from "@arp/contracts";
+import { passwordSchema, type User } from "@arp/contracts";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CalendarClock, KeyRound, LogIn, Power, PowerOff, UserX } from "lucide-react";
+import { CalendarClock, KeyRound, LogIn, UserX } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { applyApiErrors, errorMessage } from "@/shared/api";
 import { useAuth } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
@@ -25,6 +25,7 @@ import {
   toast,
 } from "@/shared/ui";
 import { useResetPassword, useUpdateUser, useUser } from "../api";
+import { PasswordField } from "../components/PasswordField";
 import { PeopleTabs } from "../components/PeopleTabs";
 import { TemporaryPasswordModal } from "../components/TemporaryPasswordModal";
 import { StoreAccessBadge, UserStatusBadge } from "../components/UserBadges";
@@ -35,6 +36,7 @@ import {
   type UserProfileValues,
   userProfileSchema,
 } from "../components/UserFields";
+import { UserQuickActions } from "../components/UserQuickActions";
 
 export function UserDetailPage() {
   const { id = "" } = useParams();
@@ -69,9 +71,12 @@ export function UserDetailPage() {
 function UserDetail({ user }: { user: User }) {
   const { can, user: me } = useAuth();
   const manage = can("users.manage");
+  const navigate = useNavigate();
   const update = useUpdateUser(user.id);
   const reset = useResetPassword(user.id);
-  const [confirm, setConfirm] = useState<"status" | "password" | null>(null);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordError, setPasswordError] = useState<string>();
   const [temporary, setTemporary] = useState<string | null>(null);
   const isMe = me?.id === user.id;
 
@@ -106,7 +111,18 @@ function UserDetail({ user }: { user: User }) {
     });
   });
 
-  const disabling = user.status === "active";
+  // Vazio: a API gera. Preenchido: precisa seguir a regra de senha.
+  const askReset = () => {
+    if (newPassword) {
+      const parsed = passwordSchema.safeParse(newPassword);
+      if (!parsed.success) {
+        setPasswordError(parsed.error.issues[0]?.message);
+        return;
+      }
+    }
+    setPasswordError(undefined);
+    setConfirmReset(true);
+  };
 
   return (
     <>
@@ -120,6 +136,7 @@ function UserDetail({ user }: { user: User }) {
         documentTitle={user.name}
         description={user.email}
         back={{ to: PATHS.users, label: "Usuários" }}
+        actions={<UserQuickActions user={user} onDeleted={() => navigate(PATHS.users)} />}
       />
       <PeopleTabs />
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
@@ -161,79 +178,59 @@ function UserDetail({ user }: { user: User }) {
               </InfoItem>
             </div>
           </Card>
-          {manage && (
+          {manage && !isMe && (
             <Card>
-              <CardHeader title="Acesso" description="Senha e bloqueio da conta." />
-              <div className="flex flex-col gap-2">
-                <Button variant="secondary" icon={KeyRound} onClick={() => setConfirm("password")}>
-                  Gerar nova senha provisória
+              <CardHeader
+                title="Redefinir senha"
+                description="Se a pessoa esqueceu a senha, defina uma provisória. No próximo acesso ela escolhe uma nova."
+              />
+              <div className="flex flex-col gap-3">
+                <PasswordField
+                  value={newPassword}
+                  onChange={(v) => {
+                    setNewPassword(v);
+                    setPasswordError(undefined);
+                  }}
+                  placeholder="Clique em Gerar ou digite"
+                  hint="Em branco, o sistema gera uma. A pessoa troca no próximo acesso."
+                  error={passwordError}
+                />
+                <Button variant="secondary" icon={KeyRound} onClick={askReset}>
+                  Redefinir senha
                 </Button>
-                <Button
-                  variant={disabling ? "ghost" : "brand"}
-                  icon={disabling ? PowerOff : Power}
-                  disabled={isMe}
-                  title={isMe ? "Você não pode desativar a própria conta" : undefined}
-                  onClick={() => setConfirm("status")}
-                >
-                  {disabling ? "Desativar usuário" : "Reativar usuário"}
-                </Button>
-                {isMe && (
-                  <p className="text-xs text-neutral-500">
-                    Você não pode desativar a própria conta.
-                  </p>
-                )}
               </div>
+            </Card>
+          )}
+          {isMe && (
+            <Card>
+              <CardHeader title="Sua senha" />
+              <Link to={PATHS.changePassword} className="text-sm font-medium hover:underline">
+                Trocar a minha senha →
+              </Link>
             </Card>
           )}
         </div>
       </div>
 
       <ConfirmDialog
-        open={confirm === "password"}
+        open={confirmReset}
         onClose={() => {
-          setConfirm(null);
+          setConfirmReset(false);
           reset.reset();
         }}
-        title={`Gerar nova senha para ${user.name}?`}
+        title={`Redefinir a senha de ${user.name}?`}
         description="A senha atual para de funcionar e as sessões abertas são encerradas. A pessoa cria uma nova no próximo acesso."
-        confirmLabel="Gerar senha"
+        confirmLabel="Redefinir senha"
         loading={reset.isPending}
         error={reset.error}
         onConfirm={() =>
-          reset.mutate(undefined, {
+          reset.mutate(newPassword || undefined, {
             onSuccess: ({ temporaryPassword }) => {
-              setConfirm(null);
+              setConfirmReset(false);
+              setNewPassword("");
               setTemporary(temporaryPassword);
             },
           })
-        }
-      />
-      <ConfirmDialog
-        open={confirm === "status"}
-        onClose={() => {
-          setConfirm(null);
-          update.reset();
-        }}
-        danger={disabling}
-        title={disabling ? `Desativar ${user.name}?` : `Reativar ${user.name}?`}
-        description={
-          disabling
-            ? "A pessoa perde o acesso ao painel na hora. O histórico do que ela fez continua."
-            : "A pessoa volta a entrar com a senha que já tinha."
-        }
-        confirmLabel={disabling ? "Desativar" : "Reativar"}
-        loading={update.isPending}
-        error={update.error}
-        onConfirm={() =>
-          update.mutate(
-            { status: disabling ? "disabled" : "active" },
-            {
-              onSuccess: () => {
-                setConfirm(null);
-                toast.success(disabling ? "Usuário desativado." : "Usuário reativado.");
-              },
-            },
-          )
         }
       />
       <TemporaryPasswordModal

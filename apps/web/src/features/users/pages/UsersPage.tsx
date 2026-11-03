@@ -1,11 +1,21 @@
 import { listUsersQuerySchema, type User, userStatusSchema } from "@arp/contracts";
-import { ChevronRight, FilterX, Plus, SearchX, Users } from "lucide-react";
-import { useCallback } from "react";
+import {
+  CircleOff,
+  FilterX,
+  Pencil,
+  Plus,
+  SearchX,
+  ShieldCheck,
+  UserCheck,
+  Users,
+} from "lucide-react";
+import { useCallback, useMemo } from "react";
 import { Link } from "react-router";
 import { useRoles } from "@/features/roles";
+import { useAuth } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
 import { useSearchText, useUrlState } from "@/shared/hooks";
-import { formatDateTime, formatRelative } from "@/shared/lib/format";
+import { formatDateTime, formatNumber, formatRelative } from "@/shared/lib/format";
 import {
   Avatar,
   Button,
@@ -16,6 +26,7 @@ import {
   EmptyState,
   ErrorState,
   FilterBar,
+  KpiCard,
   PageHeader,
   Pagination,
   SearchInput,
@@ -25,10 +36,11 @@ import {
 import { useUsers } from "../api";
 import { PeopleTabs } from "../components/PeopleTabs";
 import { StoreAccessBadge, UserStatusBadge } from "../components/UserBadges";
+import { UserQuickActions } from "../components/UserQuickActions";
 
 const STATUS_LABEL = { active: "Ativos", disabled: "Desativados" } as const;
 
-const COLUMNS: Column<User>[] = [
+const columns = (meId: string | undefined): Column<User>[] => [
   {
     key: "name",
     header: "Pessoa",
@@ -36,7 +48,14 @@ const COLUMNS: Column<User>[] = [
       <Link to={PATHS.user(u.id)} className="flex items-center gap-3 hover:underline">
         <Avatar name={u.name} muted={u.status === "disabled"} />
         <span className="min-w-0">
-          <span className="block font-medium text-neutral-900">{u.name}</span>
+          <span className="flex items-center gap-2 font-medium text-neutral-900">
+            {u.name}
+            {u.id === meId && (
+              <span className="rounded-full bg-neutral-900 px-2 py-0.5 text-[10px] font-medium text-white">
+                você
+              </span>
+            )}
+          </span>
           <span className="block text-xs text-neutral-500">{u.email}</span>
         </span>
       </Link>
@@ -68,20 +87,57 @@ const COLUMNS: Column<User>[] = [
     className: "hidden lg:table-cell",
   },
   {
-    key: "open",
-    header: <span className="sr-only">Abrir</span>,
+    key: "actions",
+    header: <span className="sr-only">Ações</span>,
     numeric: true,
     cell: (u) => (
-      <Link
-        to={PATHS.user(u.id)}
-        aria-label={`Abrir ${u.name}`}
-        className="inline-grid size-8 place-items-center rounded-full text-neutral-400 hover:bg-neutral-900/[0.06] hover:text-neutral-900"
-      >
-        <ChevronRight className="size-4" aria-hidden />
-      </Link>
+      <span className="inline-flex items-center gap-0.5">
+        <Link
+          to={PATHS.user(u.id)}
+          aria-label={`Editar ${u.name}`}
+          title="Editar"
+          className="inline-grid size-8 place-items-center rounded-full text-neutral-500 hover:bg-neutral-900/[0.07] hover:text-neutral-900"
+        >
+          <Pencil className="size-4" aria-hidden />
+        </Link>
+        <UserQuickActions user={u} compact />
+      </span>
     ),
   },
 ];
+
+/** Totais do topo: contagens leves (página de 1 item, só o total). */
+function UserTotals({ rolesCount }: { rolesCount: number | undefined }) {
+  const active = useUsers({ status: "active", pageSize: 1 });
+  const disabled = useUsers({ status: "disabled", pageSize: 1 });
+  const show = (n: number | undefined) => (n === undefined ? "—" : formatNumber(n));
+  return (
+    <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <KpiCard
+        label="Com acesso"
+        value={show(active.data?.meta.total)}
+        hint="usuários ativos"
+        icon={UserCheck}
+      />
+      <KpiCard
+        label="Desativados"
+        value={show(disabled.data?.meta.total)}
+        hint="mantidos para o histórico"
+        icon={CircleOff}
+      />
+      <KpiCard
+        label="Cargos"
+        value={show(rolesCount)}
+        hint={
+          <Link to={PATHS.roles} className="hover:underline">
+            Ver e editar cargos →
+          </Link>
+        }
+        icon={ShieldCheck}
+      />
+    </div>
+  );
+}
 
 export function UsersPage() {
   const [query, setQuery] = useUrlState(listUsersQuerySchema);
@@ -89,13 +145,15 @@ export function UsersPage() {
   const [search, setSearch] = useSearchText(query.q, commit);
   const users = useUsers(query);
   const roles = useRoles();
+  const { user: me } = useAuth();
+  const tableColumns = useMemo(() => columns(me?.id), [me?.id]);
   const filtered = Boolean(query.q || query.roleId || query.status || query.storeId);
 
   return (
     <>
       <PageHeader
         title="Usuários"
-        description="Quem acessa o painel: equipe da ARP e lojistas."
+        description="Quem acessa o painel: equipe da ARP e lojistas. O cargo define o que cada um vê e faz."
         actions={
           <Can permission="users.manage">
             <ButtonLink to={PATHS.userNew} icon={Plus}>
@@ -105,6 +163,7 @@ export function UsersPage() {
         }
       />
       <PeopleTabs />
+      <UserTotals rolesCount={roles.data?.length} />
       <FilterBar>
         <SearchInput
           value={search}
@@ -160,7 +219,7 @@ export function UsersPage() {
           <>
             <Table
               caption="Usuários do painel"
-              columns={COLUMNS}
+              columns={tableColumns}
               rows={users.data?.data}
               rowKey={(u) => u.id}
               loading={users.isLoading}

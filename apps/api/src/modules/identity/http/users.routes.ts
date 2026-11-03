@@ -7,6 +7,7 @@ import {
   PERMISSION_CATALOG,
   permissionCatalogSchema,
   ROUTES,
+  resetPasswordBodySchema,
   resetPasswordResponseSchema,
   roleListSchema,
   roleSchema,
@@ -22,6 +23,7 @@ import { createRouter } from "../../../shared/infra/http/router";
 import type { CreateRoleUseCase } from "../application/create-role.use-case";
 import type { CreateUserUseCase } from "../application/create-user.use-case";
 import type { DeleteRoleUseCase } from "../application/delete-role.use-case";
+import type { DeleteUserUseCase } from "../application/delete-user.use-case";
 import type { ResetUserPasswordUseCase } from "../application/reset-user-password.use-case";
 import { ROLE_NOT_FOUND } from "../application/role-deps";
 import type { UpdateRoleUseCase } from "../application/update-role.use-case";
@@ -36,6 +38,7 @@ export interface UsersRoutesDeps {
   deleteRole: DeleteRoleUseCase;
   createUser: CreateUserUseCase;
   updateUser: UpdateUserUseCase;
+  deleteUser: DeleteUserUseCase;
   resetPassword: ResetUserPasswordUseCase;
 }
 
@@ -126,10 +129,23 @@ export function usersRoutes(deps: UsersRoutesDeps): FastifyPluginAsyncZod {
       },
     );
 
+    r.route(ROUTES.users.remove, { params: idParamsSchema }, async (request, reply) => {
+      await deps.deleteUser.execute({ id: request.params.id }, staffOf(request));
+      return reply.status(204).send();
+    });
+
     r.route(
       ROUTES.users.resetPassword,
-      { params: idParamsSchema, response: { 200: resetPasswordResponseSchema } },
-      async (request) => deps.resetPassword.execute({ id: request.params.id }, staffOf(request)),
+      {
+        params: idParamsSchema,
+        body: resetPasswordBodySchema,
+        response: { 200: resetPasswordResponseSchema },
+      },
+      async (request) =>
+        deps.resetPassword.execute(
+          { id: request.params.id, password: request.body?.password },
+          staffOf(request),
+        ),
     );
   };
 }

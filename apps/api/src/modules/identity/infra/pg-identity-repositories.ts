@@ -3,6 +3,7 @@ import type { Database } from "../../../shared/infra/database/database";
 import {
   type ConstraintErrors,
   translateConstraintErrors,
+  translateInUseError,
 } from "../../../shared/infra/database/errors";
 import { sql } from "../../../shared/infra/database/sql";
 import type {
@@ -169,6 +170,16 @@ export class PgUserRepository implements UserRepository, StaffProfileReader {
           where id = ${s.id}
         `),
       USER_ERRORS,
+    );
+  }
+
+  async delete(id: string): Promise<void> {
+    await translateInUseError(
+      () => this.db.query(sql`delete from identity.users where id = ${id}`),
+      () =>
+        new ConflictError(
+          "Esta pessoa já tem registros no sistema (cupons, notificações ou ajustes). Desative em vez de excluir.",
+        ),
     );
   }
 

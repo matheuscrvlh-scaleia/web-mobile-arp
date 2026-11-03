@@ -6,9 +6,13 @@ import { USER_NOT_FOUND, type UserUseCaseDeps } from "./user-rules";
 export class ResetUserPasswordUseCase {
   constructor(private readonly deps: UserUseCaseDeps) {}
 
-  async execute(input: { id: string }, actor: StaffActor): Promise<{ temporaryPassword: string }> {
+  /** Sem `password`, gera uma; com ela, usa a escolhida. As duas são provisórias. */
+  async execute(
+    input: { id: string; password?: string },
+    actor: StaffActor,
+  ): Promise<{ temporaryPassword: string }> {
     const { users, hasher, random, sessions, audit, uow } = this.deps;
-    const temporaryPassword = generateTemporaryPassword(random);
+    const temporaryPassword = input.password ?? generateTemporaryPassword(random);
     const passwordHash = await hasher.hash(temporaryPassword);
     await uow.run(async () => {
       const user = await users.findById(input.id);

@@ -55,6 +55,7 @@ export const ROUTES = {
     get: r("GET", "/users/:id", "users.view", "Usuário"),
     create: r("POST", "/users", "users.manage", "Criar usuário"),
     update: r("PATCH", "/users/:id", "users.manage", "Editar / desativar usuário"),
+    remove: r("DELETE", "/users/:id", "users.manage", "Excluir usuário sem histórico"),
     resetPassword: r("POST", "/users/:id/reset-password", "users.manage", "Gerar senha provisória"),
   },
 

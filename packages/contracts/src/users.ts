@@ -88,5 +88,9 @@ export const updateUserBodySchema = z.object({
 });
 export type UpdateUserBody = z.infer<typeof updateUserBodySchema>;
 
+/** Sem senha: o sistema gera uma provisória. Com senha: vale a escolhida pelo admin (também provisória). */
+export const resetPasswordBodySchema = z.object({ password: passwordSchema.optional() }).optional();
+export type ResetPasswordBody = z.infer<typeof resetPasswordBodySchema>;
+
 export const resetPasswordResponseSchema = z.object({ temporaryPassword: z.string() });
 export type ResetPasswordResponse = z.infer<typeof resetPasswordResponseSchema>;

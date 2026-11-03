@@ -5,7 +5,7 @@
 # Web:  http://localhost:8082  (nginx :80)  — proxy de /api para a API
 # API:  http://localhost:3002  (node  :3000)
 
-name: arp-erp
+name: arp-controlapp
 
 services:
   api:
@@ -18,7 +18,7 @@ services:
         required: false
     environment:
       NODE_ENV: production
-      TRUST_PROXY: "1"
+      TRUST_PROXY: ${TRUST_PROXY:-1}
       DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL no .env}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?Defina JWT_ACCESS_SECRET no .env (32+ caracteres)}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8082}
@@ -27,7 +27,7 @@ services:
       # Heap abaixo do limite do container: o GC age antes do OOM killer.
       NODE_OPTIONS: --max-old-space-size=384
     ports:
-      - "3002:3000"
+      - "127.0.0.1:3002:3000"
     volumes:
       - uploads:/app/storage/uploads
     # Maior que SHUTDOWN_TIMEOUT_MS (20 s): o graceful shutdown termina antes do SIGKILL.
@@ -55,7 +55,7 @@ services:
     environment:
       API_HOST: api:3000
     ports:
-      - "8082:80"
+      - "127.0.0.1:8082:80"
     deploy:
       resources:
         limits:

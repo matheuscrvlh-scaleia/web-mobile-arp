@@ -6,6 +6,7 @@ import { ChangePasswordUseCase } from "./application/change-password.use-case";
 import { CreateRoleUseCase } from "./application/create-role.use-case";
 import { CreateUserUseCase } from "./application/create-user.use-case";
 import { DeleteRoleUseCase } from "./application/delete-role.use-case";
+import { DeleteUserUseCase } from "./application/delete-user.use-case";
 import { LoginUseCase } from "./application/login.use-case";
 import { LogoutUseCase } from "./application/logout.use-case";
 import { RefreshSessionUseCase } from "./application/refresh-session.use-case";
@@ -81,6 +82,7 @@ export function createIdentityModule(core: CoreDeps) {
         deleteRole: new DeleteRoleUseCase(roleDeps),
         createUser: new CreateUserUseCase(userDeps),
         updateUser: new UpdateUserUseCase(userDeps),
+        deleteUser: new DeleteUserUseCase(userDeps),
         resetPassword: new ResetUserPasswordUseCase(userDeps),
       }),
     );
