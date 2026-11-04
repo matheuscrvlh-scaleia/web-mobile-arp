@@ -3,14 +3,15 @@ import {
   type ContentPageKey,
   type CreateJobBody,
   type UpdateContentPageBody,
+  type UpdateJobBody,
 } from "@arp/contracts";
 import type { StaffActor } from "../../../shared/application/actor";
-import { snapshot } from "../../../shared/application/audit-changes";
+import { diff, hasChanges, snapshot } from "../../../shared/application/audit-changes";
 import type { AuditLogger } from "../../../shared/application/ports/audit-logger";
 import type { Clock } from "../../../shared/application/ports/clock";
 import type { UnitOfWork } from "../../../shared/application/ports/unit-of-work";
 import { assertStoreAccess } from "../../../shared/application/store-scope";
-import { NotFoundError } from "../../../shared/domain/errors";
+import { NotFoundError, ValidationError } from "../../../shared/domain/errors";
 import type { CatalogItem } from "../../directory/domain/catalog";
 import type { CatalogRepository } from "../../directory/domain/repositories";
 import { type JobProps, jobExpiry } from "../domain/content";
@@ -44,23 +45,22 @@ export class UpdateContentPageUseCase {
 
 interface JobDeps {
   jobs: CatalogRepository<JobProps, CatalogItem<JobProps>>;
-  /** Dias no ar (configuração jobDays). */
-  jobDays: () => Promise<number>;
   clock: Clock;
   audit: AuditLogger;
   uow: UnitOfWork;
 }
 
-/** Publica a vaga; o lojista só na própria loja. Sai do ar sozinha em jobDays. */
+/** Publica a vaga; o lojista só na própria loja. Sai do ar sozinha em `days` (padrão 30). */
 export class CreateJobUseCase {
   constructor(private readonly deps: JobDeps) {}
 
   async execute(input: CreateJobBody, actor: StaffActor): Promise<string> {
-    const { jobs, jobDays, clock, audit, uow } = this.deps;
+    const { jobs, clock, audit, uow } = this.deps;
     assertStoreAccess(actor, input.storeId);
-    const expiresAt = jobExpiry(clock.now(), await jobDays());
+    const { days, ...data } = input;
+    const expiresAt = jobExpiry(clock.now(), days);
     return uow.run(async () => {
-      const job = await jobs.create({ ...input, expiresAt, createdBy: actor.id });
+      const job = await jobs.create({ ...data, expiresAt, createdBy: actor.id });
       await audit.log({
         actor,
         action: "job.create",
@@ -69,6 +69,37 @@ export class CreateJobUseCase {
         changes: snapshot(job.toState()),
       });
       return job.id;
+    });
+  }
+}
+
+/** Edita a vaga; `days` renova o prazo a partir de agora (vale para reabrir encerrada). */
+export class UpdateJobUseCase {
+  constructor(private readonly deps: JobDeps) {}
+
+  async execute(input: { id: string; changes: UpdateJobBody }, actor: StaffActor): Promise<void> {
+    const { jobs, clock, audit, uow } = this.deps;
+    const { days, ...changes } = input.changes;
+    await uow.run(async () => {
+      const job = await jobs.findById(input.id);
+      if (!job) throw new NotFoundError(JOB_NOT_FOUND);
+      const before = job.toState();
+      assertStoreAccess(actor, before.storeId);
+      job.update({ ...changes, ...(days ? { expiresAt: jobExpiry(clock.now(), days) } : {}) });
+      const after = job.toState();
+      if (after.text === "" && after.imageUrl === null) {
+        throw ValidationError.field("text", "Escreva o texto da vaga ou envie uma imagem");
+      }
+      const changed = diff(before, after);
+      if (!hasChanges(changed)) return;
+      await jobs.save(job);
+      await audit.log({
+        actor,
+        action: "job.update",
+        entityType: "job",
+        entityId: job.id,
+        changes: changed,
+      });
     });
   }
 }

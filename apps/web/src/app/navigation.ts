@@ -131,14 +131,16 @@ function merchantNav(storeId: string): NavSection[] {
   return [
     {
       title: "Minha loja",
+      // Um item só: Dados, Horários e Desempenho são abas da própria tela.
+      // Abre em Desempenho (sem permissão, a tela cai em Dados); `also` acende em qualquer aba.
       items: [
         item(
-          "Desempenho",
+          "Minha loja",
           PATHS.store(storeId, "desempenho"),
-          BarChart3,
-          ROUTES.stores.metrics.permission,
+          Store,
+          ROUTES.stores.get.permission,
+          [PATHS.store(storeId)],
         ),
-        item("Dados da loja", PATHS.store(storeId), Store, ROUTES.stores.get.permission),
       ],
     },
     {

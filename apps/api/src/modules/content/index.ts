@@ -4,12 +4,11 @@ import type { CatalogDeps } from "../directory/application/catalog-deps";
 import { CreateCatalogItemUseCase } from "../directory/application/create-catalog-item.use-case";
 import { DeleteCatalogItemUseCase } from "../directory/application/delete-catalog-item.use-case";
 import { UpdateCatalogItemUseCase } from "../directory/application/update-catalog-item.use-case";
-import { resolveSettings } from "../platform/application/app-settings";
-import { PgSettingsStore } from "../platform/infra/pg-settings-store";
 import {
   CreateJobUseCase,
   RemoveJobUseCase,
   UpdateContentPageUseCase,
+  UpdateJobUseCase,
 } from "./application/content.use-cases";
 import {
   ART_POINT_NOT_FOUND,
@@ -37,10 +36,8 @@ function commands<P extends { id: string }>(deps: CatalogDeps<P>) {
 export function createContentModule(core: CoreDeps) {
   const { db, uow, audit, clock } = core;
   const queries = new ContentQueries(db);
-  const settings = new PgSettingsStore(db);
   const jobDeps = {
     jobs: jobRepository(db),
-    jobDays: async () => resolveSettings(await settings.readAll()).jobDays,
     clock,
     audit,
     uow,
@@ -65,6 +62,7 @@ export function createContentModule(core: CoreDeps) {
       uow,
     }),
     createJob: new CreateJobUseCase(jobDeps),
+    updateJob: new UpdateJobUseCase(jobDeps),
     removeJob: new RemoveJobUseCase(jobDeps),
   });
   const app = appContentRoutes({ queries, clock });

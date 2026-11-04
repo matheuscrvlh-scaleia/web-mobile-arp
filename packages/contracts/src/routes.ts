@@ -241,6 +241,7 @@ export const ROUTES = {
   dashboard: r("GET", "/dashboard/overview", "dashboard.view", "Indicadores do período"),
   dashboardDetail: r(
     "GET",
+    update: r("PATCH", "/jobs/:id", "jobs.manage", "Editar vaga"),
     "/dashboard/detail",
     "dashboard.view",
     "De onde vem um indicador (?metric&period&storeId)",

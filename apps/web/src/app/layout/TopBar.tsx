@@ -14,7 +14,10 @@ export function TopBar({ sections }: { sections: NavSection[] }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <p className="flex min-h-11 items-center gap-2 text-sm text-neutral-500">
-        {here && (
+        {here && here.section.title === here.item.label && (
+          <span className="font-medium text-neutral-900">{here.item.label}</span>
+        )}
+        {here && here.section.title !== here.item.label && (
           <>
             <span>{here.section.title}</span>
             <span aria-hidden>/</span>

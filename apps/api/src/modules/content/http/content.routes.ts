@@ -17,6 +17,7 @@ import {
   recyclingItemSchema,
   updateArtPointBodySchema,
   updateContentPageBodySchema,
+  updateJobBodySchema,
   updateRecyclingItemBodySchema,
 } from "@arp/contracts";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
@@ -34,6 +35,7 @@ import {
   JOB_NOT_FOUND,
   type RemoveJobUseCase,
   type UpdateContentPageUseCase,
+  type UpdateJobUseCase,
 } from "../application/content.use-cases";
 import type { ArtPointProps, RecyclingItemProps } from "../domain/content";
 import type { ContentQueries } from "../infra/content.queries";
@@ -51,6 +53,7 @@ export interface ContentRoutesDeps {
   artPoints: Commands<ArtPointProps>;
   recyclingItems: Commands<RecyclingItemProps>;
   createJob: CreateJobUseCase;
+  updateJob: UpdateJobUseCase;
   removeJob: RemoveJobUseCase;
 }
 
@@ -170,6 +173,16 @@ export function contentRoutes(deps: ContentRoutesDeps): FastifyPluginAsyncZod {
         const id = await deps.createJob.execute(request.body, staffOf(request));
         const [job] = await queries.jobs({ id }, clock.now());
         return reply.status(201).send(orNotFound(job, JOB_NOT_FOUND));
+      },
+    );
+    r.route(
+      ROUTES.jobs.update,
+      { params: idParamsSchema, body: updateJobBodySchema, response: { 200: jobSchema } },
+      async (request) => {
+        const { id } = request.params;
+        await deps.updateJob.execute({ id, changes: request.body }, staffOf(request));
+        const [job] = await queries.jobs({ id }, clock.now());
+        return orNotFound(job, JOB_NOT_FOUND);
       },
     );
     r.route(ROUTES.jobs.remove, { params: idParamsSchema }, async (request, reply) => {

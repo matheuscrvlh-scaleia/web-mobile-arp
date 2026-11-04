@@ -15,6 +15,7 @@ import {
   recyclingItemSchema,
   type UpdateArtPointBody,
   type UpdateContentPageBody,
+  type UpdateJobBody,
   type UpdateRecyclingItemBody,
 } from "@arp/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -46,6 +47,8 @@ export const contentApi = {
   jobs: (query: ListJobsQuery, signal?: AbortSignal) =>
     apiRequest(ROUTES.jobs.list, jobListSchema, { query, signal }),
   createJob: (body: CreateJobBody) => apiRequest(ROUTES.jobs.create, jobSchema, { body }),
+  updateJob: (id: string, body: UpdateJobBody) =>
+    apiRequest(ROUTES.jobs.update, jobSchema, { params: { id }, body }),
   removeJob: (id: string) => apiCall(ROUTES.jobs.remove, { params: { id } }),
 };
 
@@ -135,9 +138,13 @@ export function useDeleteRecyclingItem() {
   return useMutation({ mutationFn: contentApi.removeRecyclingItem, onSuccess: invalidate });
 }
 
-export function useCreateJob() {
+export function useSaveJob() {
   const invalidate = useInvalidate(contentKeys.allJobs);
-  return useMutation({ mutationFn: contentApi.createJob, onSuccess: invalidate });
+  return useMutation({
+    mutationFn: (input: SaveInput<CreateJobBody, UpdateJobBody>) =>
+      "id" in input ? contentApi.updateJob(input.id, input.body) : contentApi.createJob(input.body),
+    onSuccess: invalidate,
+  });
 }
 
 export function useRemoveJob() {

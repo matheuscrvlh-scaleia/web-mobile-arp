@@ -170,19 +170,34 @@ export const listJobsQuerySchema = z.object({
 });
 export type ListJobsQuery = z.infer<typeof listJobsQuerySchema>;
 
+/** Dias no ar contados de agora (1–90). */
+export const jobDaysSchema = z
+  .number({ message: "Informe os dias" })
+  .int("Só dias inteiros")
+  .min(1, "Mínimo 1 dia")
+  .max(90, "Máximo 90 dias");
+
+const jobFields = {
+  title: z.string().trim().min(1).max(120),
+  text: z.string().trim().max(1500).default(""),
+  imageUrl: mediaUrlSchema.nullable().default(null),
+  whatsapp: z
+    .string()
+    .trim()
+    .regex(/^\d{10,13}$/, "Só números, com DDD"),
+};
+const NEEDS_TEXT_OR_IMAGE = {
+  message: "Escreva o texto da vaga ou envie uma imagem",
+  path: ["text"],
+};
+
 export const createJobBodySchema = z
-  .object({
-    storeId: idSchema,
-    title: z.string().trim().min(1).max(120),
-    text: z.string().trim().max(1500).default(""),
-    imageUrl: mediaUrlSchema.nullable().default(null),
-    whatsapp: z
-      .string()
-      .trim()
-      .regex(/^\d{10,13}$/, "Só números, com DDD"),
-  })
-  .refine((b) => b.text.length > 0 || b.imageUrl !== null, {
-    message: "Escreva o texto da vaga ou envie uma imagem",
-    path: ["text"],
-  });
+  .object({ storeId: idSchema, ...jobFields, days: jobDaysSchema.default(JOB_DEFAULT_DAYS) })
+  .refine((b) => b.text.length > 0 || b.imageUrl !== null, NEEDS_TEXT_OR_IMAGE);
 export type CreateJobBody = z.infer<typeof createJobBodySchema>;
+
+/** Edita a vaga (a loja não muda). `days` presente = sai do ar em N dias a partir de agora. */
+export const updateJobBodySchema = z
+  .object({ ...patchOf(jobFields), days: jobDaysSchema.optional() })
+  .refine((b) => b.text !== "" || b.imageUrl !== null, NEEDS_TEXT_OR_IMAGE);
+export type UpdateJobBody = z.infer<typeof updateJobBodySchema>;
