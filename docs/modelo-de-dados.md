@@ -509,24 +509,19 @@ npm run db:seed -w @arp/api               # exige SEED_ADMIN_PASSWORD
 
 ## 8. Seed
 
-`npm run db:seed -w @arp/api` (ou `runSeed({ db, storage }, { adminPassword })`).
+`npm run db:seed -w @arp/api` (ou `runSeed({ db }, { adminPassword })`).
 
-- **Idempotente**: insere o que falta pela chave natural (slug, nome, e-mail,
-  level, título…) e **não sobrescreve** o que existe — seguro com
-  `SEED_ON_START`. Senha só na criação do usuário. O cargo do sistema
-  (Administrador) é sincronizado com todas as `PERMISSIONS` do contrato.
-- **Atividade sintética** (61 visitantes, cupons pegos, selos, leituras de QR,
-  favoritos, interesses, tokens) é gerada uma vez, na primeira execução, com
-  PRNG de semente fixa e datas relativas a hoje em São Paulo: picos no almoço e
-  à noite, mais movimento de sexta a domingo, base crescendo nos últimos 90
-  dias. As invariantes (estoque, um ativo por visitante, selo único, nada no
-  futuro) são conferidas antes de gravar. Os "pegos" atuais de cada cupom
-  batem com o protótipo (15/12, 30/21, 20/18, 40/18, 25/25 esgotado, 50/19).
-- **Imagens**: `apps/api/seed-assets/` vão para o Storage com chave estável
-  (`seed/stores/feitoria.jpg`…); o que já existe não é reenviado.
-- `SEED_DEMO_DATA=false`: só cargos, admin e configurações.
-
-Usuários criados (senha = `SEED_ADMIN_PASSWORD`): `admin@arp.com.br`
-(Administrador), `marketing@arp.com.br` (Marketing), `atendimento@arp.com.br`
-(Atendimento), `casabrava@arp.com.br` (Lojista da Casa Brava). Visitante de
-demonstração: `ana.clara@example.com` (senha `SEED_VISITOR_PASSWORD`).
+- **Idempotente**: insere o que falta pela chave natural e **não sobrescreve**
+  o que foi editado no painel — seguro com `SEED_ON_START`. Senha só na
+  criação do usuário. O cargo do sistema (Administrador) é sincronizado com
+  todas as `PERMISSIONS` do contrato.
+- **Dados reais do site da ARP** (`seed/site-data.ts`, gerado do espacoarp.com.br
+  em 2026-11): 188 lojas com foto de capa, horários, contatos e categorias; os
+  blocos; os 41 pontos do Circuito Cultural; história, regras e configurações
+  (contato, estacionamento, tour). As lojas entram **uma vez só**: loja apagada
+  no painel não volta na próxima subida.
+- Eventos não vêm do seed: use "Importar do site" na agenda.
+- Não há mais dados fictícios (cupons, desafios, visitantes). Um banco que
+  ainda tenha o catálogo de demonstração antigo é limpo na primeira execução
+  (`seed/legacy-demo.ts`).
+- Usuário criado: `admin@arp.com.br` (Administrador), senha = `SEED_ADMIN_PASSWORD`.

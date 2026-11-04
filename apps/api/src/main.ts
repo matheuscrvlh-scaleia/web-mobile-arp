@@ -20,24 +20,14 @@ async function main(): Promise<void> {
   );
   logger.use(app.log);
 
-  const { db, storage, hasher } = container.core;
+  const { db, hasher } = container.core;
   if (env.RUN_MIGRATIONS_ON_START) {
     await runMigrations(db, findMigrationsDir(env.MIGRATIONS_DIR), { logger });
   }
   if (env.SEED_ON_START && env.SEED_ADMIN_PASSWORD) {
     await runSeed(
-      {
-        db,
-        storage,
-        hashPassword: (plain) => hasher.hash(plain),
-        logger,
-        ...(env.SEED_ASSETS_DIR ? { assetsDir: env.SEED_ASSETS_DIR } : {}),
-      },
-      {
-        adminPassword: env.SEED_ADMIN_PASSWORD,
-        visitorPassword: env.SEED_VISITOR_PASSWORD,
-        demo: env.SEED_DEMO_DATA,
-      },
+      { db, hashPassword: (plain) => hasher.hash(plain), logger },
+      { adminPassword: env.SEED_ADMIN_PASSWORD },
     );
   }
 

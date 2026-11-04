@@ -1,9 +1,9 @@
 import type { ArtPointKind, ContentPageKey } from "@arp/contracts";
+import { SITE_ART_POINTS, SITE_TEXTS } from "./site-data";
 
 /*
- * Conteúdo da Fase 2. Pontos do Circuito e itens do Sustentarp vêm do site
- * da ARP (espacoarp.com.br/circuito-cultural e /sustentarp). Os textos são
- * provisórios: a ARP envia os finais e edita no painel.
+ * Conteúdo da Fase 2, do site da ARP (espacoarp.com.br): história, regras,
+ * Circuito Cultural e Sustentarp. A ARP edita tudo no painel depois.
  */
 
 export const CONTENT_PAGES: readonly {
@@ -11,26 +11,8 @@ export const CONTENT_PAGES: readonly {
   title: string;
   body: string;
 }[] = [
-  {
-    key: "history",
-    title: "Nossa história",
-    body: [
-      "A ARP nasceu da antiga Fábrica de Rendas de Julius Arp, em Nova Friburgo. Por décadas, o apito da fábrica marcou o ritmo da cidade.",
-      "Hoje os mesmos galpões, o casarão centenário, a chaminé e a Torre do Relógio recebem lojas, restaurantes, serviços, arte e eventos.",
-      "Cada canto guarda um pedaço dessa memória. O Circuito Cultural mostra onde ela está.",
-    ].join("\n\n"),
-  },
-  {
-    key: "rules",
-    title: "Regras da ARP",
-    body: [
-      "Pets são bem-vindos, sempre na guia e com o tutor recolhendo a sujeira.",
-      "Bicicletas e patinetes só nos bicicletários. Nas ruas internas, a preferência é de quem está a pé.",
-      "Respeite as obras do Circuito Cultural: não suba, não risque e não leve pedaços.",
-      "Descarte o lixo nas lixeiras e o reciclável no Sustentarp.",
-      "Som alto só nos eventos da agenda.",
-    ].join("\n\n"),
-  },
+  { key: "history", title: "Nossa história", body: SITE_TEXTS.history },
+  { key: "rules", title: "Regras da ARP", body: SITE_TEXTS.rules },
   {
     key: "club_rules",
     title: "Regulamento do Clube ARP",
@@ -50,33 +32,32 @@ export const CONTENT_PAGES: readonly {
   },
 ];
 
-/** [número, nome, artista, local, tipo, x%, y%] */
-export const ART_POINTS: readonly [number, string, string, string, ArtPointKind, number, number][] =
+/** Pontos já marcados no mapa: [número, nome, artista, local, tipo, x%, y%]. */
+const ART_PLACES: readonly [number, string, string, string, ArtPointKind, number, number][] = [
+  [1, "Centro de Informações", "Raiz Turismo Receptivo", "Praça dos Contêineres", "work", 50, 46],
+  [2, "Lunetas Catarinas", "", "Praça dos Contêineres", "work", 59, 50],
+  [3, "Exposição Retrofit Arp", "", "Corredor do Bloco 4", "memory", 17, 13],
+  [6, "Corredor Cultural", "", "Área de grande circulação", "work", 50, 36],
+  [7, "Carimbos no asfalto", "Siron Franco e Rosélio", "Ruas internas", "work", 42, 54],
+  [8, "Casarão Centenário Julius Arp", "", "Núcleo original da fábrica", "memory", 31, 22],
+  [9, "Dançarinas do Vento", "Rogério Domingos", "Jardins da Arp", "sculpture", 36, 44],
   [
-    [1, "Centro de Informações", "Raiz Turismo Receptivo", "Praça dos Contêineres", "work", 50, 46],
-    [2, "Lunetas Catarinas", "", "Praça dos Contêineres", "work", 59, 50],
-    [3, "Exposição Retrofit Arp", "", "Corredor do Bloco 4", "memory", 17, 13],
-    [6, "Corredor Cultural", "", "Área de grande circulação", "work", 50, 36],
-    [7, "Carimbos no asfalto", "Siron Franco e Rosélio", "Ruas internas", "work", 42, 54],
-    [8, "Casarão Centenário Julius Arp", "", "Núcleo original da fábrica", "memory", 31, 22],
-    [9, "Dançarinas do Vento", "Rogério Domingos", "Jardins da Arp", "sculpture", 36, 44],
-    [
-      10,
-      "Mural “O Casarão”",
-      "Cacau Rezende",
-      "Ponto de ônibus do Boulevard Julius Arp",
-      "mural",
-      83,
-      80,
-    ],
-    [17, "O Fio da Vida", "Eduardo Bueno", "Escultura em patchwork", "sculpture", 72, 17],
-    [18, "Praça dos Bordados", "", "Praça dos Bordados", "work", 66, 43],
-    [20, "Mega Grafite Quebra Lampiões", "Robson Sark", "Muro externo", "mural", 11, 61],
-    [32, "Torre do Relógio", "", "Torre do Relógio", "memory", 86, 24],
-    [34, "Beco das Artes", "", "Beco das Artes", "mural", 56, 61],
-    [36, "Túnel do Tempo no Subsolo", "", "Subsolo da Arp", "memory", 75, 69],
-    [40, "Chaminé da Fábrica", "", "Núcleo original da fábrica", "memory", 22, 35],
-  ];
+    10,
+    "Mural “O Casarão”",
+    "Cacau Rezende",
+    "Ponto de ônibus do Boulevard Julius Arp",
+    "mural",
+    83,
+    80,
+  ],
+  [17, "O Fio da Vida", "Eduardo Bueno", "Escultura em patchwork", "sculpture", 72, 17],
+  [18, "Praça dos Bordados", "", "Praça dos Bordados", "work", 66, 43],
+  [20, "Mega Grafite Quebra Lampiões", "Robson Sark", "Muro externo", "mural", 11, 61],
+  [32, "Torre do Relógio", "", "Torre do Relógio", "memory", 86, 24],
+  [34, "Beco das Artes", "", "Beco das Artes", "mural", 56, 61],
+  [36, "Túnel do Tempo no Subsolo", "", "Subsolo da Arp", "memory", 75, 69],
+  [40, "Chaminé da Fábrica", "", "Núcleo original da fábrica", "memory", 22, 35],
+];
 
 export const RECYCLING_ITEMS: readonly {
   name: string;
@@ -138,14 +119,14 @@ export const RECYCLING_ITEMS: readonly {
   },
 ];
 
-/** Vagas de exemplo: [slug da loja, título, texto, dias atrás]. */
-export const JOBS: readonly [string, string, string, number][] = [
-  [
-    "a-feitoria",
-    "Garçom ou garçonete",
-    "Turno da noite, de terça a sábado. Experiência com salão.",
-    6,
-  ],
-  ["cafe-da-serra", "Barista", "Meio período, manhãs. Ensinamos o método da casa.", 2],
-  ["atelie-linho", "Vendedora", "Atendimento e vitrine. Sábados alternados.", 12],
-];
+/** Os 41 pontos do site, com local e posição dos que já estavam no mapa. */
+export const ART_POINTS = SITE_ART_POINTS.map((p) => {
+  const placed = ART_PLACES.find(([n]) => n === p.number);
+  return {
+    ...p,
+    artist: p.artist || placed?.[2] || "",
+    place: placed?.[3] ?? "",
+    mapX: placed?.[5] ?? null,
+    mapY: placed?.[6] ?? null,
+  };
+});

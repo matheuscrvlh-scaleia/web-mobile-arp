@@ -30,12 +30,10 @@ ENV NODE_ENV=production \
   HOST=0.0.0.0 \
   PORT=3000 \
   MIGRATIONS_DIR=/app/supabase/migrations \
-  SEED_ASSETS_DIR=/app/seed-assets \
   STORAGE_LOCAL_DIR=/app/storage/uploads
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/apps/api/dist ./dist
 COPY supabase/migrations ./supabase/migrations
-COPY apps/api/seed-assets ./seed-assets
 RUN mkdir -p storage/uploads && chown -R node:node storage
 USER node
 EXPOSE 3000

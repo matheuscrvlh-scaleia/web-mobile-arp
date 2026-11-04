@@ -54,12 +54,6 @@ export const seedEnvShape = {
     .min(8, "SEED_ADMIN_PASSWORD precisa de 8+ caracteres")
     .regex(/[A-Za-z]/, "SEED_ADMIN_PASSWORD precisa de uma letra")
     .regex(/\d/, "SEED_ADMIN_PASSWORD precisa de um número"),
-  /** Senha das contas de visitante de demonstração (login no app). */
-  SEED_VISITOR_PASSWORD: z.string().min(8).default("Visitante123"),
-  /** Pasta com as imagens do seed (padrão: apps/api/seed-assets). */
-  SEED_ASSETS_DIR: z.string().optional(),
-  /** false = só cargos, admin e configurações (sem dados de demonstração). */
-  SEED_DEMO_DATA: booleanString.default(true),
 };
 
 const databaseEnvSchema = z.object(databaseEnvShape);
