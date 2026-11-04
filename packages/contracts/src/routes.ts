@@ -229,6 +229,7 @@ export const ROUTES = {
   jobs: {
     list: r("GET", "/jobs", "jobs.view", "Vagas (?storeId&status)"),
     create: r("POST", "/jobs", "jobs.manage", "Publicar vaga"),
+    update: r("PATCH", "/jobs/:id", "jobs.manage", "Editar vaga"),
     remove: r("DELETE", "/jobs/:id", "jobs.manage", "Tirar vaga do ar"),
   },
 
@@ -241,7 +242,6 @@ export const ROUTES = {
   dashboard: r("GET", "/dashboard/overview", "dashboard.view", "Indicadores do período"),
   dashboardDetail: r(
     "GET",
-    update: r("PATCH", "/jobs/:id", "jobs.manage", "Editar vaga"),
     "/dashboard/detail",
     "dashboard.view",
     "De onde vem um indicador (?metric&period&storeId)",
