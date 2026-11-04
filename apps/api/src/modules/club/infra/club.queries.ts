@@ -204,7 +204,7 @@ export class ClubQueries {
     }>(sql`
       select st.id, st.name,
              count(*) filter (where cc.claimed_at >= ${from} and cc.claimed_at < ${to})::int as claimed,
-             count(*) filter (where cc.status = redeemed and cc.redeemed_at >= ${from}
+             count(*) filter (where cc.status = 'redeemed' and cc.redeemed_at >= ${from}
                                 and cc.redeemed_at < ${to})::int as used
       from promotions.coupon_claims cc
       join promotions.coupons c on c.id = cc.coupon_id
