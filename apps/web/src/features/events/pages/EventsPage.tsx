@@ -1,11 +1,13 @@
-import { CalendarDays, List, Plus, Tags } from "lucide-react";
+import { CalendarDays, Globe, List, Plus, Tags } from "lucide-react";
+import { useState } from "react";
 import { useAuth } from "@/shared/auth";
 import { EVENTS_TABS, type EventsTab, PATHS } from "@/shared/config/paths";
 import { useSearchParamOption } from "@/shared/hooks";
-import { ButtonLink, Can, PageHeader, type TabItem, TabPanel, Tabs } from "@/shared/ui";
+import { Button, ButtonLink, Can, PageHeader, type TabItem, TabPanel, Tabs } from "@/shared/ui";
 import { EventsCalendar } from "../components/calendar/EventsCalendar";
 import { EventCategoriesTab } from "../components/EventCategoriesTab";
 import { EventsListTab } from "../components/EventsListTab";
+import { ImportSiteEventsModal } from "../components/ImportSiteEventsModal";
 
 const TAB_ITEMS: TabItem<EventsTab>[] = [
   { value: "lista", label: "Lista", icon: List },
@@ -16,6 +18,7 @@ const TAB_ITEMS: TabItem<EventsTab>[] = [
 export function EventsPage() {
   const { can } = useAuth();
   const [tab, setTab] = useSearchParamOption("aba", EVENTS_TABS, "lista");
+  const [importing, setImporting] = useState(false);
 
   return (
     <>
@@ -24,6 +27,9 @@ export function EventsPage() {
         description="A agenda do app: eventos de um dia, de um período (até o mês inteiro) ou semanais."
         actions={
           <Can permission="events.manage">
+            <Button variant="secondary" icon={Globe} onClick={() => setImporting(true)}>
+              Importar do site
+            </Button>
             <ButtonLink to={PATHS.eventNew} icon={Plus}>
               Novo evento
             </ButtonLink>
@@ -43,6 +49,7 @@ export function EventsPage() {
         {tab === "calendario" && <EventsCalendar />}
         {tab === "categorias" && <EventCategoriesTab canEdit={can("events.manage")} />}
       </TabPanel>
+      <ImportSiteEventsModal open={importing} onClose={() => setImporting(false)} />
     </>
   );
 }

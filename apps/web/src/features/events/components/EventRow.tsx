@@ -4,7 +4,7 @@ import { Link } from "react-router";
 import { PATHS } from "@/shared/config/paths";
 import { cn } from "@/shared/lib/cn";
 import { describeWhen } from "../lib/when";
-import { EventStatusBadge, InterestsCount, SealPill } from "./EventBadges";
+import { EventStatusBadge, InterestsCount, SealPill, SitePill } from "./EventBadges";
 import { EventThumb } from "./EventThumb";
 
 /** Linha da agenda, como o `.ev-row` do app: miniatura, quando, onde e as etiquetas. */
@@ -49,6 +49,7 @@ export function EventRow({ event }: { event: Event }) {
             {event.category.name}
           </span>
           {event.awardsSeal && <SealPill />}
+          {event.siteUrl && <SitePill />}
           <EventStatusBadge status={event.status} />
           <InterestsCount count={event.interestsCount} />
         </div>

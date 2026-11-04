@@ -42,6 +42,7 @@ interface EventRow {
   is_long_running: boolean;
   awards_seal: boolean;
   status: EventStatus;
+  site_url: string | null;
   interests_count: number;
   created_at: Date;
   updated_at: Date;
@@ -52,7 +53,7 @@ const EVENT_COLUMNS = sql`
          e.description, e.image_url, e.tone, e.icon, e.place,
          e.floor_id, f.label as floor_label, e.store_id, s.name as store_name,
          e.recurrence, e.starts_on, e.ends_on, e.weekday, e.start_time, e.end_time,
-         e.is_long_running, e.awards_seal, e.status, e.created_at, e.updated_at,
+         e.is_long_running, e.awards_seal, e.status, si.site_url, e.created_at, e.updated_at,
          (select count(*) from agenda.event_interests i where i.event_id = e.id) as interests_count
 `;
 
@@ -61,6 +62,7 @@ const EVENT_FROM = sql`
   join agenda.event_categories c on c.id = e.category_id
   left join directory.floors f on f.id = e.floor_id
   left join directory.stores s on s.id = e.store_id
+  left join agenda.site_event_imports si on si.event_id = e.id
 `;
 
 function toEvent(r: EventRow): Event {
@@ -84,6 +86,7 @@ function toEvent(r: EventRow): Event {
     isLongRunning: r.is_long_running,
     awardsSeal: r.awards_seal,
     status: r.status,
+    siteUrl: r.site_url,
     interestsCount: r.interests_count,
     createdAt: iso(r.created_at),
     updatedAt: iso(r.updated_at),

@@ -19,6 +19,7 @@ import type {
   AgendaEventRepository,
   AgendaReferences,
   EventCategoryRepository,
+  SiteImportLog,
 } from "../domain/repositories";
 
 /* Categorias ------------------------------------------------------------- */
@@ -196,5 +197,30 @@ export class PgAgendaReferences implements AgendaReferences {
 
   storeExists(id: string): Promise<boolean> {
     return this.db.exists(sql`select 1 from directory.stores where id = ${id}`);
+  }
+}
+
+/* Importação do site ------------------------------------------------------ */
+
+export class PgSiteImportLog implements SiteImportLog {
+  constructor(private readonly db: Database) {}
+
+  async importedIds(siteIds: readonly number[]): Promise<Set<number>> {
+    if (siteIds.length === 0) return new Set();
+    const rows = await this.db.many<{ site_id: number }>(sql`
+      select site_id from agenda.site_event_imports
+      where site_id = any(${[...siteIds]}::integer[])
+    `);
+    return new Set(rows.map((r) => r.site_id));
+  }
+
+  async record(e: { siteId: number; eventId: string; siteUrl: string }): Promise<void> {
+    const row = await this.db.maybeOne(sql`
+      insert into agenda.site_event_imports (site_id, event_id, site_url)
+      values (${e.siteId}, ${e.eventId}, ${e.siteUrl})
+      on conflict (site_id) do nothing
+      returning site_id
+    `);
+    if (!row) throw new ConflictError("Outra importação do site está em andamento. Tente de novo.");
   }
 }

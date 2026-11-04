@@ -42,7 +42,8 @@ export type UpdateEventCategoryBody = z.infer<typeof updateEventCategoryBodySche
 
 export const eventRecurrenceSchema = z.enum(["single", "range", "weekly"]);
 export type EventRecurrence = z.infer<typeof eventRecurrenceSchema>;
-export const eventStatusSchema = z.enum(["draft", "published", "cancelled"]);
+/** paused: estava no app e saiu por um tempo ("Continuar" volta para published). */
+export const eventStatusSchema = z.enum(["draft", "published", "paused", "cancelled"]);
 export type EventStatus = z.infer<typeof eventStatusSchema>;
 
 export const eventSchema = z.object({
@@ -71,6 +72,8 @@ export const eventSchema = z.object({
   /** Participar vale selo (o desafio liga ao evento). */
   awardsSeal: z.boolean(),
   status: eventStatusSchema,
+  /** Página do evento no site, quando veio da importação; null = cadastrado aqui. */
+  siteUrl: z.string().nullable(),
   interestsCount: z.number().int(),
   createdAt: isoDateTimeSchema,
   updatedAt: isoDateTimeSchema,
@@ -163,3 +166,19 @@ export const eventOccurrencesSchema = z.object({
   ),
 });
 export type EventOccurrences = z.infer<typeof eventOccurrencesSchema>;
+
+/* Importação do site (espacoarp.com.br) ----------------------------------- */
+
+/** Traz do site os eventos de hoje em diante que ainda não vieram, como rascunho. */
+export const importSiteEventsBodySchema = z.object({ categoryId: idSchema });
+export type ImportSiteEventsBody = z.infer<typeof importSiteEventsBodySchema>;
+
+export const importSiteEventsResultSchema = z.object({
+  /** Eventos novos criados como rascunho. */
+  created: z.number().int(),
+  /** Já importados antes (mesmo que apagados aqui depois). */
+  skipped: z.number().int(),
+  /** Vieram com dados que a agenda não aceita (ex.: sem data). */
+  failed: z.number().int(),
+});
+export type ImportSiteEventsResult = z.infer<typeof importSiteEventsResultSchema>;

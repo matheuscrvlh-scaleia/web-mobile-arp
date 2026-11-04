@@ -9,6 +9,8 @@ import {
   eventPageSchema,
   eventSchema,
   idParamsSchema,
+  importSiteEventsBodySchema,
+  importSiteEventsResultSchema,
   listEventsQuerySchema,
   ROUTES,
   updateEventBodySchema,
@@ -24,6 +26,7 @@ import type { CreateEventUseCase } from "../application/create-event.use-case";
 import type { CreateEventCategoryUseCase } from "../application/create-event-category.use-case";
 import type { DeleteEventUseCase } from "../application/delete-event.use-case";
 import type { DeleteEventCategoryUseCase } from "../application/delete-event-category.use-case";
+import type { ImportSiteEventsUseCase } from "../application/import-site-events.use-case";
 import type { UpdateEventUseCase } from "../application/update-event.use-case";
 import type { UpdateEventCategoryUseCase } from "../application/update-event-category.use-case";
 import type { NewAgendaEvent } from "../domain/agenda-event";
@@ -37,6 +40,7 @@ export interface AgendaRoutesDeps {
   createEvent: CreateEventUseCase;
   updateEvent: UpdateEventUseCase;
   deleteEvent: DeleteEventUseCase;
+  importSiteEvents: ImportSiteEventsUseCase;
 }
 
 function toNewEvent(body: CreateEventBody): NewAgendaEvent {
@@ -151,6 +155,12 @@ export function agendaRoutes(deps: AgendaRoutesDeps): FastifyPluginAsyncZod {
         );
         return event(request.params.id);
       },
+    );
+
+    r.route(
+      ROUTES.events.importSite,
+      { body: importSiteEventsBodySchema, response: { 200: importSiteEventsResultSchema } },
+      async (request) => deps.importSiteEvents.execute(request.body, staffOf(request)),
     );
 
     r.route(ROUTES.events.remove, { params: idParamsSchema }, async (request, reply) => {

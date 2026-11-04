@@ -24,3 +24,25 @@ export interface AgendaReferences {
   floorExists(id: string): Promise<boolean>;
   storeExists(id: string): Promise<boolean>;
 }
+
+/* Importação do site ------------------------------------------------------ */
+
+/** Evento lido do site, já no formato da agenda (a categoria vem do gestor). */
+export interface SiteEvent {
+  /** Id do post no WordPress. */
+  siteId: number;
+  siteUrl: string;
+  event: Omit<NewAgendaEvent, "categoryId" | "status">;
+}
+
+/** Eventos do site que terminam hoje ou depois. `failed` = posts sem data legível. */
+export interface SiteEventSource {
+  upcoming(today: string): Promise<{ events: SiteEvent[]; failed: number }>;
+}
+
+/** Posts do site já importados (inclusive os que o gestor apagou depois). */
+export interface SiteImportLog {
+  importedIds(siteIds: readonly number[]): Promise<Set<number>>;
+  /** ConflictError se outra importação gravou o mesmo post antes. */
+  record(entry: { siteId: number; eventId: string; siteUrl: string }): Promise<void>;
+}

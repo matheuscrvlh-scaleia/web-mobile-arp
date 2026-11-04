@@ -7,6 +7,8 @@ import {
   eventOccurrencesSchema,
   eventPageSchema,
   eventSchema,
+  type ImportSiteEventsBody,
+  importSiteEventsResultSchema,
   type ListEventsQuery,
   ROUTES,
   type UpdateEventBody,
@@ -34,6 +36,9 @@ export const eventsApi = {
   update: (id: string, body: UpdateEventBody) =>
     apiRequest(ROUTES.events.update, eventSchema, { params: { id }, body }),
   remove: (id: string) => apiCall(ROUTES.events.remove, { params: { id } }),
+  /** Traz do site os eventos novos (de hoje em diante) como rascunho. */
+  importSite: (body: ImportSiteEventsBody) =>
+    apiRequest(ROUTES.events.importSite, importSiteEventsResultSchema, { body }),
 };
 
 export const eventCategoriesApi = {
@@ -127,6 +132,11 @@ export function useUpdateEvent(id: string) {
 export function useDeleteEvent() {
   const qc = useQueryClient();
   return useMutation({ mutationFn: eventsApi.remove, onSuccess: () => invalidateRelated(qc) });
+}
+
+export function useImportSiteEvents() {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: eventsApi.importSite, onSuccess: () => invalidateRelated(qc) });
 }
 
 /* Categorias de evento ---------------------------------------------------- */

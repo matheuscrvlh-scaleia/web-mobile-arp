@@ -2,7 +2,7 @@ import { BusinessRuleError } from "../../../shared/domain/errors";
 import { applyPatch } from "../../../shared/domain/patch";
 import { EventSchedule, type EventScheduleProps } from "./event-schedule";
 
-export type EventStatus = "draft" | "published" | "cancelled";
+export type EventStatus = "draft" | "published" | "paused" | "cancelled";
 export type Tone = "green" | "ink" | "clay" | "sand" | "deep";
 
 export interface AgendaEventDetails {

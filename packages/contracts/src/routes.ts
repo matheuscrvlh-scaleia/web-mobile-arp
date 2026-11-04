@@ -187,8 +187,14 @@ export const ROUTES = {
     occurrences: r("GET", "/events/occurrences", "events.view", "Calendário (?from&to)"),
     get: r("GET", "/events/:id", "events.view", "Evento"),
     create: r("POST", "/events", "events.manage", "Criar evento"),
-    update: r("PATCH", "/events/:id", "events.manage", "Editar / publicar / cancelar evento"),
+    update: r(
+      "PATCH",
+      "/events/:id",
+      "events.manage",
+      "Editar / publicar / pausar / cancelar evento",
+    ),
     remove: r("DELETE", "/events/:id", "events.manage", "Apagar rascunho"),
+    importSite: r("POST", "/events/import-site", "events.manage", "Importar eventos do site"),
   },
 
   highlights: {

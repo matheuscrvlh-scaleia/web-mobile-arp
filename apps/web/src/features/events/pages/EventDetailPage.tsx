@@ -1,5 +1,5 @@
 import type { Event } from "@arp/contracts";
-import { CalendarX2, Heart } from "lucide-react";
+import { CalendarX2, ExternalLink, Heart } from "lucide-react";
 import { useParams } from "react-router";
 import { applyApiErrors, errorMessage } from "@/shared/api";
 import { useAuth } from "@/shared/auth";
@@ -60,6 +60,17 @@ function EventEditor({ event }: { event: Event }) {
           <span className="flex flex-wrap items-center gap-2">
             <EventStatusBadge status={event.status} />
             {event.awardsSeal && <SealPill />}
+            {event.siteUrl && (
+              <a
+                href={event.siteUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 underline underline-offset-2"
+              >
+                Veio do site
+                <ExternalLink className="size-3.5" aria-hidden />
+              </a>
+            )}
             <span>{describeWhen(event)}</span>
             <span className="inline-flex items-center gap-1">
               <Heart className="size-3.5" aria-hidden />

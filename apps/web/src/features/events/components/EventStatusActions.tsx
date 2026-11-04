@@ -1,12 +1,12 @@
 import type { Event, EventStatus } from "@arp/contracts";
-import { CircleOff, Radio, Trash2 } from "lucide-react";
+import { CircleOff, Pause, Play, Radio, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { PATHS } from "@/shared/config/paths";
 import { Button, ConfirmDialog, toast } from "@/shared/ui";
 import { useDeleteEvent, useUpdateEvent } from "../api";
 
-type Action = "publish" | "cancel" | "delete";
+type Action = "publish" | "pause" | "resume" | "cancel" | "delete";
 
 const CONFIRM: Record<
   Action,
@@ -16,6 +16,18 @@ const CONFIRM: Record<
     title: "Publicar o evento?",
     description: "Ele passa a aparecer na agenda do app.",
     label: "Publicar",
+    danger: false,
+  },
+  pause: {
+    title: "Pausar o evento?",
+    description: "Ele sai da agenda do app até você continuar. Quem tinha interesse não é avisado.",
+    label: "Pausar",
+    danger: false,
+  },
+  resume: {
+    title: "Continuar o evento?",
+    description: "Ele volta a aparecer na agenda do app.",
+    label: "Continuar",
     danger: false,
   },
   cancel: {
@@ -35,10 +47,19 @@ const CONFIRM: Record<
 
 const NEXT_STATUS: Record<Exclude<Action, "delete">, EventStatus> = {
   publish: "published",
+  pause: "paused",
+  resume: "published",
   cancel: "cancelled",
 };
 
-/** Publicar, cancelar ou apagar rascunho (sempre com confirmação). */
+const DONE: Record<Exclude<Action, "delete">, string> = {
+  publish: "Evento publicado.",
+  pause: "Evento pausado: saiu do app.",
+  resume: "Evento de volta no app.",
+  cancel: "Evento cancelado.",
+};
+
+/** Publicar, pausar/continuar, cancelar ou apagar rascunho (sempre com confirmação). */
 export function EventStatusActions({ event }: { event: Event }) {
   const navigate = useNavigate();
   const update = useUpdateEvent(event.id);
@@ -66,7 +87,7 @@ export function EventStatusActions({ event }: { event: Event }) {
         { status: NEXT_STATUS[action] },
         {
           onSuccess: () => {
-            toast.success(action === "publish" ? "Evento publicado." : "Evento cancelado.");
+            toast.success(DONE[action]);
             setAction(null);
           },
         },
@@ -82,11 +103,22 @@ export function EventStatusActions({ event }: { event: Event }) {
           Apagar rascunho
         </Button>
       )}
-      {event.status === "published" ? (
-        <Button variant="secondary" icon={CircleOff} onClick={() => setAction("cancel")}>
+      {(event.status === "published" || event.status === "paused") && (
+        <Button variant="ghost" icon={CircleOff} onClick={() => setAction("cancel")}>
           Cancelar evento
         </Button>
-      ) : (
+      )}
+      {event.status === "published" && (
+        <Button variant="secondary" icon={Pause} onClick={() => setAction("pause")}>
+          Pausar
+        </Button>
+      )}
+      {event.status === "paused" && (
+        <Button variant="brand" icon={Play} onClick={() => setAction("resume")}>
+          Continuar
+        </Button>
+      )}
+      {(event.status === "draft" || event.status === "cancelled") && (
         <Button variant="brand" icon={Radio} onClick={() => setAction("publish")}>
           {event.status === "cancelled" ? "Publicar de novo" : "Publicar"}
         </Button>
