@@ -170,7 +170,9 @@ export function CampaignForm({
         <SaveBar
           dirty={isDirty}
           saving={saving}
-          alwaysVisible={creating}
+          // Sempre à vista; na edição fica desabilitado até mudar algum campo.
+          alwaysVisible
+          disabled={!creating && !isDirty}
           onReset={creating ? undefined : () => form.reset()}
           submitLabel={submitLabel}
         />
