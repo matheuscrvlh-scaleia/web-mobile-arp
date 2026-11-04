@@ -15,7 +15,6 @@ import {
   Megaphone,
   Palette,
   Settings,
-  ShieldCheck,
   Store,
   Tags,
   Target,
@@ -34,6 +33,8 @@ export interface NavItem {
   icon: LucideIcon;
   /** Permissão da rota da API que a tela usa (de ROUTES); null = qualquer logado. */
   permission: Permission | null;
+  /** Outras telas que também acendem este item (ex.: abas em rotas próprias). */
+  also?: string[];
 }
 
 export interface NavSection {
@@ -46,12 +47,8 @@ const item = (
   to: string,
   icon: LucideIcon,
   permission: Permission | null,
-): NavItem => ({
-  label,
-  to,
-  icon,
-  permission,
-});
+  also?: string[],
+): NavItem => ({ label, to, icon, permission, ...(also && { also }) });
 
 /** Menu completo da equipe da ARP. */
 const STAFF_NAV: NavSection[] = [
@@ -121,9 +118,8 @@ const STAFF_NAV: NavSection[] = [
   {
     title: "Administração",
     items: [
-      item("Usuários", PATHS.users, Users, ROUTES.users.list.permission),
+      item("Usuários e cargos", PATHS.users, Users, ROUTES.users.list.permission, [PATHS.roles]),
       item("Lojistas", PATHS.merchants, UserPlus, ROUTES.merchantSignups.list.permission),
-      item("Cargos", PATHS.roles, ShieldCheck, ROUTES.roles.list.permission),
       item("Histórico", PATHS.audit, History, ROUTES.auditLogs.permission),
       item("Configurações", PATHS.settings, Settings, ROUTES.settings.get.permission),
     ],
@@ -186,15 +182,17 @@ export function activeNavItem(
   let best: { section: NavSection; item: NavItem; score: number } | null = null;
   for (const section of sections) {
     for (const it of section.items) {
-      const [path, query] = it.to.split("?");
-      if (!path) continue;
-      const matchesPath = pathname === path || pathname.startsWith(`${path}/`);
-      if (!matchesPath) continue;
-      // Itens com query (ex.: ?aba=desempenho) só ganham quando a query casa.
-      const matchesQuery = !query || search.includes(query);
-      const score =
-        path.length + (query && matchesQuery ? 1000 : 0) - (query && !matchesQuery ? 2000 : 0);
-      if (!best || score > best.score) best = { section, item: it, score };
+      for (const to of [it.to, ...(it.also ?? [])]) {
+        const [path, query] = to.split("?");
+        if (!path) continue;
+        const matchesPath = pathname === path || pathname.startsWith(`${path}/`);
+        if (!matchesPath) continue;
+        // Itens com query (ex.: ?aba=desempenho) só ganham quando a query casa.
+        const matchesQuery = !query || search.includes(query);
+        const score =
+          path.length + (query && matchesQuery ? 1000 : 0) - (query && !matchesQuery ? 2000 : 0);
+        if (!best || score > best.score) best = { section, item: it, score };
+      }
     }
   }
   return best && best.score > 0 ? { section: best.section, item: best.item } : null;

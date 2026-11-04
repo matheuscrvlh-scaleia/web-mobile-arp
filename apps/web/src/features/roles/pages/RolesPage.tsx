@@ -21,7 +21,7 @@ export function RolesPage() {
   return (
     <>
       <PageHeader
-        title="Cargos"
+        title="Usuários e cargos"
         description="Cada cargo libera um conjunto de telas e ações. A mudança vale no próximo acesso de quem tem o cargo (até 15 min)."
         actions={
           <Can permission="users.manage">

@@ -357,7 +357,7 @@ function RecyclingTab({ canEdit }: { canEdit: boolean }) {
   ];
 
   return (
-    <Card className="max-w-4xl">
+    <Card>
       <CardHeader
         title="O que o Sustentarp recebe"
         description="Lista que muda muito: edite aqui e o app atualiza na hora."

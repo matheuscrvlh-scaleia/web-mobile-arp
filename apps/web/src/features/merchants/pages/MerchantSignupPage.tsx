@@ -78,7 +78,9 @@ export function MerchantSignupPage() {
             type="tel"
             autoComplete="tel"
             className="h-11"
-            {...form.register("phone", { setValueAs: (v: string) => v.trim() || null })}
+            {...form.register("phone", {
+              setValueAs: (v: string | null | undefined) => v?.trim() || null,
+            })}
           />
         </Field>
         <Field label="Senha" error={errors.password?.message}>

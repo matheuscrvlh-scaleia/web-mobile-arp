@@ -258,7 +258,7 @@ function BlocksTab({ canEdit }: { canEdit: boolean }) {
   ];
 
   return (
-    <Card className="max-w-3xl">
+    <Card>
       <CardHeader
         title="Blocos"
         description="Os prédios da ARP, usados no “onde fica” de cada loja."

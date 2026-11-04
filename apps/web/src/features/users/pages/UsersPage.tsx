@@ -152,7 +152,7 @@ export function UsersPage() {
   return (
     <>
       <PageHeader
-        title="Usuários"
+        title="Usuários e cargos"
         description="Quem acessa o painel: equipe da ARP e lojistas. O cargo define o que cada um vê e faz."
         actions={
           <Can permission="users.manage">
