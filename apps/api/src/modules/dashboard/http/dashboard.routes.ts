@@ -1,4 +1,10 @@
-import { dashboardOverviewSchema, dashboardQuerySchema, ROUTES } from "@arp/contracts";
+import {
+  dashboardDetailQuerySchema,
+  dashboardDetailSchema,
+  dashboardOverviewSchema,
+  dashboardQuerySchema,
+  ROUTES,
+} from "@arp/contracts";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { staffOf } from "../../../shared/infra/http/auth";
 import { createRouter } from "../../../shared/infra/http/router";
@@ -13,6 +19,11 @@ export function dashboardRoutes(deps: {
       ROUTES.dashboard,
       { querystring: dashboardQuerySchema, response: { 200: dashboardOverviewSchema } },
       async (request) => deps.overview.execute(request.query, staffOf(request)),
+    );
+    r.route(
+      ROUTES.dashboardDetail,
+      { querystring: dashboardDetailQuerySchema, response: { 200: dashboardDetailSchema } },
+      async (request) => deps.overview.detail(request.query, staffOf(request)),
     );
   };
 }

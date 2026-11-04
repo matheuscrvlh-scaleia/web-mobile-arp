@@ -1,5 +1,4 @@
 import type { DashboardOverview } from "@arp/contracts";
-import { BUSINESS_TIME_ZONE } from "../../../shared/domain/time";
 import type { Database } from "../../../shared/infra/database/database";
 import { type SqlFragment, sql } from "../../../shared/infra/database/sql";
 import type {
@@ -7,17 +6,11 @@ import type {
   OverviewRequest,
 } from "../application/get-dashboard-overview.use-case";
 import { redemptionRate } from "../domain/period";
+import { metricDetail } from "./dashboard-detail.queries";
+import { endOf, startOf, TZ, UPCOMING_EVENT_DAYS } from "./period-sql";
 
-const TZ = BUSINESS_TIME_ZONE;
 const TOP_LIMIT = 5;
 const SEALS_LIMIT = 10;
-/** "Eventos próximos" = publicados que acontecem de hoje até daqui a N dias. */
-const UPCOMING_EVENT_DAYS = 30;
-
-/** Início do dia (São Paulo) como instante. */
-const startOf = (date: string) => sql`((${date}::date)::timestamp at time zone ${TZ})`;
-/** Início do dia seguinte (São Paulo): fim exclusivo do intervalo. */
-const endOf = (date: string) => sql`(((${date}::date) + 1)::timestamp at time zone ${TZ})`;
 
 interface KpiRow {
   visitors_total: number;
@@ -87,6 +80,14 @@ export class DashboardQueries implements DashboardReader {
       sealsByChallenge: seals,
       scanOutcomes: scans,
     };
+  }
+
+  /** De onde vem um indicador (só leitura, mesmo instante entre as consultas). */
+  detail(req: Parameters<DashboardReader["detail"]>[0]) {
+    return this.db.transaction(() => metricDetail(this.db, req), {
+      isolationLevel: "repeatable read",
+      readOnly: true,
+    });
   }
 
   private couponStore(storeId: string | null, alias = "c"): SqlFragment {

@@ -1,8 +1,16 @@
-import type { DashboardOverview } from "@arp/contracts";
+import {
+  type DashboardMetric,
+  type DashboardOverview,
+  type DashboardQuery,
+  type Permission,
+  ROUTES,
+} from "@arp/contracts";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Award,
   CalendarDays,
   HandCoins,
+  type LucideIcon,
   Percent,
   Ticket,
   TicketCheck,
@@ -10,91 +18,249 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
+import { useState } from "react";
+import { useAuth } from "@/shared/auth";
+import { PATHS } from "@/shared/config/paths";
 import { formatCents, formatDelta, formatNumber, formatPercent } from "@/shared/lib/format";
 import { KpiCard } from "@/shared/ui";
+import { prefetchDashboardDetail } from "../api";
+import { type KpiDetailInfo, KpiDetailModal } from "./KpiDetailModal";
 
-/** Os 9 indicadores do período, em tons variados (como o copiloto). */
+type Tone = "glass" | "dark" | "green";
+
+interface KpiDef {
+  metric: DashboardMetric;
+  label: string;
+  icon: LucideIcon;
+  tone?: Tone;
+  format: (v: number) => string;
+  deltaKind?: "relative" | "points";
+  /** Comparação contra o fim do período anterior (estoque), não o período todo. */
+  stock?: boolean;
+  hint?: string;
+  /** Fonte e fórmula (vão para o modal "de onde vem"). */
+  source: string;
+  formula: string;
+  /** O filtro de loja não muda este número (base do app). */
+  global?: boolean;
+  link?: (storeId?: string) => { href: string; label: string; permission: Permission | null };
+}
+
+const int = (v: number) => formatNumber(v);
+const CLAIMS_SOURCE = "Cupons pegos pelos visitantes no app (tabela promotions.coupon_claims)";
+
+const KPIS: KpiDef[] = [
+  {
+    metric: "visitorsTotal",
+    label: "Visitantes cadastrados",
+    icon: Users,
+    tone: "dark",
+    format: int,
+    stock: true,
+    global: true,
+    source: "Cadastros de visitantes no app (tabela visitors.visitors)",
+    formula: "Todos os cadastros feitos até o fim do período, desde o início do app",
+    link: () => ({
+      href: PATHS.visitors,
+      label: "Ver visitantes",
+      permission: ROUTES.visitors.list.permission,
+    }),
+  },
+  {
+    metric: "visitorsNew",
+    label: "Novos cadastros",
+    icon: UserPlus,
+    format: int,
+    global: true,
+    source: "Cadastros de visitantes no app (tabela visitors.visitors)",
+    formula: "Cadastros feitos dentro do período, pela data do cadastro",
+    link: () => ({
+      href: PATHS.visitors,
+      label: "Ver visitantes",
+      permission: ROUTES.visitors.list.permission,
+    }),
+  },
+  {
+    metric: "couponsClaimed",
+    label: "Cupons pegos",
+    icon: TicketPercent,
+    tone: "green",
+    format: int,
+    source: CLAIMS_SOURCE,
+    formula: "Cupons pegos no período, pela data em que o visitante pegou",
+    link: (storeId) => ({
+      href: PATHS.claimsWith({ storeId }),
+      label: "Ver cupons pegos",
+      permission: ROUTES.claims.list.permission,
+    }),
+  },
+  {
+    metric: "couponsRedeemed",
+    label: "Cupons usados",
+    icon: TicketCheck,
+    format: int,
+    source: CLAIMS_SOURCE,
+    formula: "Cupons validados no caixa no período, pela data do uso",
+    link: (storeId) => ({
+      href: PATHS.claimsWith({ storeId, status: "redeemed" }),
+      label: "Ver cupons usados",
+      permission: ROUTES.claims.list.permission,
+    }),
+  },
+  {
+    metric: "redemptionRate",
+    label: "Taxa de uso",
+    icon: Percent,
+    format: formatPercent,
+    deltaKind: "points",
+    hint: "Usados ÷ pegos no período",
+    source: CLAIMS_SOURCE,
+    formula:
+      "Cupons usados no período ÷ cupons pegos no período (no máximo 100%). Um cupom pego antes do período e usado dentro dele conta como usado",
+    link: (storeId) => ({
+      href: PATHS.claimsWith({ storeId }),
+      label: "Ver cupons pegos",
+      permission: ROUTES.claims.list.permission,
+    }),
+  },
+  {
+    metric: "savingsCents",
+    label: "Economia gerada",
+    icon: HandCoins,
+    format: (v) => formatCents(v, { whole: true }),
+    hint: "Estimada pelos cupons usados",
+    source: `${CLAIMS_SOURCE}, com a economia informada em cada promoção (promotions.coupons)`,
+    formula:
+      "Para cada promoção: cupons usados no período × economia por cupom. Promoção sem economia informada conta R$ 0",
+    link: (storeId) => ({
+      href: PATHS.claimsWith({ storeId, status: "redeemed" }),
+      label: "Ver cupons usados",
+      permission: ROUTES.claims.list.permission,
+    }),
+  },
+  {
+    metric: "sealsAwarded",
+    label: "Selos dados",
+    icon: Award,
+    tone: "dark",
+    format: int,
+    source: "Selos conquistados pelos visitantes (tabela gamification.earned_seals)",
+    formula: "Selos ganhos no período, pela data da conquista. Com loja: só os desafios dela",
+    link: () => ({
+      href: PATHS.earnedSeals(),
+      label: "Ver selos conquistados",
+      permission: ROUTES.earnedSeals.list.permission,
+    }),
+  },
+  {
+    metric: "activeCoupons",
+    label: "Promoções ativas",
+    icon: Ticket,
+    format: int,
+    stock: true,
+    source: "Promoções cadastradas (tabela promotions.coupons)",
+    formula: "Promoções com situação ativa que já começaram e ainda não terminaram, agora",
+    link: () => ({
+      href: PATHS.coupons,
+      label: "Ver promoções",
+      permission: ROUTES.coupons.list.permission,
+    }),
+  },
+  {
+    metric: "upcomingEvents",
+    label: "Próximos eventos",
+    icon: CalendarDays,
+    format: int,
+    hint: "Publicados, nos próximos 30 dias",
+    source: "Agenda de eventos (tabela agenda.events)",
+    formula: "Eventos publicados que acontecem de hoje até daqui a 30 dias (inclui os recorrentes)",
+    link: () => ({
+      href: PATHS.events,
+      label: "Ver eventos",
+      permission: ROUTES.events.list.permission,
+    }),
+  },
+];
+
+/**
+ * Os 9 indicadores do período, em tons variados (como o copiloto). Clicar
+ * num cartão abre o modal com de onde vem o número e as linhas que o formam.
+ */
 export function DashboardKpis({
   kpis,
   periodLabel,
+  query,
+  storeName,
 }: {
   kpis: DashboardOverview["kpis"];
   periodLabel: string;
+  query: DashboardQuery;
+  /** Loja do filtro (ou a do lojista); undefined = todas. */
+  storeName?: string;
 }) {
+  const qc = useQueryClient();
+  const { can } = useAuth();
+  const [open, setOpen] = useState<DashboardMetric | null>(null);
   const vs = `vs ${periodLabel} anteriores`;
+  const detailQuery = (metric: DashboardMetric) => ({ ...query, metric });
+
+  const cards = KPIS.map((k) => {
+    const kpi = kpis[k.metric];
+    const delta = formatDelta(kpi.value, kpi.previous, k.deltaKind);
+    return (
+      <KpiCard
+        key={k.metric}
+        tone={k.tone}
+        label={k.label}
+        icon={k.icon}
+        value={k.format(kpi.value)}
+        delta={delta}
+        deltaLabel={k.stock ? "vs fim do período anterior" : vs}
+        hint={k.hint}
+        onClick={() => setOpen(k.metric)}
+        onPrefetch={() => prefetchDashboardDetail(qc, detailQuery(k.metric))}
+      />
+    );
+  });
+
+  const def = KPIS.find((k) => k.metric === open);
+  let info: KpiDetailInfo | null = null;
+  if (def) {
+    const kpi = kpis[def.metric];
+    const link = def.link?.(query.storeId);
+    info = {
+      label: def.label,
+      value: def.format(kpi.value),
+      previous: kpi.previous === null ? undefined : def.format(kpi.previous),
+      deltaText: formatDelta(kpi.value, kpi.previous, def.deltaKind)?.text,
+      sources: [
+        { label: "Fonte", value: def.source },
+        { label: "Cálculo", value: def.formula },
+        {
+          label: "Loja",
+          value: def.global
+            ? "Sempre o app inteiro: o filtro de loja não muda este número"
+            : (storeName ?? "Todas as lojas"),
+        },
+      ],
+      link: link && can(link.permission) ? link : undefined,
+    };
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard
-          tone="dark"
-          label="Visitantes cadastrados"
-          icon={Users}
-          value={formatNumber(kpis.visitorsTotal.value)}
-          delta={formatDelta(kpis.visitorsTotal.value, kpis.visitorsTotal.previous)}
-          deltaLabel="vs fim do período anterior"
-        />
-        <KpiCard
-          label="Novos cadastros"
-          icon={UserPlus}
-          value={formatNumber(kpis.visitorsNew.value)}
-          delta={formatDelta(kpis.visitorsNew.value, kpis.visitorsNew.previous)}
-          deltaLabel={vs}
-        />
-        <KpiCard
-          tone="green"
-          label="Cupons pegos"
-          icon={TicketPercent}
-          value={formatNumber(kpis.couponsClaimed.value)}
-          delta={formatDelta(kpis.couponsClaimed.value, kpis.couponsClaimed.previous)}
-          deltaLabel={vs}
-        />
-        <KpiCard
-          label="Cupons usados"
-          icon={TicketCheck}
-          value={formatNumber(kpis.couponsRedeemed.value)}
-          delta={formatDelta(kpis.couponsRedeemed.value, kpis.couponsRedeemed.previous)}
-          deltaLabel={vs}
-        />
+        {cards.slice(0, 4)}
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
-        <KpiCard
-          label="Taxa de uso"
-          icon={Percent}
-          value={formatPercent(kpis.redemptionRate.value)}
-          delta={formatDelta(kpis.redemptionRate.value, kpis.redemptionRate.previous, "points")}
-          deltaLabel={vs}
-          hint="Usados ÷ pegos no período"
-        />
-        <KpiCard
-          label="Economia gerada"
-          icon={HandCoins}
-          value={formatCents(kpis.savingsCents.value, { whole: true })}
-          delta={formatDelta(kpis.savingsCents.value, kpis.savingsCents.previous)}
-          deltaLabel={vs}
-          hint="Estimada pelos cupons usados"
-        />
-        <KpiCard
-          tone="dark"
-          label="Selos dados"
-          icon={Award}
-          value={formatNumber(kpis.sealsAwarded.value)}
-          delta={formatDelta(kpis.sealsAwarded.value, kpis.sealsAwarded.previous)}
-          deltaLabel={vs}
-        />
-        <KpiCard
-          label="Promoções ativas"
-          icon={Ticket}
-          value={formatNumber(kpis.activeCoupons.value)}
-          delta={formatDelta(kpis.activeCoupons.value, kpis.activeCoupons.previous)}
-          deltaLabel="vs fim do período anterior"
-        />
-        <KpiCard
-          label="Próximos eventos"
-          icon={CalendarDays}
-          value={formatNumber(kpis.upcomingEvents.value)}
-          hint="Publicados, a partir de hoje"
-        />
+        {cards.slice(4)}
       </div>
+      <KpiDetailModal
+        query={open ? detailQuery(open) : null}
+        info={info}
+        subtitle={`Últimos ${periodLabel} · ${def?.global ? "app inteiro" : (storeName ?? "todas as lojas")}`}
+        onClose={() => setOpen(null)}
+      />
     </div>
   );
 }

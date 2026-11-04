@@ -26,7 +26,13 @@ export function KpiCard({
   tone = "glass",
   children,
   className,
+  onClick,
+  onPrefetch,
 }: {
+  /** Com onClick, o cartão vira botão (abre o modal "de onde vem"). */
+  onClick?: () => void;
+  /** Mouse parado em cima, dedo encostado ou foco: hora de pré-carregar. */
+  onPrefetch?: () => void;
   label: string;
   value: ReactNode;
   delta?: Delta | null;
@@ -50,11 +56,22 @@ export function KpiCard({
       : delta.direction === "up"
         ? TrendingUp
         : TrendingDown;
+  const Root = onClick ? "button" : "div";
   return (
-    <div
+    <Root
+      {...(onClick && {
+        type: "button" as const,
+        onClick,
+        onPointerEnter: onPrefetch,
+        onFocus: onPrefetch,
+        "aria-haspopup": "dialog" as const,
+        title: "Ver de onde vem este número",
+      })}
       className={cn(
         TONES[tone],
         "flutua relative flex h-full min-w-0 flex-col gap-3 rounded-[1.75rem] p-5",
+        onClick &&
+          "w-full cursor-pointer text-left transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marca",
         className,
       )}
     >
@@ -84,6 +101,6 @@ export function KpiCard({
         {hint && <span>{hint}</span>}
       </div>
       {children}
-    </div>
+    </Root>
   );
 }

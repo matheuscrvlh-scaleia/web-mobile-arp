@@ -239,6 +239,12 @@ export const ROUTES = {
   },
 
   dashboard: r("GET", "/dashboard/overview", "dashboard.view", "Indicadores do período"),
+  dashboardDetail: r(
+    "GET",
+    "/dashboard/detail",
+    "dashboard.view",
+    "De onde vem um indicador (?metric&period&storeId)",
+  ),
   auditLogs: r("GET", "/audit-logs", "audit.view", "Histórico de alterações"),
   settings: {
     get: r("GET", "/settings", "settings.manage", "Configurações do app"),

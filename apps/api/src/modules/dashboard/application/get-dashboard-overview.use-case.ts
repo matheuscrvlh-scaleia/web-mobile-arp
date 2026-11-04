@@ -1,4 +1,11 @@
-import type { DashboardOverview, DashboardQuery } from "@arp/contracts";
+import type {
+  DashboardDetail,
+  DashboardDetailQuery,
+  DashboardDetailTable,
+  DashboardMetric,
+  DashboardOverview,
+  DashboardQuery,
+} from "@arp/contracts";
 import type { StaffActor } from "../../../shared/application/actor";
 import type { Cache } from "../../../shared/application/ports/cache";
 import type { Clock } from "../../../shared/application/ports/clock";
@@ -15,6 +22,8 @@ export interface OverviewRequest {
 /** Leitura agregada do painel (implementada com SQL no infra). */
 export interface DashboardReader {
   overview(request: OverviewRequest): Promise<DashboardOverview>;
+  /** Linhas que formam um indicador (o modal "de onde vem"). */
+  detail(request: OverviewRequest & { metric: DashboardMetric }): Promise<DashboardDetailTable[]>;
 }
 
 export interface GetDashboardOverviewDeps {
@@ -45,6 +54,30 @@ export class GetDashboardOverviewUseCase {
     if (this.deps.cacheTtlMs <= 0) return load();
     return this.deps.cache.getOrLoad(
       `dashboard:${query.period}:${storeId ?? "all"}`,
+      this.deps.cacheTtlMs,
+      load,
+    );
+  }
+
+  /** De onde vem um indicador: mesma janela e mesmo escopo de loja do painel. */
+  async detail(query: DashboardDetailQuery, actor: StaffActor): Promise<DashboardDetail> {
+    const storeId = scopedStoreId(actor, query.storeId) ?? null;
+    const load = async (): Promise<DashboardDetail> => {
+      const now = this.deps.clock.now();
+      const range = periodRange(query.period, now);
+      const tables = await this.deps.reader.detail({
+        period: query.period,
+        range,
+        storeId,
+        now,
+        metric: query.metric,
+      });
+      const { from, to, previousFrom, previousTo } = range;
+      return { metric: query.metric, range: { from, to, previousFrom, previousTo }, tables };
+    };
+    if (this.deps.cacheTtlMs <= 0) return load();
+    return this.deps.cache.getOrLoad(
+      `dashboard:detail:${query.metric}:${query.period}:${storeId ?? "all"}`,
       this.deps.cacheTtlMs,
       load,
     );

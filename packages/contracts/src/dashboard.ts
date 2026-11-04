@@ -72,3 +72,55 @@ export const dashboardOverviewSchema = z.object({
   }),
 });
 export type DashboardOverview = z.infer<typeof dashboardOverviewSchema>;
+
+/* De onde vem cada indicador (modal ao clicar no cartão) ---------------- */
+
+export const dashboardMetricSchema = z.enum([
+  "visitorsTotal",
+  "visitorsNew",
+  "couponsClaimed",
+  "couponsRedeemed",
+  "redemptionRate",
+  "savingsCents",
+  "sealsAwarded",
+  "activeCoupons",
+  "upcomingEvents",
+]);
+export type DashboardMetric = z.infer<typeof dashboardMetricSchema>;
+
+export const dashboardDetailQuerySchema = dashboardQuerySchema.extend({
+  metric: dashboardMetricSchema,
+});
+export type DashboardDetailQuery = z.infer<typeof dashboardDetailQuerySchema>;
+
+/**
+ * Como o web mostra a célula: texto, inteiro, centavos, fração 0..1, dia
+ * (YYYY-MM-DD) ou mês (YYYY-MM). Valor cru: a formatação fica no web.
+ */
+export const detailColumnKindSchema = z.enum(["text", "int", "cents", "percent", "day", "month"]);
+export type DetailColumnKind = z.infer<typeof detailColumnKindSchema>;
+
+export const dashboardDetailTableSchema = z.object({
+  title: z.string(),
+  columns: z.array(z.object({ title: z.string(), kind: detailColumnKindSchema })),
+  rows: z.array(
+    z.object({
+      id: z.string(),
+      cells: z.array(z.union([z.string(), z.number(), z.null()])),
+    }),
+  ),
+});
+export type DashboardDetailTable = z.infer<typeof dashboardDetailTableSchema>;
+
+export const dashboardDetailSchema = z.object({
+  metric: dashboardMetricSchema,
+  /** Janela usada (dias de São Paulo), para o modal dizer o período exato. */
+  range: z.object({
+    from: isoDateSchema,
+    to: isoDateSchema,
+    previousFrom: isoDateSchema,
+    previousTo: isoDateSchema,
+  }),
+  tables: z.array(dashboardDetailTableSchema),
+});
+export type DashboardDetail = z.infer<typeof dashboardDetailSchema>;

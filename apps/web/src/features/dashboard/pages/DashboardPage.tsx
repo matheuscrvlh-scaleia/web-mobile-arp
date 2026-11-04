@@ -108,7 +108,12 @@ export function DashboardPage() {
         </LoadingRegion>
       ) : (
         <div className="flex flex-col gap-5" aria-busy={overview.isFetching || undefined}>
-          <DashboardKpis kpis={data.kpis} periodLabel={PERIOD_TEXT[data.period]} />
+          <DashboardKpis
+            kpis={data.kpis}
+            periodLabel={PERIOD_TEXT[data.period]}
+            query={query}
+            storeName={user?.store?.name ?? stores.data?.find((s) => s.id === query.storeId)?.name}
+          />
 
           <Card>
             <CardHeader
