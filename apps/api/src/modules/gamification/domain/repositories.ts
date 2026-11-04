@@ -38,9 +38,14 @@ export interface QrCodeRepository {
 export interface ChallengeReferences {
   storeExists(id: string): Promise<boolean>;
   eventExists(id: string): Promise<boolean>;
+  /** Loja do cupom (null = cupom não existe). */
+  couponStoreId(id: string): Promise<string | null>;
 }
 
 export type ScanResult = "awarded" | "duplicate" | "expired" | "invalid";
+
+/** Desafio automático disparado pela baixa de um cupom (com campanha e selo). */
+export type CouponChallengeContext = Omit<QrScanContext, "qr"> & { sealName: string };
 
 /** Tudo o que a leitura de um QR precisa, numa consulta. */
 export interface QrScanContext {
@@ -66,6 +71,8 @@ export interface SealAward {
 
 export interface SealAwardRepository {
   findQrContext(token: string): Promise<QrScanContext | null>;
+  /** Desafios automáticos ligados à baixa deste cupom (ativos ou não; quem decide é o domínio). */
+  findCouponChallenges(couponId: string): Promise<CouponChallengeContext[]>;
   hasEarned(
     visitorId: string,
     challengeId: string,

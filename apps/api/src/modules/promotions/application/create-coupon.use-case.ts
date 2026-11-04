@@ -16,6 +16,7 @@ export interface CreateCouponInput {
   endsAt?: Date | null;
   totalQuantity: number;
   redeemWindowHours: number;
+  expiresWithPromotion: boolean;
   tone: CouponTone;
   icon: string;
   imageUrl?: string | null;
@@ -42,6 +43,7 @@ export class CreateCouponUseCase {
       endsAt: input.endsAt ?? null,
       totalQuantity: input.totalQuantity,
       redeemWindowHours: input.redeemWindowHours,
+      expiresWithPromotion: input.expiresWithPromotion,
       tone: input.tone,
       icon: input.icon,
       imageUrl: input.imageUrl ?? null,

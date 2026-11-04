@@ -69,6 +69,12 @@ export function ChallengeDetailPage() {
             <SealBadge seal={c.seal} size={28} />
             <span className="font-medium text-neutral-800">Selo {c.seal.name}</span>
             <ValidationPill validation={c.validation} />
+            {c.coupon && (
+              <span>
+                · Baixa do cupom <strong className="font-medium">{c.coupon.title}</strong> (
+                {c.coupon.storeName})
+              </span>
+            )}
             {c.status === "inactive" && <ChallengeInactiveBadge />}
             <span>
               · {c.completionsCount} {c.completionsCount === 1 ? "selo dado" : "selos dados"}
@@ -77,9 +83,14 @@ export function ChallengeDetailPage() {
         }
         actions={
           <Can permission="challenges.manage">
+            {/* Travas para apagar (a API confere as mesmas). */}
             {c.completionsCount > 0 ? (
               <span className="max-w-56 text-right text-xs text-neutral-500">
                 Já deu selos: não dá para apagar. Para tirar do app, desative.
+              </span>
+            ) : c.status === "active" ? (
+              <span className="max-w-56 text-right text-xs text-neutral-500">
+                Para apagar, desative o desafio primeiro (em Exibição, abaixo).
               </span>
             ) : (
               <Button variant="ghost" icon={Trash2} onClick={() => setConfirming(true)}>
@@ -127,7 +138,17 @@ export function ChallengeDetailPage() {
         onClose={closeConfirm}
         danger
         title={`Apagar "${c.title}"?`}
-        description="O desafio e os QR Codes dele somem. Não dá para desfazer."
+        description={
+          <>
+            O desafio
+            {c.qrCodesCount > 0
+              ? ` e ${c.qrCodesCount === 1 ? "o QR Code" : `os ${c.qrCodesCount} QR Codes`} dele somem`
+              : " some"}
+            {c.coupon ? ` e o cupom "${c.coupon.title}" deixa de dar selo` : ""}. Não dá para
+            desfazer.
+          </>
+        }
+        confirmText={c.title}
         confirmLabel="Apagar desafio"
         loading={remove.isPending}
         error={remove.error}

@@ -1,4 +1,4 @@
-import type { App } from "@arp/contracts";
+import type { App, CounterRedeemBody, CounterRedeemResult } from "@arp/contracts";
 import type { StaffActor, VisitorActor } from "../../../shared/application/actor";
 import type { AuditLogger } from "../../../shared/application/ports/audit-logger";
 import type { Clock } from "../../../shared/application/ports/clock";
@@ -12,6 +12,7 @@ import {
   REDEMPTION_CODE_ALPHABET,
   REDEMPTION_CODE_LENGTH,
   REDEMPTION_NOT_FOUND,
+  VISITOR_NOT_FOUND,
 } from "../domain/club";
 import { type PgClubStore, RedemptionCodeCollisionError } from "../infra/pg-club-store";
 
@@ -26,55 +27,114 @@ export interface ClubDeps {
 const MAX_CODE_ATTEMPTS = 5;
 
 /**
- * Troca pontos por um prêmio: confere os pontos, baixa o estoque e gera o
- * código de retirada. O visitante fica travado na transação para não gastar
- * o mesmo ponto duas vezes.
+ * Núcleo da troca (dentro da transação, com o visitante já travado): confere
+ * os pontos, baixa o estoque e grava a troca com código. Com `delivered`, a
+ * troca já sai entregue (balcão).
+ */
+async function redeem(
+  deps: ClubDeps,
+  input: { prizeId: string; visitorId: string; now: Date },
+  actor: VisitorActor | StaffActor,
+  delivered?: { by: string; at: Date },
+) {
+  const { store, random, audit, uow } = deps;
+  const prize = await store.activePrize(input.prizeId);
+  if (!prize) throw new NotFoundError(PRIZE_NOT_FOUND);
+  const total = await store.points(input.visitorId, input.now);
+  if (total < prize.points) throw new NotEnoughPointsError(prize.points - total);
+  if (!(await store.takeStock(prize.id))) throw new PrizeOutOfStockError();
+
+  for (let attempt = 1; ; attempt++) {
+    const code = random.string(REDEMPTION_CODE_ALPHABET, REDEMPTION_CODE_LENGTH);
+    try {
+      // Savepoint: a colisão do código desfaz só o insert.
+      const id = await uow.run(() =>
+        store.insertRedemption({
+          prizeId: prize.id,
+          visitorId: input.visitorId,
+          points: prize.points,
+          code,
+          ...(delivered ? { delivered } : {}),
+        }),
+      );
+      await audit.log({
+        actor,
+        action: delivered ? "prize.redeem_counter" : "prize.redeem",
+        entityType: "prize_redemption",
+        entityId: id,
+        changes: { prizeId: prize.id, visitorId: input.visitorId, points: prize.points },
+      });
+      return {
+        id,
+        code,
+        prize: { id: prize.id, name: prize.name },
+        points: prize.points,
+        totalPoints: await store.points(input.visitorId, input.now),
+      };
+    } catch (err) {
+      if (!(err instanceof RedemptionCodeCollisionError) || attempt >= MAX_CODE_ATTEMPTS) {
+        throw err;
+      }
+    }
+  }
+}
+
+/**
+ * App: o visitante troca pontos por um prêmio e recebe o código de retirada.
+ * Fica travado na transação para não gastar o mesmo ponto duas vezes.
  */
 export class RedeemPrizeUseCase {
   constructor(private readonly deps: ClubDeps) {}
 
   execute(input: { prizeId: string }, actor: VisitorActor): Promise<App.PrizeRedeemResult> {
-    const { store, random, clock, audit, uow } = this.deps;
+    const { store, clock, uow } = this.deps;
     const now = clock.now();
     return uow.run(async () => {
       await store.lockVisitor(actor.id);
-      const prize = await store.activePrize(input.prizeId);
-      if (!prize) throw new NotFoundError(PRIZE_NOT_FOUND);
-      const total = await store.points(actor.id, now);
-      if (total < prize.points) throw new NotEnoughPointsError(prize.points - total);
-      if (!(await store.takeStock(prize.id))) throw new PrizeOutOfStockError();
+      const { code, prize, points, totalPoints } = await redeem(
+        this.deps,
+        { prizeId: input.prizeId, visitorId: actor.id, now },
+        actor,
+      );
+      return { code, prize, points, totalPoints };
+    });
+  }
+}
 
-      for (let attempt = 1; ; attempt++) {
-        const code = random.string(REDEMPTION_CODE_ALPHABET, REDEMPTION_CODE_LENGTH);
-        try {
-          // Savepoint: a colisão do código desfaz só o insert.
-          const id = await uow.run(() =>
-            store.insertRedemption({
-              prizeId: prize.id,
-              visitorId: actor.id,
-              points: prize.points,
-              code,
-            }),
-          );
-          await audit.log({
-            actor,
-            action: "prize.redeem",
-            entityType: "prize_redemption",
-            entityId: id,
-            changes: { prizeId: prize.id, points: prize.points },
-          });
-          return {
-            code,
-            prize: { id: prize.id, name: prize.name },
-            points: prize.points,
-            totalPoints: await store.points(actor.id, now),
-          };
-        } catch (err) {
-          if (!(err instanceof RedemptionCodeCollisionError) || attempt >= MAX_CODE_ATTEMPTS) {
-            throw err;
-          }
-        }
+/**
+ * Balcão (Centro de Informações): acha o visitante, troca os pontos dele pelo
+ * prêmio e entrega na hora, sem código para conferir depois.
+ */
+export class CounterRedeemPrizeUseCase {
+  constructor(private readonly deps: ClubDeps) {}
+
+  execute(input: CounterRedeemBody, actor: StaffActor): Promise<CounterRedeemResult> {
+    const { store, clock, uow } = this.deps;
+    const now = clock.now();
+    return uow.run(async () => {
+      const visitor = await store.lockVisitor(input.visitorId);
+      if (!visitor) throw new NotFoundError(VISITOR_NOT_FOUND);
+      if (visitor.status !== "active") {
+        throw new ConflictError("Este visitante está bloqueado e não pode trocar pontos");
       }
+      const r = await redeem(
+        this.deps,
+        { prizeId: input.prizeId, visitorId: input.visitorId, now },
+        actor,
+        { by: actor.id, at: now },
+      );
+      const at = now.toISOString();
+      return {
+        id: r.id,
+        code: r.code,
+        prize: r.prize,
+        visitor: { id: input.visitorId, name: visitor.name },
+        points: r.points,
+        status: "delivered",
+        createdAt: at,
+        deliveredAt: at,
+        totalPoints: r.totalPoints,
+      };
     });
   }
 }

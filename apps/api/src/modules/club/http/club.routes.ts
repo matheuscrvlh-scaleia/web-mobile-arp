@@ -1,5 +1,7 @@
 import {
   App,
+  counterRedeemBodySchema,
+  counterRedeemResultSchema,
   couponsByStoreQuerySchema,
   couponsByStoreSchema,
   createPrizeBodySchema,
@@ -10,6 +12,8 @@ import {
   prizeSchema,
   ROUTES,
   rankingListSchema,
+  redemptionVisitorListSchema,
+  redemptionVisitorsQuerySchema,
   sealsReportQuerySchema,
   sealsReportSchema,
   updatePrizeBodySchema,
@@ -25,6 +29,7 @@ import type { CreateCatalogItemUseCase } from "../../directory/application/creat
 import type { DeleteCatalogItemUseCase } from "../../directory/application/delete-catalog-item.use-case";
 import type { UpdateCatalogItemUseCase } from "../../directory/application/update-catalog-item.use-case";
 import type {
+  CounterRedeemPrizeUseCase,
   DeliverRedemptionUseCase,
   RedeemPrizeUseCase,
   SetRankingNicknameUseCase,
@@ -43,6 +48,7 @@ export interface ClubRoutesDeps {
     remove: DeleteCatalogItemUseCase<PrizeProps>;
   };
   deliver: DeliverRedemptionUseCase;
+  counterRedeem: CounterRedeemPrizeUseCase;
 }
 
 /** Painel: lojinha, trocas, ranking e selos dados por loja/produto. */
@@ -88,6 +94,22 @@ export function clubRoutes(deps: ClubRoutesDeps): FastifyPluginAsyncZod {
         response: { 200: prizeRedemptionPageSchema },
       },
       async (request) => queries.redemptions(request.query),
+    );
+    r.route(
+      ROUTES.prizeRedemptions.visitors,
+      {
+        querystring: redemptionVisitorsQuerySchema,
+        response: { 200: redemptionVisitorListSchema },
+      },
+      async (request) => ({
+        data: await queries.redemptionVisitors(request.query.q, clock.now()),
+      }),
+    );
+    r.route(
+      ROUTES.prizeRedemptions.create,
+      { body: counterRedeemBodySchema, response: { 201: counterRedeemResultSchema } },
+      async (request, reply) =>
+        reply.status(201).send(await deps.counterRedeem.execute(request.body, staffOf(request))),
     );
     r.route(ROUTES.prizeRedemptions.deliver, { params: idParamsSchema }, async (request, reply) => {
       await deps.deliver.execute(request.params, staffOf(request));

@@ -153,6 +153,12 @@ export type ReplaceTiersBody = z.infer<typeof replaceTiersBodySchema>;
 export const challengeValidationSchema = z.enum(["qr", "auto"]);
 export type ChallengeValidation = z.infer<typeof challengeValidationSchema>;
 export const challengeStatusSchema = z.enum(["active", "inactive"]);
+/**
+ * O que dá o selo num desafio automático: a loja dar baixa num cupom no
+ * caixa, ou um sistema externo (ex.: estacionamento pago pelo app).
+ */
+export const challengeAutoTriggerSchema = z.enum(["coupon_redeemed", "integration"]);
+export type ChallengeAutoTrigger = z.infer<typeof challengeAutoTriggerSchema>;
 
 export const challengeSchema = z.object({
   id: idSchema,
@@ -163,6 +169,10 @@ export const challengeSchema = z.object({
   howTo: z.string(),
   icon: iconNameSchema,
   validation: challengeValidationSchema,
+  /** Só no automático. */
+  autoTrigger: challengeAutoTriggerSchema.nullable(),
+  /** Cupom cuja baixa no caixa dá o selo (gatilho coupon_redeemed). */
+  coupon: z.object({ id: idSchema, title: z.string(), storeName: z.string() }).nullable(),
   store: refSchema.nullable(),
   /** Desafio de produto do parceiro (ex.: "Prato do mês"). */
   product: z.string().nullable(),
@@ -184,6 +194,10 @@ export const createChallengeBodySchema = z.object({
   howTo: z.string().trim().min(3).max(240),
   icon: iconNameSchema,
   validation: challengeValidationSchema,
+  /** Obrigatório no automático; ignorado no QR. */
+  autoTrigger: challengeAutoTriggerSchema.nullable().optional(),
+  /** Obrigatório no gatilho coupon_redeemed (a loja do desafio passa a ser a do cupom). */
+  couponId: idSchema.nullable().optional(),
   storeId: idSchema.nullable().optional(),
   /** Produto do parceiro (desafio de produto; o lojista gera o QR). */
   product: z.string().trim().max(80).nullable().optional(),
@@ -197,7 +211,11 @@ export const updateChallengeBodySchema = z.object(
 );
 export type UpdateChallengeBody = z.infer<typeof updateChallengeBodySchema>;
 
-export const listChallengesQuerySchema = z.object({ campaignId: idSchema.optional() });
+export const listChallengesQuerySchema = z.object({
+  campaignId: idSchema.optional(),
+  /** Desafios que dão selo na baixa deste cupom. */
+  couponId: idSchema.optional(),
+});
 export type ListChallengesQuery = z.infer<typeof listChallengesQuerySchema>;
 
 /* QR Codes --------------------------------------------------------------- */
@@ -357,6 +375,39 @@ export const listPrizeRedemptionsQuerySchema = paginationQuerySchema.extend({
   code: z.string().trim().max(20).optional(),
 });
 export type ListPrizeRedemptionsQuery = z.infer<typeof listPrizeRedemptionsQuerySchema>;
+
+/* Troca no balcão: o Centro de Informações acha o visitante e troca por ele. */
+
+export const redemptionVisitorsQuerySchema = z.object({
+  /** Nome, e-mail ou telefone. */
+  q: z.string().trim().min(2, "Digite 2 letras ou mais").max(120),
+});
+export type RedemptionVisitorsQuery = z.infer<typeof redemptionVisitorsQuerySchema>;
+
+export const redemptionVisitorSchema = z.object({
+  id: idSchema,
+  name: z.string(),
+  email: z.string(),
+  phone: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+  blocked: z.boolean(),
+  /** Saldo do Clube agora (selos valendo menos trocas). */
+  points: z.number().int(),
+});
+export type RedemptionVisitor = z.infer<typeof redemptionVisitorSchema>;
+export const redemptionVisitorListSchema = listOf(redemptionVisitorSchema);
+
+export const counterRedeemBodySchema = z.object({
+  visitorId: idSchema,
+  prizeId: idSchema,
+});
+export type CounterRedeemBody = z.infer<typeof counterRedeemBodySchema>;
+
+/** Troca já entregue + saldo que sobrou. */
+export const counterRedeemResultSchema = prizeRedemptionSchema.extend({
+  totalPoints: z.number().int(),
+});
+export type CounterRedeemResult = z.infer<typeof counterRedeemResultSchema>;
 
 /** Ranking de visitantes (só quem aceitou, só com apelido). */
 export const rankingEntrySchema = z.object({

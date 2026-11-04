@@ -106,6 +106,7 @@ const FIELD_LABEL: Record<string, string> = {
   endsAt: "Fim",
   totalQuantity: "Quantidade",
   redeemWindowHours: "Prazo para usar (h)",
+  expiresWithPromotion: "Vence com a promoção",
   couponDefaultWindowHours: "Prazo padrão do cupom (h)",
   supportWhatsapp: "WhatsApp do suporte",
   supportEmail: "E-mail do suporte",

@@ -16,6 +16,8 @@ import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tansta
 import { apiCall, apiRequest, updateListItem } from "@/shared/api";
 
 export const challengesApi = {
+  listByCoupon: (couponId: string, signal?: AbortSignal) =>
+    apiRequest(ROUTES.challenges.list, challengeListSchema, { query: { couponId }, signal }),
   list: (campaignId: string | undefined, signal?: AbortSignal) =>
     apiRequest(ROUTES.challenges.list, challengeListSchema, { query: { campaignId }, signal }),
   get: (id: string, signal?: AbortSignal) =>
@@ -40,6 +42,7 @@ export const challengeKeys = {
   all: ["challenges"] as const,
   lists: () => [...challengeKeys.all, "list"] as const,
   list: (campaignId: string | undefined) => [...challengeKeys.lists(), campaignId ?? null] as const,
+  byCoupon: (couponId: string) => [...challengeKeys.lists(), "coupon", couponId] as const,
   detail: (id: string) => [...challengeKeys.all, "detail", id] as const,
   qrCodes: (challengeId: string) => [...challengeKeys.all, "qr-codes", challengeId] as const,
 };
@@ -49,6 +52,16 @@ export function useChallenges(campaignId: string | undefined, { enabled = true }
   return useQuery({
     queryKey: challengeKeys.list(campaignId),
     queryFn: ({ signal }) => challengesApi.list(campaignId, signal),
+    select: (r) => r.data,
+    enabled,
+  });
+}
+
+/** Desafios automáticos que dão selo na baixa deste cupom. */
+export function useCouponChallenges(couponId: string, { enabled = true } = {}) {
+  return useQuery({
+    queryKey: challengeKeys.byCoupon(couponId),
+    queryFn: ({ signal }) => challengesApi.listByCoupon(couponId, signal),
     select: (r) => r.data,
     enabled,
   });

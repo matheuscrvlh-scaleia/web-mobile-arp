@@ -5,6 +5,7 @@ import { CreateCatalogItemUseCase } from "../directory/application/create-catalo
 import { DeleteCatalogItemUseCase } from "../directory/application/delete-catalog-item.use-case";
 import { UpdateCatalogItemUseCase } from "../directory/application/update-catalog-item.use-case";
 import {
+  CounterRedeemPrizeUseCase,
   DeliverRedemptionUseCase,
   RedeemPrizeUseCase,
   SetRankingNicknameUseCase,
@@ -40,6 +41,7 @@ export function createClubModule(
       remove: new DeleteCatalogItemUseCase(prizeDeps),
     },
     deliver: new DeliverRedemptionUseCase(clubDeps),
+    counterRedeem: new CounterRedeemPrizeUseCase(clubDeps),
   });
   const app = appClubRoutes({
     queries,

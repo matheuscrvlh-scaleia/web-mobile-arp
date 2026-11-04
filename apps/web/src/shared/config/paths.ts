@@ -44,6 +44,8 @@ export const PATHS = {
   merchants: "/lojistas",
   club: (tab?: "lojinha" | "trocas" | "ranking" | "selos") =>
     `/clube${tab && tab !== "lojinha" ? `?aba=${tab}` : ""}`,
+  /** Troca de pontos por prêmio no balcão. */
+  prizeExchange: "/clube/trocar",
   seals: "/selos",
   /** Aba "Conquistados" dos selos, com filtros. */
   earnedSeals: (filters: EarnedSealFilters = {}) =>

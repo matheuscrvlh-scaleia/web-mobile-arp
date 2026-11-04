@@ -1,9 +1,10 @@
 import { CircleAlert, CircleHelp, CircleX, X } from "lucide-react";
-import { type ReactNode, useEffect, useId, useRef } from "react";
+import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { errorMessage } from "@/shared/api";
 import { cn } from "@/shared/lib/cn";
 import { Button } from "./Button";
+import { Input } from "./inputs";
 
 // Modal padrão: <dialog> nativo (Esc fecha, foco preso dentro, fundo
 // inerte), no <body> para não herdar o tom do cartão de onde saiu. Só
@@ -145,6 +146,7 @@ export function ConfirmDialog({
   danger = false,
   loading = false,
   error,
+  confirmText,
 }: {
   open: boolean;
   onClose: () => void;
@@ -156,8 +158,20 @@ export function ConfirmDialog({
   loading?: boolean;
   /** Erro da última tentativa (ex.: mutation.error). */
   error?: unknown;
+  /** Trava extra: o botão só libera depois de digitar este texto (ex.: o nome). */
+  confirmText?: string;
 }) {
   const hasError = error !== null && error !== undefined;
+  const [typed, setTyped] = useState("");
+  const inputId = useId();
+  // Cada abertura começa vazia.
+  useEffect(() => {
+    if (open) setTyped("");
+  }, [open]);
+  const locked =
+    Boolean(confirmText) &&
+    typed.trim().toLocaleLowerCase("pt-BR") !==
+      (confirmText ?? "").trim().toLocaleLowerCase("pt-BR");
   const Icon = hasError ? CircleX : danger ? CircleAlert : CircleHelp;
   return (
     <Modal
@@ -189,11 +203,31 @@ export function ConfirmDialog({
           <Button variant="secondary" onClick={onClose} disabled={loading}>
             {hasError ? "Fechar" : "Cancelar"}
           </Button>
-          <Button variant={danger ? "danger" : "primary"} onClick={onConfirm} loading={loading}>
+          <Button
+            variant={danger ? "danger" : "primary"}
+            onClick={onConfirm}
+            loading={loading}
+            disabled={!hasError && locked}
+          >
             {hasError ? "Tentar de novo" : confirmLabel}
           </Button>
         </>
       }
-    />
+    >
+      {confirmText && !hasError ? (
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor={inputId} className="text-sm text-neutral-700">
+            Para confirmar, digite <strong className="font-semibold">{confirmText}</strong>
+          </label>
+          <Input
+            id={inputId}
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            autoComplete="off"
+            disabled={loading}
+          />
+        </div>
+      ) : undefined}
+    </Modal>
   );
 }

@@ -31,6 +31,7 @@ interface CouponRow {
   ends_at: Date | null;
   total_quantity: number;
   redeem_window_hours: number;
+  expires_with_promotion: boolean;
   tone: CouponTone;
   icon: string;
   image_url: string | null;
@@ -43,8 +44,8 @@ interface CouponRow {
 }
 
 const COUPON_COLUMNS = sql.raw(`id, store_id, title, headline, headline_sub, description,
-  schedule_note, starts_at, ends_at, total_quantity, redeem_window_hours, tone, icon, image_url,
-  savings_cents, status, weekdays, review, review_note, created_by`);
+  schedule_note, starts_at, ends_at, total_quantity, redeem_window_hours, expires_with_promotion, tone, icon,
+  image_url, savings_cents, status, weekdays, review, review_note, created_by`);
 
 const couponToDomain = (r: CouponRow) =>
   Coupon.restore({
@@ -59,6 +60,7 @@ const couponToDomain = (r: CouponRow) =>
     endsAt: r.ends_at,
     totalQuantity: r.total_quantity,
     redeemWindowHours: r.redeem_window_hours,
+    expiresWithPromotion: r.expires_with_promotion,
     tone: r.tone,
     icon: r.icon,
     imageUrl: r.image_url,
@@ -92,12 +94,12 @@ export class PgCouponRepository implements CouponRepository {
       insert into promotions.coupons
         (store_id, title, headline, headline_sub, description, schedule_note, starts_at, ends_at,
          total_quantity, redeem_window_hours, tone, icon, image_url, savings_cents, status,
-         weekdays, review, review_note, created_by)
+         weekdays, expires_with_promotion, review, review_note, created_by)
       values
         (${d.storeId}, ${d.title}, ${d.headline}, ${d.headlineSub}, ${d.description},
          ${d.scheduleNote}, ${d.startsAt}, ${d.endsAt}, ${d.totalQuantity}, ${d.redeemWindowHours},
          ${d.tone}, ${d.icon}, ${d.imageUrl}, ${d.savingsCents}, ${d.status},
-         ${d.weekdays}::smallint[], ${d.review}, ${d.reviewNote}, ${d.createdBy})
+         ${d.weekdays}::smallint[], ${d.expiresWithPromotion}, ${d.review}, ${d.reviewNote}, ${d.createdBy})
       returning ${COUPON_COLUMNS}
     `);
     return couponToDomain(row);
@@ -112,7 +114,8 @@ export class PgCouponRepository implements CouponRepository {
           starts_at = ${s.startsAt}, ends_at = ${s.endsAt}, total_quantity = ${s.totalQuantity},
           redeem_window_hours = ${s.redeemWindowHours}, tone = ${s.tone}, icon = ${s.icon},
           image_url = ${s.imageUrl}, savings_cents = ${s.savingsCents}, status = ${s.status},
-          weekdays = ${s.weekdays}::smallint[], review = ${s.review}, review_note = ${s.reviewNote}
+          weekdays = ${s.weekdays}::smallint[],
+          expires_with_promotion = ${s.expiresWithPromotion}, review = ${s.review}, review_note = ${s.reviewNote}
       where id = ${s.id}
     `);
   }
@@ -163,16 +166,24 @@ export class PgClaimRepository implements ClaimRepository {
   constructor(private readonly db: Database) {}
 
   async findByCodeForUpdate(code: string): Promise<ClaimWithStore | null> {
-    const row = await this.db.maybeOne<ClaimRow & { store_id: string; weekdays: number[] }>(sql`
+    const row = await this.db.maybeOne<
+      ClaimRow & { store_id: string; weekdays: number[]; claim_cutoff: Date | null }
+    >(sql`
       select cl.id, cl.coupon_id, cl.visitor_id, cl.code, cl.status, cl.claimed_at, cl.expires_at,
-             cl.redeemed_at, cl.redeemed_by, c.store_id, c.weekdays
+             cl.redeemed_at, cl.redeemed_by, c.store_id, c.weekdays,
+             case when c.expires_with_promotion then c.ends_at end as claim_cutoff
       from promotions.coupon_claims cl
       join promotions.coupons c on c.id = cl.coupon_id
       where cl.code = ${code}
       for update of cl
     `);
     return row
-      ? { claim: claimToDomain(row), storeId: row.store_id, weekdays: row.weekdays }
+      ? {
+          claim: claimToDomain(row),
+          storeId: row.store_id,
+          weekdays: row.weekdays,
+          claimCutoff: row.claim_cutoff,
+        }
       : null;
   }
 

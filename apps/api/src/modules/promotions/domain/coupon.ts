@@ -19,6 +19,8 @@ export interface CouponProps {
   endsAt: Date | null;
   totalQuantity: number;
   redeemWindowHours: number;
+  /** Pego vence no fim da promoção (endsAt), mesmo antes das horas para usar. */
+  expiresWithPromotion: boolean;
   tone: CouponTone;
   icon: string;
   imageUrl: string | null;
@@ -119,9 +121,11 @@ export class Coupon {
     this.props = { ...this.props, review: "pending", reviewNote: null };
   }
 
-  /** Prazo de uso de um pego feito agora. */
+  /** Prazo de uso de um pego feito agora (para no fim da promoção, se ela pedir). */
   claimExpiresAt(now: Date): Date {
-    return new Date(now.getTime() + this.props.redeemWindowHours * HOUR_MS);
+    const byWindow = new Date(now.getTime() + this.props.redeemWindowHours * HOUR_MS);
+    const cutoff = claimCutoff(this.props);
+    return cutoff && cutoff < byWindow ? cutoff : byWindow;
   }
 
   /** Nunca menos unidades do que já foram pegas (ativas no prazo + usadas). */
@@ -179,4 +183,9 @@ function assertNotOver(endsAt: Date | null, now: Date): void {
   if (endsAt !== null && endsAt <= now) {
     throw new BusinessRuleError("O fim da promoção já passou; ajuste a data antes de ativar");
   }
+}
+
+/** Quando os pegos param de valer por causa do fim da promoção (null = não param). */
+export function claimCutoff(p: Pick<CouponProps, "expiresWithPromotion" | "endsAt">): Date | null {
+  return p.expiresWithPromotion ? p.endsAt : null;
 }

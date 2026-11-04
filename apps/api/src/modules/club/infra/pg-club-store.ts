@@ -30,9 +30,14 @@ export class RedemptionCodeCollisionError extends Error {}
 export class PgClubStore {
   constructor(private readonly db: Database) {}
 
-  /** Trava o visitante até o fim da transação: duas trocas ao mesmo tempo não gastam o mesmo ponto. */
-  async lockVisitor(visitorId: string): Promise<void> {
-    await this.db.query(sql`select 1 from visitors.visitors where id = ${visitorId} for update`);
+  /**
+   * Trava o visitante até o fim da transação: duas trocas ao mesmo tempo não
+   * gastam o mesmo ponto. Devolve a conta (null = não existe).
+   */
+  lockVisitor(visitorId: string): Promise<{ name: string; status: string } | null> {
+    return this.db.maybeOne(
+      sql`select name, status from visitors.visitors where id = ${visitorId} for update`,
+    );
   }
 
   async points(visitorId: string, now: Date): Promise<number> {
@@ -50,11 +55,12 @@ export class PgClubStore {
 
   /** Baixa uma unidade; false = acabou. */
   async takeStock(prizeId: string): Promise<boolean> {
-    return this.db.exists(sql`
+    // `exists` embrulha em select, e update dentro de select não é SQL válido.
+    const { rowCount } = await this.db.query(sql`
       update gamification.prizes set stock = stock - 1
       where id = ${prizeId} and stock > 0
-      returning 1
     `);
+    return rowCount > 0;
   }
 
   async insertRedemption(d: {
@@ -62,12 +68,17 @@ export class PgClubStore {
     visitorId: string;
     points: number;
     code: string;
+    /** Troca no balcão: já sai entregue por quem trocou. */
+    delivered?: { by: string; at: Date };
   }): Promise<string> {
     const { id } = await translateConstraintErrors(
       () =>
         this.db.one<{ id: string }>(sql`
-          insert into gamification.prize_redemptions (prize_id, visitor_id, points, code)
-          values (${d.prizeId}, ${d.visitorId}, ${d.points}, ${d.code})
+          insert into gamification.prize_redemptions
+            (prize_id, visitor_id, points, code, status, delivered_at, delivered_by)
+          values (${d.prizeId}, ${d.visitorId}, ${d.points}, ${d.code},
+                  ${d.delivered ? "delivered" : "pending"},
+                  ${d.delivered?.at ?? null}, ${d.delivered?.by ?? null})
           returning id
         `),
       { prize_redemptions_code_key: () => new RedemptionCodeCollisionError() },

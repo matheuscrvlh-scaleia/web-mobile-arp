@@ -3,7 +3,7 @@ import { diff } from "../../../shared/application/audit-changes";
 import { NotFoundError } from "../../../shared/domain/errors";
 import { toLocal } from "../../../shared/domain/time";
 import { assertClaimFromStore } from "../domain/claim";
-import { ClaimWrongDayError } from "../domain/errors";
+import { ClaimExpiredError, ClaimWrongDayError } from "../domain/errors";
 import type { PromotionsDeps } from "./promotions-deps";
 
 export const CODE_NOT_FOUND = "Código não encontrado";
@@ -26,6 +26,8 @@ export class RedeemClaimUseCase {
       const before = claim.toState();
       const now = clock.now();
       claim.redeem(actor.id, now);
+      // A promoção vence os pegos junto: depois do fim, recusa mesmo dentro das horas.
+      if (found.claimCutoff && now >= found.claimCutoff) throw new ClaimExpiredError();
       // Fase 2: fora dos dias escolhidos (no fuso da ARP), recusa, mesmo dentro do prazo.
       if (!found.weekdays.includes(toLocal(now).weekday)) {
         throw new ClaimWrongDayError(found.weekdays);
@@ -38,6 +40,8 @@ export class RedeemClaimUseCase {
         entityId: claim.id,
         changes: diff(before, claim.toState()),
       });
+      const { couponId, visitorId } = claim.toState();
+      await this.deps.onRedeemed?.({ claimId: claim.id, couponId, visitorId }, actor);
       return { claimId: claim.id };
     });
   }

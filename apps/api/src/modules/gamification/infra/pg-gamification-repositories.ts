@@ -14,6 +14,7 @@ import {
 } from "../domain/campaign";
 import {
   Challenge,
+  type ChallengeAutoTrigger,
   type ChallengeStatus,
   type ChallengeValidation,
   type NewChallenge,
@@ -24,6 +25,7 @@ import type {
   CampaignRepository,
   ChallengeReferences,
   ChallengeRepository,
+  CouponChallengeContext,
   QrCodeRepository,
   QrScanContext,
   ScanResult,
@@ -201,6 +203,8 @@ interface ChallengeRow {
   how_to: string;
   icon: string;
   validation: ChallengeValidation;
+  auto_trigger: ChallengeAutoTrigger | null;
+  coupon_id: string | null;
   store_id: string | null;
   product: string | null;
   event_id: string | null;
@@ -209,7 +213,7 @@ interface ChallengeRow {
 }
 
 const CHALLENGE_COLUMNS = sql.raw(
-  "id, campaign_id, seal_id, title, how_to, icon, validation, store_id, product, event_id, sort_order, status",
+  "id, campaign_id, seal_id, title, how_to, icon, validation, auto_trigger, coupon_id, store_id, product, event_id, sort_order, status",
 );
 
 const challengeToDomain = (r: ChallengeRow) =>
@@ -221,6 +225,8 @@ const challengeToDomain = (r: ChallengeRow) =>
     howTo: r.how_to,
     icon: r.icon,
     validation: r.validation,
+    autoTrigger: r.auto_trigger,
+    couponId: r.coupon_id,
     storeId: r.store_id,
     product: r.product,
     eventId: r.event_id,
@@ -241,10 +247,10 @@ export class PgChallengeRepository implements ChallengeRepository {
   async create(d: NewChallenge): Promise<Challenge> {
     const row = await this.db.one<ChallengeRow>(sql`
       insert into gamification.challenges
-        (campaign_id, seal_id, title, how_to, icon, validation, store_id, product, event_id, sort_order,
-         status)
+        (campaign_id, seal_id, title, how_to, icon, validation, auto_trigger, coupon_id, store_id,
+         product, event_id, sort_order, status)
       values (${d.campaignId}, ${d.sealId}, ${d.title}, ${d.howTo}, ${d.icon}, ${d.validation},
-              ${d.storeId}, ${d.product}, ${d.eventId}, ${d.sortOrder}, ${d.status})
+              ${d.autoTrigger}, ${d.couponId}, ${d.storeId}, ${d.product}, ${d.eventId}, ${d.sortOrder}, ${d.status})
       returning ${CHALLENGE_COLUMNS}
     `);
     return challengeToDomain(row);
@@ -255,7 +261,8 @@ export class PgChallengeRepository implements ChallengeRepository {
     await this.db.query(sql`
       update gamification.challenges
       set seal_id = ${s.sealId}, title = ${s.title}, how_to = ${s.howTo}, icon = ${s.icon},
-          validation = ${s.validation}, store_id = ${s.storeId}, product = ${s.product}, event_id = ${s.eventId},
+          validation = ${s.validation}, auto_trigger = ${s.autoTrigger}, coupon_id = ${s.couponId},
+          store_id = ${s.storeId}, product = ${s.product}, event_id = ${s.eventId},
           sort_order = ${s.sortOrder}, status = ${s.status}
       where id = ${s.id}
     `);
@@ -371,6 +378,8 @@ export class PgSealAwardRepository implements SealAwardRepository {
       how_to: string;
       icon: string;
       validation: ChallengeValidation;
+      auto_trigger: ChallengeAutoTrigger | null;
+      coupon_id: string | null;
       store_id: string | null;
       event_id: string | null;
       sort_order: number;
@@ -385,7 +394,7 @@ export class PgSealAwardRepository implements SealAwardRepository {
       select q.id as qr_id, q.token, q.label, q.valid_from, q.valid_until, q.status as qr_status,
              q.ttl_seconds, q.rotating, q.rotation_secret, q.created_by,
              ch.id as challenge_id, ch.seal_id, ch.title, ch.how_to, ch.icon, ch.validation,
-             ch.store_id, ch.product, ch.event_id, ch.sort_order, ch.status as challenge_status,
+             ch.auto_trigger, ch.coupon_id, ch.store_id, ch.product, ch.event_id, ch.sort_order, ch.status as challenge_status,
              c.id as campaign_id, c.name as campaign_name, c.description as campaign_description,
              c.starts_at, c.ends_at, c.status as campaign_status,
              s.points as seal_points, s.validity_months as seal_validity_months,
@@ -424,6 +433,8 @@ export class PgSealAwardRepository implements SealAwardRepository {
         how_to: r.how_to,
         icon: r.icon,
         validation: r.validation,
+        auto_trigger: r.auto_trigger,
+        coupon_id: r.coupon_id,
         store_id: r.store_id,
         product: r.product,
         event_id: r.event_id,
@@ -439,6 +450,52 @@ export class PgSealAwardRepository implements SealAwardRepository {
         status: r.campaign_status,
       }),
     };
+  }
+
+  async findCouponChallenges(couponId: string): Promise<CouponChallengeContext[]> {
+    const rows = await this.db.many<
+      ChallengeRow & {
+        campaign_name: string;
+        campaign_description: string | null;
+        starts_at: Date;
+        ends_at: Date;
+        campaign_status: CampaignStatus;
+        seal_name: string;
+        seal_points: number;
+        seal_validity_months: number;
+        seal_repeatable: boolean;
+      }
+    >(sql`
+      select ch.id, ch.campaign_id, ch.seal_id, ch.title, ch.how_to, ch.icon, ch.validation,
+             ch.auto_trigger, ch.coupon_id, ch.store_id, ch.product, ch.event_id, ch.sort_order,
+             ch.status,
+             c.name as campaign_name, c.description as campaign_description,
+             c.starts_at, c.ends_at, c.status as campaign_status,
+             s.name as seal_name, s.points as seal_points,
+             s.validity_months as seal_validity_months, s.repeatable as seal_repeatable
+      from gamification.challenges ch
+      join gamification.campaigns c on c.id = ch.campaign_id
+      join gamification.seals s on s.id = ch.seal_id
+      where ch.coupon_id = ${couponId}
+      order by ch.sort_order, ch.id
+    `);
+    return rows.map((r) => ({
+      challenge: challengeToDomain(r),
+      campaign: campaignToDomain({
+        id: r.campaign_id,
+        name: r.campaign_name,
+        description: r.campaign_description,
+        starts_at: r.starts_at,
+        ends_at: r.ends_at,
+        status: r.campaign_status,
+      }),
+      seal: {
+        points: r.seal_points,
+        validityMonths: r.seal_validity_months,
+        repeatable: r.seal_repeatable,
+      },
+      sealName: r.seal_name,
+    }));
   }
 
   /** Uso único: já ganhou (mesmo vencido). Repetível: já ganhou com este código e janela. */
@@ -509,5 +566,12 @@ export class PgChallengeReferences implements ChallengeReferences {
 
   eventExists(id: string): Promise<boolean> {
     return this.db.exists(sql`select 1 from agenda.events where id = ${id}`);
+  }
+
+  async couponStoreId(id: string): Promise<string | null> {
+    const row = await this.db.maybeOne<{ store_id: string }>(
+      sql`select store_id from promotions.coupons where id = ${id}`,
+    );
+    return row?.store_id ?? null;
   }
 }

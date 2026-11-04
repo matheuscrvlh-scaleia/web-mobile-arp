@@ -1,5 +1,6 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import type { CoreDeps } from "../../shared/infra/core";
+import { AwardCouponChallengesUseCase } from "./application/award-coupon-challenges.use-case";
 import { CreateCampaignUseCase } from "./application/create-campaign.use-case";
 import { CreateChallengeUseCase } from "./application/create-challenge.use-case";
 import { CreateQrCodeUseCase } from "./application/create-qr-code.use-case";
@@ -23,6 +24,10 @@ import {
   PgSealRepository,
 } from "./infra/pg-gamification-repositories";
 
+export type {
+  AwardCouponChallengesUseCase,
+  CouponSealAward,
+} from "./application/award-coupon-challenges.use-case";
 export type { ScanQrCodeUseCase } from "./application/scan-qr-code.use-case";
 
 export function createGamificationModule(core: CoreDeps) {
@@ -57,5 +62,10 @@ export function createGamificationModule(core: CoreDeps) {
     updateQrCode: new UpdateQrCodeUseCase(deps),
   });
 
-  return { routes, scanQrCode: new ScanQrCodeUseCase(deps) };
+  return {
+    routes,
+    scanQrCode: new ScanQrCodeUseCase(deps),
+    // Baixa de cupom no caixa (promoções) → selo do desafio automático.
+    awardCouponChallenges: new AwardCouponChallengesUseCase(deps),
+  };
 }

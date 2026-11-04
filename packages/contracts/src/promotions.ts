@@ -88,6 +88,8 @@ export const couponSchema = z.object({
   endsAt: isoDateTimeSchema.nullable(),
   totalQuantity: z.number().int(),
   redeemWindowHours: z.number().int(),
+  /** Pego vence no fim da promoção (endsAt), mesmo antes das horas para usar. */
+  expiresWithPromotion: z.boolean(),
   tone: couponToneSchema,
   icon: iconNameSchema,
   imageUrl: z.string().nullable(),
@@ -117,6 +119,8 @@ const couponFields = {
   endsAt: isoDateTimeSchema.nullable().optional(),
   totalQuantity: z.number().int().min(1).max(100_000),
   redeemWindowHours: z.number().int().min(1).max(720),
+  /** Marcado: depois do fim da promoção o caixa recusa, mesmo no prazo. Padrão: não. */
+  expiresWithPromotion: z.boolean().default(false),
   tone: couponToneSchema,
   icon: iconNameSchema,
   imageUrl: mediaUrlSchema.nullable().optional(),
@@ -140,7 +144,7 @@ export type CreateCouponInput = z.input<typeof createCouponBodySchema>;
 
 /** Não dá para baixar o total abaixo do que já foi pego (regra no domínio). */
 export const updateCouponBodySchema = z
-  .object({ ...couponFields, weekdays: weekdaysSchema })
+  .object({ ...couponFields, weekdays: weekdaysSchema, expiresWithPromotion: z.boolean() })
   .omit({ storeId: true })
   .partial()
   .refine(endsAfterStart, endsAfterStartIssue);

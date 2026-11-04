@@ -33,3 +33,4 @@ export const REDEMPTION_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 export const REDEMPTION_CODE_LENGTH = 6;
 export const PRIZE_NOT_FOUND = "Prêmio não encontrado";
 export const REDEMPTION_NOT_FOUND = "Troca não encontrada";
+export const VISITOR_NOT_FOUND = "Visitante não encontrado";

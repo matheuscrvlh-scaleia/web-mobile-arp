@@ -2,6 +2,7 @@ import type {
   Campaign,
   CampaignStatus,
   Challenge,
+  ChallengeAutoTrigger,
   ChallengeValidation,
   EarnedSeal,
   ListEarnedSealsQuery,
@@ -87,6 +88,10 @@ interface ChallengeRow {
   how_to: string;
   icon: string;
   validation: ChallengeValidation;
+  auto_trigger: ChallengeAutoTrigger | null;
+  coupon_id: string | null;
+  coupon_title: string | null;
+  coupon_store_name: string | null;
   store_id: string | null;
   store_name: string | null;
   product: string | null;
@@ -104,7 +109,9 @@ const CHALLENGE_SELECT = sql`
   select ch.id, ch.campaign_id, c.name as campaign_name,
          s.id as seal_id, s.name as seal_name, s.icon as seal_icon,
          s.gradient_from as seal_gradient_from, s.gradient_to as seal_gradient_to,
-         ch.title, ch.how_to, ch.icon, ch.validation, ch.store_id, st.name as store_name, ch.product,
+         ch.title, ch.how_to, ch.icon, ch.validation, ch.auto_trigger, ch.coupon_id,
+         cp.title as coupon_title, cps.name as coupon_store_name,
+         ch.store_id, st.name as store_name, ch.product,
          ch.event_id, e.title as event_title, ch.sort_order, ch.status, ch.created_at, ch.updated_at,
          (select count(*) from gamification.earned_seals es where es.challenge_id = ch.id)
            as completions_count,
@@ -114,6 +121,8 @@ const CHALLENGE_SELECT = sql`
   join gamification.seals s on s.id = ch.seal_id
   left join directory.stores st on st.id = ch.store_id
   left join agenda.events e on e.id = ch.event_id
+  left join promotions.coupons cp on cp.id = ch.coupon_id
+  left join directory.stores cps on cps.id = cp.store_id
 `;
 
 const toChallenge = (r: ChallengeRow): Challenge => ({
@@ -130,6 +139,10 @@ const toChallenge = (r: ChallengeRow): Challenge => ({
   howTo: r.how_to,
   icon: r.icon,
   validation: r.validation,
+  autoTrigger: r.auto_trigger,
+  coupon: r.coupon_id
+    ? { id: r.coupon_id, title: r.coupon_title ?? "", storeName: r.coupon_store_name ?? "" }
+    : null,
   store: r.store_id ? { id: r.store_id, name: r.store_name ?? "" } : null,
   product: r.product,
   event: r.event_id ? { id: r.event_id, title: r.event_title ?? "" } : null,
@@ -304,11 +317,16 @@ export class GamificationQueries {
     return (await this.listCampaigns(id))[0] ?? null;
   }
 
-  async listChallenges(filter: { campaignId?: string; id?: string }): Promise<Challenge[]> {
+  async listChallenges(filter: {
+    campaignId?: string;
+    couponId?: string;
+    id?: string;
+  }): Promise<Challenge[]> {
     const rows = await this.db.many<ChallengeRow>(sql`
       ${CHALLENGE_SELECT}
       ${sql.where([
         filter.campaignId && sql`ch.campaign_id = ${filter.campaignId}`,
+        filter.couponId && sql`ch.coupon_id = ${filter.couponId}`,
         filter.id && sql`ch.id = ${filter.id}`,
       ])}
       order by c.starts_at desc, ch.sort_order, ch.title

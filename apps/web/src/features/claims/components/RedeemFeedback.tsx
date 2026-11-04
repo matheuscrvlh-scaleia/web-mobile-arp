@@ -72,7 +72,7 @@ export function problemFromError(error: unknown): RedeemProblem {
 }
 
 /** Faixa grande de resultado (verde no sucesso, vermelha no problema), com ícone e texto. */
-function Banner({
+export function Banner({
   tone,
   icon: Icon,
   title,

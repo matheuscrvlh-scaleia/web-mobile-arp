@@ -1,5 +1,5 @@
-import type { ChallengeValidation } from "@arp/contracts";
-import { CircleOff, type LucideIcon, QrCode, Zap } from "lucide-react";
+import type { ChallengeAutoTrigger, ChallengeValidation } from "@arp/contracts";
+import { CircleOff, type LucideIcon, Plug, QrCode, TicketCheck, Zap } from "lucide-react";
 import { cn } from "@/shared/lib/cn";
 import { StatusBadge } from "@/shared/ui";
 
@@ -15,7 +15,24 @@ export const VALIDATION: Record<
   auto: {
     label: "Automático",
     icon: Zap,
-    hint: "O sistema dá o selo sozinho (ex.: pagar o estacionamento pelo app).",
+    hint: "O sistema dá o selo sozinho quando acontece o gatilho escolhido abaixo.",
+  },
+};
+
+/** O que dá o selo num desafio automático. */
+export const AUTO_TRIGGER: Record<
+  ChallengeAutoTrigger,
+  { label: string; icon: LucideIcon; hint: string }
+> = {
+  coupon_redeemed: {
+    label: "Loja dá baixa no cupom",
+    icon: TicketCheck,
+    hint: "O visitante ganha o selo na hora em que o caixa da loja dá baixa no cupom escolhido, enquanto a campanha estiver no ar.",
+  },
+  integration: {
+    label: "Integração",
+    icon: Plug,
+    hint: "Um sistema externo avisa a ARP (ex.: pagar o estacionamento pelo app).",
   },
 };
 

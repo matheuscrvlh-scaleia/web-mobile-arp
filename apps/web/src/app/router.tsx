@@ -216,6 +216,15 @@ const routes: RouteObject[] = [
                   ),
                 },
               ]),
+              guarded("club.manage", [
+                {
+                  path: "clube/trocar",
+                  lazy: page(
+                    () => import("@/features/club/pages/PrizeExchangePage"),
+                    (m) => m.PrizeExchangePage,
+                  ),
+                },
+              ]),
               guarded("reports.view", [
                 {
                   path: "relatorios",

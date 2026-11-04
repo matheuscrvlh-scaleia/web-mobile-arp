@@ -1,11 +1,14 @@
 import {
+  type CounterRedeemBody,
   type CreatePrizeBody,
+  counterRedeemResultSchema,
   type ListPrizeRedemptionsQuery,
   prizeListSchema,
   prizeRedemptionPageSchema,
   prizeSchema,
   ROUTES,
   rankingListSchema,
+  redemptionVisitorListSchema,
   type SealsReportQuery,
   sealsReportSchema,
   type UpdatePrizeBody,
@@ -25,6 +28,13 @@ export const clubApi = {
   redemptions: (query: ListPrizeRedemptionsQuery, signal?: AbortSignal) =>
     apiRequest(ROUTES.prizeRedemptions.list, prizeRedemptionPageSchema, { query, signal }),
   deliver: (id: string) => apiCall(ROUTES.prizeRedemptions.deliver, { params: { id } }),
+  redemptionVisitors: (q: string, signal?: AbortSignal) =>
+    apiRequest(ROUTES.prizeRedemptions.visitors, redemptionVisitorListSchema, {
+      query: { q },
+      signal,
+    }),
+  counterRedeem: (body: CounterRedeemBody) =>
+    apiRequest(ROUTES.prizeRedemptions.create, counterRedeemResultSchema, { body }),
   ranking: (signal?: AbortSignal) =>
     apiRequest(ROUTES.clubReports.ranking, rankingListSchema, { signal }),
   sealsReport: (query: SealsReportQuery, signal?: AbortSignal) =>
@@ -35,6 +45,8 @@ export const clubKeys = {
   prizes: ["club", "prizes"] as const,
   redemptions: (query: ListPrizeRedemptionsQuery) => ["club", "redemptions", query] as const,
   allRedemptions: ["club", "redemptions"] as const,
+  redemptionVisitors: (q: string) => ["club", "redemption-visitors", q] as const,
+  allRedemptionVisitors: ["club", "redemption-visitors"] as const,
   ranking: ["club", "ranking"] as const,
   sealsReport: (query: SealsReportQuery) => ["club", "seals-report", query] as const,
 };
@@ -85,6 +97,31 @@ export function useDeletePrize() {
   return useMutation({
     mutationFn: clubApi.removePrize,
     onSuccess: () => qc.invalidateQueries({ queryKey: clubKeys.prizes }),
+  });
+}
+
+/** Balcão: visitantes pelo nome, e-mail ou telefone (2+ letras). */
+export function useRedemptionVisitors(q: string) {
+  const term = q.trim();
+  return useQuery({
+    queryKey: clubKeys.redemptionVisitors(term),
+    queryFn: ({ signal }) => clubApi.redemptionVisitors(term, signal),
+    enabled: term.length >= 2,
+    select: (r) => r.data,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Troca no balcão: baixa pontos e estoque e já sai entregue. */
+export function useCounterRedeem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: clubApi.counterRedeem,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: clubKeys.prizes });
+      void qc.invalidateQueries({ queryKey: clubKeys.allRedemptions });
+      void qc.invalidateQueries({ queryKey: clubKeys.allRedemptionVisitors });
+    },
   });
 }
 

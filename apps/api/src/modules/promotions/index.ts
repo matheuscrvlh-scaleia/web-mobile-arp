@@ -23,7 +23,10 @@ export type { ClaimCouponUseCase } from "./application/claim-coupon.use-case";
 export type { LookupClaimUseCase } from "./application/lookup-claim.use-case";
 export type { RedeemClaimUseCase } from "./application/redeem-claim.use-case";
 
-export function createPromotionsModule(core: CoreDeps) {
+export function createPromotionsModule(
+  core: CoreDeps,
+  hooks: Pick<PromotionsDeps, "onRedeemed"> = {},
+) {
   const { db, uow, clock, random, audit } = core;
   const claims = new PgClaimRepository(db);
   const deps: PromotionsDeps = {
@@ -35,6 +38,7 @@ export function createPromotionsModule(core: CoreDeps) {
     clock,
     uow,
     images: createImageCleanup(core),
+    onRedeemed: hooks.onRedeemed,
   };
   const queries = new PromotionsQueries(db, clock);
   const claimCoupon = new ClaimCouponUseCase(deps);

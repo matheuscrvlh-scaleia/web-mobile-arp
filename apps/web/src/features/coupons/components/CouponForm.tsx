@@ -10,6 +10,7 @@ import { formatNumber, plural } from "@/shared/lib/format";
 import { emptyToNull } from "@/shared/lib/text";
 import {
   Card,
+  Checkbox,
   DateTimeInput,
   Field,
   FieldRow,
@@ -304,6 +305,17 @@ export function CouponForm({
                 />
               </Field>
             </FieldRow>
+            <Checkbox
+              label="O cupom pego vence quando a promoção termina"
+              description={
+                !values.endsAt
+                  ? "Só faz efeito com data de fim. Sem fim, vale o prazo em horas."
+                  : values.expiresWithPromotion
+                    ? "Depois do fim, o caixa recusa, mesmo que as horas para usar não tenham acabado."
+                    : "Quem pegou antes do fim ainda tem as horas inteiras para usar, mesmo depois que a promoção termina."
+              }
+              {...register("expiresWithPromotion")}
+            />
             <Field
               label="Quando vale (texto do app)"
               optional

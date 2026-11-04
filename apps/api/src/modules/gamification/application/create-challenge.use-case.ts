@@ -1,14 +1,20 @@
 import type { StaffActor } from "../../../shared/application/actor";
 import { snapshot } from "../../../shared/application/audit-changes";
 import { ValidationError } from "../../../shared/domain/errors";
-import type { NewChallenge } from "../domain/challenge";
+import { type NewChallenge, normalizeChallengeTrigger } from "../domain/challenge";
 import {
   assertChallengeReferences,
   CAMPAIGN_NOT_FOUND,
+  couponStoreOf,
   type GamificationDeps,
 } from "./gamification-deps";
 
-export type CreateChallengeInput = Omit<NewChallenge, "storeId" | "eventId" | "product"> & {
+export type CreateChallengeInput = Omit<
+  NewChallenge,
+  "storeId" | "eventId" | "product" | "autoTrigger" | "couponId"
+> & {
+  autoTrigger?: NewChallenge["autoTrigger"];
+  couponId?: string | null;
   storeId?: string | null;
   product?: string | null;
   eventId?: string | null;
@@ -19,16 +25,20 @@ export class CreateChallengeUseCase {
 
   async execute(input: CreateChallengeInput, actor: StaffActor): Promise<string> {
     const { campaigns, challenges, audit, uow } = this.deps;
-    const data: NewChallenge = {
+    const data: NewChallenge = normalizeChallengeTrigger({
       ...input,
+      autoTrigger: input.autoTrigger ?? null,
+      couponId: input.couponId ?? null,
       storeId: input.storeId ?? null,
       product: input.product ?? null,
       eventId: input.eventId ?? null,
-    };
+    });
     return uow.run(async () => {
       if (!(await campaigns.findById(data.campaignId))) {
         throw ValidationError.field("campaignId", CAMPAIGN_NOT_FOUND);
       }
+      // Gatilho de cupom: o desafio é da loja do cupom.
+      data.storeId = (await couponStoreOf(this.deps, data.couponId)) ?? data.storeId;
       await assertChallengeReferences(this.deps, data);
       const challenge = await challenges.create(data);
       await audit.log({

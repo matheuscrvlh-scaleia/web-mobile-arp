@@ -111,6 +111,18 @@ export const ROUTES = {
   },
   prizeRedemptions: {
     list: r("GET", "/prize-redemptions", "club.manage", "Trocas da lojinha (paginado)"),
+    visitors: r(
+      "GET",
+      "/prize-redemptions/visitors",
+      "club.manage",
+      "Buscar visitante com saldo de pontos (troca no balcão)",
+    ),
+    create: r(
+      "POST",
+      "/prize-redemptions",
+      "club.manage",
+      "Trocar pontos por prêmio no balcão (já entregue)",
+    ),
     deliver: r(
       "POST",
       "/prize-redemptions/:id/deliver",

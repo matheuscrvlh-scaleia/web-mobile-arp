@@ -1,5 +1,6 @@
 import {
   type Challenge,
+  challengeAutoTriggerSchema,
   challengeValidationSchema,
   createChallengeBodySchema,
 } from "@arp/contracts";
@@ -26,10 +27,19 @@ import {
   Textarea,
 } from "@/shared/ui";
 import { ChallengeAppRow } from "./ChallengeAppRow";
-import { VALIDATION } from "./ChallengeBadges";
+import { AUTO_TRIGGER, VALIDATION } from "./ChallengeBadges";
+import { CouponSelect } from "./CouponSelect";
 import { EventSelect } from "./EventSelect";
 
-export const challengeFormSchema = createChallengeBodySchema;
+/** O corpo da API, mais as regras do automático (a API confere de novo). */
+export const challengeFormSchema = createChallengeBodySchema.superRefine((v, ctx) => {
+  if (v.validation !== "auto") return;
+  if (!v.autoTrigger) {
+    ctx.addIssue({ code: "custom", path: ["autoTrigger"], message: "Escolha o que dá o selo" });
+  } else if (v.autoTrigger === "coupon_redeemed" && !v.couponId) {
+    ctx.addIssue({ code: "custom", path: ["couponId"], message: "Escolha o cupom" });
+  }
+});
 export type ChallengeFormInput = z.input<typeof challengeFormSchema>;
 export type ChallengeFormValues = z.output<typeof challengeFormSchema>;
 export type ChallengeFormApi = UseFormReturn<ChallengeFormInput, unknown, ChallengeFormValues>;
@@ -38,7 +48,7 @@ export interface ChallengeFormContext {
   allowLeave: () => void;
 }
 
-export const CHALLENGE_FORM_FIELDS = Object.keys(challengeFormSchema.shape);
+export const CHALLENGE_FORM_FIELDS = Object.keys(createChallengeBodySchema.shape);
 
 export function challengeToFormValues(
   c: Challenge | undefined,
@@ -51,6 +61,8 @@ export function challengeToFormValues(
     howTo: c?.howTo ?? "",
     icon: c?.icon ?? "award",
     validation: c?.validation ?? "qr",
+    autoTrigger: c?.autoTrigger ?? null,
+    couponId: c?.coupon?.id ?? null,
     storeId: c?.store?.id ?? null,
     product: c?.product ?? null,
     eventId: c?.event?.id ?? null,
@@ -94,12 +106,29 @@ export function ChallengeForm({
   const campaigns = useCampaigns({ enabled: creating });
   const seals = useSeals();
   const stores = useStoreOptions();
-  const [title, howTo, icon, sealId, validation] = useWatch({
-    control,
-    name: ["title", "howTo", "icon", "sealId", "validation"],
-  });
+  const [title, howTo, icon, sealId, validation, autoTrigger, couponId, campaignIdValue, storeId] =
+    useWatch({
+      control,
+      name: [
+        "title",
+        "howTo",
+        "icon",
+        "sealId",
+        "validation",
+        "autoTrigger",
+        "couponId",
+        "campaignId",
+        "storeId",
+      ],
+    });
   const sealList = seals.data ?? [];
   const selectedSeal = sealList.find((s) => s.id === sealId) ?? null;
+  // Gatilho de cupom: a loja do desafio é a do cupom (a API confere).
+  const couponTrigger = validation === "auto" && autoTrigger === "coupon_redeemed";
+  const campaignName = creating
+    ? (campaigns.data ?? []).find((c) => c.id === campaignIdValue)?.name
+    : challenge.campaign.name;
+  const couponStoreName = (stores.data ?? []).find((s) => s.id === storeId)?.name;
   // Selo arquivado continua na lista se já é o do desafio.
   const sealOptions = sealList.filter((s) => s.status === "active" || s.id === sealId);
 
@@ -241,6 +270,64 @@ export function ChallengeForm({
                 )}
               />
             </Field>
+            {validation === "auto" && (
+              <Field
+                label="O que dá o selo"
+                required
+                hint={autoTrigger ? AUTO_TRIGGER[autoTrigger].hint : undefined}
+                error={errors.autoTrigger?.message}
+              >
+                <Controller
+                  control={control}
+                  name="autoTrigger"
+                  render={({ field }) => (
+                    <Segmented
+                      label="O que dá o selo"
+                      value={field.value ?? undefined}
+                      onChange={field.onChange}
+                      options={challengeAutoTriggerSchema.options.map((t) => ({
+                        value: t,
+                        label: AUTO_TRIGGER[t].label,
+                        icon: AUTO_TRIGGER[t].icon,
+                      }))}
+                    />
+                  )}
+                />
+              </Field>
+            )}
+            {couponTrigger && (
+              <>
+                <Field label="Cupom" required error={errors.couponId?.message}>
+                  <Controller
+                    control={control}
+                    name="couponId"
+                    render={({ field }) => (
+                      <CouponSelect
+                        value={field.value}
+                        current={challenge?.coupon ?? null}
+                        onBlur={field.onBlur}
+                        disabled={readOnly}
+                        onChange={(coupon) => {
+                          field.onChange(coupon?.id ?? null);
+                          if (coupon)
+                            form.setValue("storeId", coupon.storeId, { shouldDirty: true });
+                        }}
+                      />
+                    )}
+                  />
+                </Field>
+                {couponId && (
+                  <p className="rounded-2xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-900">
+                    Cupom vinculado à campanha <strong>{campaignName ?? "escolhida"}</strong>:
+                    quando {couponStoreName ? <strong>{couponStoreName}</strong> : "a loja"} der
+                    baixa nele no caixa, o visitante ganha o selo{" "}
+                    <strong>{selectedSeal?.name ?? "do desafio"}</strong>
+                    {selectedSeal?.repeatable ? " a cada baixa" : " (uma vez por pessoa)"}, enquanto
+                    a campanha estiver no ar.
+                  </p>
+                )}
+              </>
+            )}
           </FormSection>
 
           <FormSection
@@ -248,13 +335,19 @@ export function ChallengeForm({
             description="Opcional: a loja onde o desafio acontece ou o evento que vale o selo."
           >
             <FieldRow>
-              <Field label="Loja" optional error={errors.storeId?.message}>
+              <Field
+                label="Loja"
+                optional
+                hint={couponTrigger ? "Vem do cupom escolhido." : undefined}
+                error={errors.storeId?.message}
+              >
                 <Controller
                   control={control}
                   name="storeId"
                   render={({ field }) => (
                     <Select
                       placeholder="Nenhuma (ARP)"
+                      disabled={couponTrigger}
                       value={field.value ?? ""}
                       onChange={(e) => field.onChange(e.target.value || null)}
                       onBlur={field.onBlur}

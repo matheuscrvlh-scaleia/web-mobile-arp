@@ -115,7 +115,7 @@ export class ScanQrCodeUseCase {
 }
 
 /** Mesma conta do banco (make_interval(months)): fim de mês cai no último dia. */
-function addMonths(at: Date, months: number): Date {
+export function addMonths(at: Date, months: number): Date {
   const d = new Date(at);
   const day = d.getUTCDate();
   d.setUTCDate(1);

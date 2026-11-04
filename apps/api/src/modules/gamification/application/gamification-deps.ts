@@ -45,3 +45,14 @@ export async function assertChallengeReferences(
     throw ValidationError.field("eventId", "Evento não encontrado");
   }
 }
+
+/** Loja do cupom do gatilho (ValidationError se o cupom não existe; null sem cupom). */
+export async function couponStoreOf(
+  deps: Pick<GamificationDeps, "references">,
+  couponId: string | null,
+): Promise<string | null> {
+  if (!couponId) return null;
+  const storeId = await deps.references.couponStoreId(couponId);
+  if (!storeId) throw ValidationError.field("couponId", "Cupom não encontrado");
+  return storeId;
+}

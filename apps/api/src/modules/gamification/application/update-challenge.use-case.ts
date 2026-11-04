@@ -5,6 +5,7 @@ import type { ChallengeChanges } from "../domain/challenge";
 import {
   assertChallengeReferences,
   CHALLENGE_NOT_FOUND,
+  couponStoreOf,
   type GamificationDeps,
 } from "./gamification-deps";
 
@@ -22,6 +23,9 @@ export class UpdateChallengeUseCase {
       await assertChallengeReferences(this.deps, input.changes);
       const before = challenge.toState();
       challenge.update(input.changes);
+      // Gatilho de cupom: o desafio é da loja do cupom.
+      const couponStore = await couponStoreOf(this.deps, challenge.couponId);
+      if (couponStore) challenge.update({ storeId: couponStore });
       const changes = diff(before, challenge.toState());
       if (!hasChanges(changes)) return;
       await challenges.save(challenge);

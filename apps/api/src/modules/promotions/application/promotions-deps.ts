@@ -1,3 +1,4 @@
+import type { StaffActor } from "../../../shared/application/actor";
 import type { ImageCleanup } from "../../../shared/application/image-variants";
 import type { AuditLogger } from "../../../shared/application/ports/audit-logger";
 import type { Clock } from "../../../shared/application/ports/clock";
@@ -15,6 +16,14 @@ export interface PromotionsDeps {
   uow: UnitOfWork;
   /** Apaga a imagem trocada depois do commit. */
   images: ImageCleanup;
+  /**
+   * Depois da baixa no caixa, na mesma transação (ex.: selo do desafio
+   * automático ligado ao cupom). Falhou, a baixa volta junto.
+   */
+  onRedeemed?: (
+    redeemed: { claimId: string; couponId: string; visitorId: string },
+    actor: StaffActor,
+  ) => Promise<unknown>;
 }
 
 export const COUPON_NOT_FOUND = "Promoção não encontrada";

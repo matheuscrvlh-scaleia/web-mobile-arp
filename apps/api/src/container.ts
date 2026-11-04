@@ -172,8 +172,11 @@ export async function createContainer(options: ContainerOptions): Promise<Contai
       : loadVisitorActive(visitorId);
 
   const identity = createIdentityModule(core);
-  const promotions = createPromotionsModule(core);
   const gamification = createGamificationModule(core);
+  const promotions = createPromotionsModule(core, {
+    // Baixa no caixa dá o selo dos desafios automáticos ligados ao cupom.
+    onRedeemed: (redeemed, actor) => gamification.awardCouponChallenges.execute(redeemed, actor),
+  });
   const marketing = createMarketingModule(core);
   const appApi = createAppApiModule(core, {
     sessions: identity.sessions,

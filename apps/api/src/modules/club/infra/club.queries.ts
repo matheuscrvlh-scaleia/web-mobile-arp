@@ -8,6 +8,7 @@ import type {
   PrizeRedemption,
   PrizeRedemptionStatus,
   RankingEntry,
+  RedemptionVisitor,
   SealsReportQuery,
   SealsReportRow,
 } from "@arp/contracts";
@@ -19,6 +20,7 @@ import { sql } from "../../../shared/infra/database/sql";
 import { iso, isoOrNull } from "../../../shared/infra/presenters";
 
 const RANKING_TOP = 10;
+const REDEMPTION_VISITORS_LIMIT = 8;
 
 interface PrizeRow {
   id: string;
@@ -120,6 +122,42 @@ export class ClubQueries {
       status: r.status,
       createdAt: iso(r.created_at),
       deliveredAt: isoOrNull(r.delivered_at),
+    }));
+  }
+
+  /** Balcão: acha o visitante por nome, e-mail ou telefone e mostra o saldo. */
+  async redemptionVisitors(q: string, now: Date): Promise<RedemptionVisitor[]> {
+    const digits = q.replace(/\D/g, "");
+    const rows = await this.db.many<{
+      id: string;
+      name: string;
+      email: string;
+      phone: string | null;
+      avatar_url: string | null;
+      status: string;
+      points: number;
+    }>(sql`
+      select v.id, v.name, v.email, v.phone, v.avatar_url, v.status,
+             ${visitorPointsSql(sql`v.id`, now)} as points
+      from visitors.visitors v
+      where public.f_unaccent(lower(v.name)) like ${sql.containsPattern(q)}
+         or lower(v.email) like ${sql.containsPattern(q)}
+         ${
+           digits.length >= 4
+             ? sql`or regexp_replace(coalesce(v.phone, ''), '[^0-9]', '', 'g') like ${`%${digits}%`}`
+             : sql.empty
+         }
+      order by v.name, v.id
+      limit ${REDEMPTION_VISITORS_LIMIT}
+    `);
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      email: r.email,
+      phone: r.phone,
+      avatarUrl: r.avatar_url,
+      blocked: r.status !== "active",
+      points: r.points,
     }));
   }
 

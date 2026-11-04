@@ -1,5 +1,6 @@
 import { type AuthUser, type Permission, ROUTES } from "@arp/contracts";
 import {
+  ArrowRightLeft,
   Award,
   BarChart3,
   Bell,
@@ -85,6 +86,12 @@ const STAFF_NAV: NavSection[] = [
       item("Desafios", PATHS.challenges, Target, ROUTES.challenges.list.permission),
       item("Selos", PATHS.seals, Award, ROUTES.seals.list.permission),
       item("Clube ARP", PATHS.club(), Gift, ROUTES.prizes.list.permission),
+      item(
+        "Validar troca",
+        PATHS.prizeExchange,
+        ArrowRightLeft,
+        ROUTES.prizeRedemptions.create.permission,
+      ),
       item("Relatórios", PATHS.reports, BarChart3, ROUTES.clubReports.coupons.permission),
     ],
   },

@@ -13,6 +13,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { Link, useParams } from "react-router";
+import { CouponChallengesCard } from "@/features/challenges";
 import { ClaimsTable, useClaims } from "@/features/claims";
 import { useAuth } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
@@ -112,6 +113,7 @@ export function CouponDetailPage() {
             <StockGrid stock={c.stock} />
           </Card>
           <CouponRules coupon={c} />
+          <CouponChallengesCard couponId={c.id} />
         </div>
       </div>
 
@@ -164,7 +166,10 @@ function CouponRules({ coupon: c }: { coupon: Coupon }) {
     {
       icon: Timer,
       title: `${formatHours(c.redeemWindowHours)} para usar`,
-      text: "O prazo começa quando o visitante pega o cupom.",
+      text:
+        c.expiresWithPromotion && c.endsAt
+          ? `O prazo começa quando o visitante pega o cupom e para no fim da promoção (${formatDateTime(c.endsAt)}).`
+          : "O prazo começa quando o visitante pega o cupom.",
     },
     {
       icon: RotateCcw,
