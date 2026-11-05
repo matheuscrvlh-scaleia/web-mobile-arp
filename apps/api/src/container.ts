@@ -20,8 +20,6 @@ import { type CacheStats, MemoryCache } from "./shared/infra/cache/memory-cache"
 import { PgNotifyCache } from "./shared/infra/cache/pg-notify-cache";
 import type { AppConfig, CoreDeps } from "./shared/infra/core";
 import { Database, type DatabaseLogger } from "./shared/infra/database/database";
-import { setDemoInApp } from "./shared/infra/database/demo-visibility";
-import { syncDemoData } from "./shared/infra/database/seed/demo";
 import { sql } from "./shared/infra/database/sql";
 import { deleteExpiredRateLimits } from "./shared/infra/http/rate-limit";
 import type { Job } from "./shared/infra/jobs/scheduler";
@@ -111,7 +109,6 @@ export interface ContainerOptions {
 /** Composition root: instancia adaptadores e módulos com injeção manual. */
 export async function createContainer(options: ContainerOptions): Promise<Container> {
   const { env, logger } = options;
-  setDemoInApp(env.DEMO_DATA_IN_APP);
   const db = new Database({
     connectionString: env.DATABASE_URL,
     poolMax: env.DB_POOL_MAX,
@@ -239,21 +236,6 @@ export async function createContainer(options: ContainerOptions): Promise<Contai
       intervalMs: 5 * 60_000,
       run: async () => {
         await deleteExpiredRateLimits(db);
-      },
-    });
-  }
-  if (env.SEED_DEMO_DATA) {
-    // Dados fictícios são relativos ao "agora": criados segundos depois da subida
-    // (mesmo sem SEED_ON_START) e refeitos quando passam de STALE_MS.
-    jobs.push({
-      name: "refresh-demo-data",
-      intervalMs: 60 * 60_000,
-      run: async () => {
-        await syncDemoData(
-          { db, hashPassword: (plain) => core.hasher.hash(plain), logger },
-          true,
-          core.clock.now(),
-        );
       },
     });
   }

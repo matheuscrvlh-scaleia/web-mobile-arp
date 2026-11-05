@@ -27,7 +27,7 @@ async function main(): Promise<void> {
   if (env.SEED_ON_START && env.SEED_ADMIN_PASSWORD) {
     await runSeed(
       { db, hashPassword: (plain) => hasher.hash(plain), logger },
-      { adminPassword: env.SEED_ADMIN_PASSWORD, demoData: env.SEED_DEMO_DATA },
+      { adminPassword: env.SEED_ADMIN_PASSWORD },
     );
   }
 

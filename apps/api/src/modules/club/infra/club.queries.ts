@@ -16,7 +16,6 @@ import { offsetOf, type Page, toPage } from "../../../shared/application/paginat
 import { BUSINESS_TIME_ZONE } from "../../../shared/domain/time";
 import { visitorPointsSql } from "../../../shared/infra/database/club-points";
 import type { Database } from "../../../shared/infra/database/database";
-import { appShowsDemo } from "../../../shared/infra/database/demo-visibility";
 import { sql } from "../../../shared/infra/database/sql";
 import { iso, isoOrNull } from "../../../shared/infra/presenters";
 
@@ -43,7 +42,7 @@ const PRIZE_COLUMNS = sql.raw(
 /** Pontos de quem tem selo valendo (a lojinha e o ranking partem daqui). */
 const pointsCte = (now: Date) => sql`
   pts as (
-    select v.id, v.ranking_nickname, v.is_demo, ${visitorPointsSql(sql`v.id`, now)} as total
+    select v.id, v.ranking_nickname, ${visitorPointsSql(sql`v.id`, now)} as total
     from visitors.visitors v
     where v.status = 'active'
       and exists (select 1 from gamification.earned_seals es
@@ -183,7 +182,7 @@ export class ClubQueries {
         select id, ranking_nickname as nickname, total as points,
                row_number() over (order by total desc, ranking_nickname) as position
         from pts
-        where ranking_nickname is not null and total > 0 and ${appShowsDemo("is_demo")}
+        where ranking_nickname is not null and total > 0
       )
       select id, position::int, nickname, points from ranked
       where position <= ${limit} or id = ${visitorId}::uuid
@@ -270,7 +269,7 @@ export class ClubQueries {
     const [prizes, seals, ranking, me] = await Promise.all([
       this.db.many<PrizeRow>(sql`
         select ${PRIZE_COLUMNS} from gamification.prizes p
-        where p.active and p.stock > 0 and ${appShowsDemo("p.is_demo")}
+        where p.active and p.stock > 0
         order by p.sort_order, p.points, p.name
       `),
       this.db.many<{

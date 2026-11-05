@@ -1,6 +1,5 @@
 import { ConflictError } from "../../../shared/domain/errors";
 import type { Database } from "../../../shared/infra/database/database";
-import { appShowsDemo } from "../../../shared/infra/database/demo-visibility";
 import { translateConstraintErrors } from "../../../shared/infra/database/errors";
 import { sql } from "../../../shared/infra/database/sql";
 import type {
@@ -97,7 +96,7 @@ export class PgEngagementRepository implements EngagementRepository {
 
   isEventPublished(eventId: string): Promise<boolean> {
     return this.db.exists(
-      sql`select 1 from agenda.events where id = ${eventId} and status = 'published' and ${appShowsDemo("is_demo")}`,
+      sql`select 1 from agenda.events where id = ${eventId} and status = 'published'`,
     );
   }
 

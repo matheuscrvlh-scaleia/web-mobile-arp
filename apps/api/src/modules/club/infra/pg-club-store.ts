@@ -1,7 +1,6 @@
 import { ConflictError } from "../../../shared/domain/errors";
 import { visitorPointsSql } from "../../../shared/infra/database/club-points";
 import type { Database } from "../../../shared/infra/database/database";
-import { appShowsDemo } from "../../../shared/infra/database/demo-visibility";
 import { translateConstraintErrors } from "../../../shared/infra/database/errors";
 import { sql } from "../../../shared/infra/database/sql";
 // atalho: reaproveita o cadastro genérico do guia (como o módulo de conteúdo)
@@ -50,7 +49,7 @@ export class PgClubStore {
 
   activePrize(id: string): Promise<{ id: string; name: string; points: number } | null> {
     return this.db.maybeOne(sql`
-      select id, name, points from gamification.prizes where id = ${id} and active and ${appShowsDemo("is_demo")}
+      select id, name, points from gamification.prizes where id = ${id} and active
     `);
   }
 

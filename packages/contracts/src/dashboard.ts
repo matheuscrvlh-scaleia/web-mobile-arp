@@ -22,7 +22,7 @@ export type Kpi = z.infer<typeof kpi>;
 export const dashboardOverviewSchema = z.object({
   period: dashboardPeriodSchema,
   /**
-   * Há dados fictícios de demonstração no banco (seed/demo.ts): os cartões que
+   * Há dados fictícios de demonstração no banco (is_demo): os cartões que
    * somam atividade de visitantes mostram o ícone de "inclui dados fictícios".
    */
   hasDemoData: z.boolean().optional(),

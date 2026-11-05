@@ -47,7 +47,7 @@ export function DemoNotice({ show = true, className }: { show?: boolean; classNa
       <DemoMark className="mt-px" hint={DEMO_MIXED_HINT} />
       <span>
         Os itens com este ícone são <strong>dados fictícios de demonstração</strong>, gerados
-        enquanto o app tem pouco uso. Somem quando a demonstração for desligada.
+        enquanto o app tem pouco uso. Saem quando o banco for zerado.
       </span>
     </p>
   );

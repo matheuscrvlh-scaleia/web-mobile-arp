@@ -2,7 +2,6 @@ import type { App } from "@arp/contracts";
 import { offsetOf, type Page, toPage } from "../../../shared/application/pagination";
 import { addDaysToDate, toLocal } from "../../../shared/domain/time";
 import type { Database } from "../../../shared/infra/database/database";
-import { appShowsDemo } from "../../../shared/infra/database/demo-visibility";
 import { type SqlFragment, sql } from "../../../shared/infra/database/sql";
 import { storeHasKind } from "../../../shared/infra/database/store-categories";
 import { hhmmOrNull } from "../../../shared/infra/presenters";
@@ -61,8 +60,7 @@ const eventSelect = (extra: SqlFragment = sql.empty) => sql`
 
 /** Eventos publicados que acontecem em algum dia de [from, to] (índice GiST de active_period). */
 const publishedBetween = (from: string, to: string) =>
-  sql`e.status = 'published' and ${appShowsDemo("e.is_demo")}
-      and e.active_period && daterange(${from}::date, ${to}::date, '[]')`;
+  sql`e.status = 'published' and e.active_period && daterange(${from}::date, ${to}::date, '[]')`;
 
 function toEventCard(r: EventRow, today: string): App.EventCard {
   const recurrence = {
@@ -286,7 +284,7 @@ export class FeedQueries {
                where i.event_id = e.id and i.visitor_id = ${visitorId}::uuid) as is_interested`)}
       left join directory.floors fl on fl.id = e.floor_id
       left join directory.stores st on st.id = e.store_id
-      where e.id = ${eventId} and e.status = 'published' and ${appShowsDemo("e.is_demo")}
+      where e.id = ${eventId} and e.status = 'published'
     `);
     if (!row) return null;
     return {

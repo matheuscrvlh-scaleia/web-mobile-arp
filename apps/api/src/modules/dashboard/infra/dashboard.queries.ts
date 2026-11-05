@@ -353,7 +353,7 @@ export class DashboardQueries implements DashboardReader {
     }));
   }
 
-  /** Há dados fictícios de demonstração (seed/demo.ts) somando nos números? */
+  /** Há dados fictícios de demonstração (is_demo) somando nos números? */
   private async hasDemoData(): Promise<boolean> {
     const row = await this.db.one<{ demo: boolean }>(sql`
       select exists (select 1 from visitors.visitors where is_demo)
