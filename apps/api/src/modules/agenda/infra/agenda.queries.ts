@@ -22,6 +22,7 @@ interface EventRow {
   id: string;
   title: string;
   category_id: string;
+  is_demo: boolean;
   category_name: string;
   category_icon: string;
   description: string;
@@ -53,7 +54,7 @@ const EVENT_COLUMNS = sql`
          e.description, e.image_url, e.tone, e.icon, e.place,
          e.floor_id, f.label as floor_label, e.store_id, s.name as store_name,
          e.recurrence, e.starts_on, e.ends_on, e.weekday, e.start_time, e.end_time,
-         e.is_long_running, e.awards_seal, e.status, si.site_url, e.created_at, e.updated_at,
+         e.is_long_running, e.awards_seal, e.status, si.site_url, e.created_at, e.updated_at, e.is_demo,
          (select count(*) from agenda.event_interests i where i.event_id = e.id) as interests_count
 `;
 
@@ -88,6 +89,7 @@ function toEvent(r: EventRow): Event {
     status: r.status,
     siteUrl: r.site_url,
     interestsCount: r.interests_count,
+    isDemo: r.is_demo,
     createdAt: iso(r.created_at),
     updatedAt: iso(r.updated_at),
   };

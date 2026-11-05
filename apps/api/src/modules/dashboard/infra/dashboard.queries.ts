@@ -357,7 +357,8 @@ export class DashboardQueries implements DashboardReader {
   private async hasDemoData(): Promise<boolean> {
     const row = await this.db.one<{ demo: boolean }>(sql`
       select exists (select 1 from visitors.visitors where is_demo)
-          or exists (select 1 from promotions.coupons where is_demo) as demo
+          or exists (select 1 from promotions.coupons where is_demo)
+          or exists (select 1 from agenda.events where is_demo) as demo
     `);
     return row.demo;
   }

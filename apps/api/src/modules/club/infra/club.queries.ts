@@ -16,6 +16,7 @@ import { offsetOf, type Page, toPage } from "../../../shared/application/paginat
 import { BUSINESS_TIME_ZONE } from "../../../shared/domain/time";
 import { visitorPointsSql } from "../../../shared/infra/database/club-points";
 import type { Database } from "../../../shared/infra/database/database";
+import { appShowsDemo } from "../../../shared/infra/database/demo-visibility";
 import { sql } from "../../../shared/infra/database/sql";
 import { iso, isoOrNull } from "../../../shared/infra/presenters";
 
@@ -269,7 +270,7 @@ export class ClubQueries {
     const [prizes, seals, ranking, me] = await Promise.all([
       this.db.many<PrizeRow>(sql`
         select ${PRIZE_COLUMNS} from gamification.prizes p
-        where p.active and p.stock > 0 and not p.is_demo
+        where p.active and p.stock > 0 and ${appShowsDemo("p.is_demo")}
         order by p.sort_order, p.points, p.name
       `),
       this.db.many<{

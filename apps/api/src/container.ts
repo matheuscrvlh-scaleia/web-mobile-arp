@@ -20,6 +20,7 @@ import { type CacheStats, MemoryCache } from "./shared/infra/cache/memory-cache"
 import { PgNotifyCache } from "./shared/infra/cache/pg-notify-cache";
 import type { AppConfig, CoreDeps } from "./shared/infra/core";
 import { Database, type DatabaseLogger } from "./shared/infra/database/database";
+import { setDemoInApp } from "./shared/infra/database/demo-visibility";
 import { syncDemoData } from "./shared/infra/database/seed/demo";
 import { sql } from "./shared/infra/database/sql";
 import { deleteExpiredRateLimits } from "./shared/infra/http/rate-limit";
@@ -110,6 +111,7 @@ export interface ContainerOptions {
 /** Composition root: instancia adaptadores e módulos com injeção manual. */
 export async function createContainer(options: ContainerOptions): Promise<Container> {
   const { env, logger } = options;
+  setDemoInApp(env.DEMO_DATA_IN_APP);
   const db = new Database({
     connectionString: env.DATABASE_URL,
     poolMax: env.DB_POOL_MAX,

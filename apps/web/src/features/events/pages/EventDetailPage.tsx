@@ -5,7 +5,7 @@ import { applyApiErrors, errorMessage } from "@/shared/api";
 import { useAuth } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
 import { formatDateTime, formatNumber } from "@/shared/lib/format";
-import { LoadError, LoadingRegion, PageHeader, Skeleton, toast } from "@/shared/ui";
+import { DemoMark, LoadError, LoadingRegion, PageHeader, Skeleton, toast } from "@/shared/ui";
 import { useEvent, useUpdateEvent } from "../api";
 import { EventStatusBadge, SealPill } from "../components/EventBadges";
 import { EventStatusActions } from "../components/EventStatusActions";
@@ -54,7 +54,11 @@ function EventEditor({ event }: { event: Event }) {
   return (
     <>
       <PageHeader
-        title={event.title}
+        title={
+          <>
+            {event.title} <DemoMark show={event.isDemo} />
+          </>
+        }
         back={{ to: PATHS.events, label: "Eventos" }}
         description={
           <span className="flex flex-wrap items-center gap-2">

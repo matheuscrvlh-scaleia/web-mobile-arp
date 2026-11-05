@@ -3,6 +3,7 @@ import { CalendarDays, ChevronRight, MapPin } from "lucide-react";
 import { Link } from "react-router";
 import { PATHS } from "@/shared/config/paths";
 import { cn } from "@/shared/lib/cn";
+import { DemoMark } from "@/shared/ui";
 import { describeWhen } from "../lib/when";
 import { EventStatusBadge, InterestsCount, SealPill, SitePill } from "./EventBadges";
 import { EventThumb } from "./EventThumb";
@@ -33,6 +34,7 @@ export function EventRow({ event }: { event: Event }) {
           )}
         >
           {event.title}
+          <DemoMark show={event.isDemo} className="ml-1.5" />
         </p>
         <div className="mt-1 flex flex-col gap-0.5 text-xs text-neutral-600">
           <span className="flex items-center gap-1.5">

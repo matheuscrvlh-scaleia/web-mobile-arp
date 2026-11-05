@@ -148,6 +148,8 @@ const envSchema = z
 
     RUN_MIGRATIONS_ON_START: booleanString.default(true),
     SEED_ON_START: booleanString.default(false),
+    /** O app mostra os dados fictícios de demonstração (is_demo)? false: só o painel. */
+    DEMO_DATA_IN_APP: booleanString.default(true),
     JOBS_ENABLED: booleanString.default(true),
 
     ...databaseEnvShape,

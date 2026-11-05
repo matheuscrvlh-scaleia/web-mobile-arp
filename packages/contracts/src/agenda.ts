@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  demoFlagSchema,
   iconNameSchema,
   idSchema,
   isoDateSchema,
@@ -75,6 +76,7 @@ export const eventSchema = z.object({
   /** Página do evento no site, quando veio da importação; null = cadastrado aqui. */
   siteUrl: z.string().nullable(),
   interestsCount: z.number().int(),
+  isDemo: demoFlagSchema,
   createdAt: isoDateTimeSchema,
   updatedAt: isoDateTimeSchema,
 });

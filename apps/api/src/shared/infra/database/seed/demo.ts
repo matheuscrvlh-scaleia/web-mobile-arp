@@ -9,16 +9,18 @@ import {
   generateActivity,
   type PrizeInput,
 } from "./demo-activity";
+import { insertDemoEvents } from "./demo-events";
 import { createDemoClock, DAY_MS, type DemoClock, HOUR_MS, zoned } from "./demo-time";
 import { Random } from "./random";
 
 /*
  * Dados fictícios de demonstração: enquanto o app tem pouco uso, enchem o
- * painel (dashboard, visitantes, cupons, desafios, clube, notificações) com
- * atividade plausível em lojas e selos reais. Tudo nasce com is_demo: o painel
- * mostra um ícone nessas linhas e o app nunca exibe cupom, campanha ou prêmio
- * fictício; visitante fictício não entra (senha aleatória descartada), não
- * aparece no ranking e não recebe push.
+ * painel e o app (dashboard, visitantes, cupons, eventos, desafios, clube,
+ * notificações) com atividade plausível em lojas e selos reais. Tudo nasce com
+ * is_demo: o painel mostra um ícone nessas linhas; o app mostra cupons, eventos,
+ * campanha e prêmios fictícios só com DEMO_DATA_IN_APP (padrão: sim). Visitante
+ * fictício não entra (senha aleatória descartada), não aparece no ranking e
+ * não recebe push.
  *
  * Os dados são relativos ao "agora": com mais de STALE_MS, tudo é apagado e
  * gerado de novo (seed na subida e o job refresh-demo-data), para o "últimos
@@ -52,9 +54,15 @@ export async function syncDemoData(
     : "";
   const result = await db.transaction(async (): Promise<DemoSyncResult> => {
     await db.query(sql`select pg_advisory_xact_lock(${DEMO_LOCK_KEY}::bigint)`);
-    const state = await db.one<{ generated_at: Date | null; any_demo: boolean }>(sql`
+    const state = await db.one<{
+      generated_at: Date | null;
+      any_demo: boolean;
+      has_events: boolean;
+    }>(sql`
       select (select max(created_at) from visitors.visitors where is_demo) as generated_at,
+             exists (select 1 from agenda.events where is_demo) as has_events,
              exists (select 1 from visitors.visitors where is_demo)
+               or exists (select 1 from agenda.events where is_demo)
                or exists (select 1 from promotions.coupons where is_demo)
                or exists (select 1 from gamification.campaigns where is_demo)
                or exists (select 1 from gamification.prizes where is_demo)
@@ -65,7 +73,9 @@ export async function syncDemoData(
       await purgeDemoData(db);
       return "removed";
     }
-    if (state.generated_at && now.getTime() - state.generated_at.getTime() < STALE_MS) {
+    // Sem eventos fictícios = gerados por uma versão anterior: refaz já.
+    const fresh = state.generated_at && now.getTime() - state.generated_at.getTime() < STALE_MS;
+    if (fresh && state.has_events) {
       return "kept";
     }
     if (state.any_demo) await purgeDemoData(db);
@@ -81,8 +91,7 @@ export async function purgeDemoData(db: Database): Promise<void> {
   const coupons = sql`(select id from promotions.coupons where is_demo)`;
   const campaigns = sql`(select id from gamification.campaigns where is_demo)`;
   const prizes = sql`(select id from gamification.prizes where is_demo)`;
-  // Desafio de baixa de cupom fictício só pode ter selo de visitante fictício
-  // (o app nunca mostra o cupom), então sai junto.
+  // Desafio de baixa de cupom fictício sai junto (com os selos que deu).
   const challenges = sql`(select id from gamification.challenges
     where campaign_id in ${campaigns} or coupon_id in ${coupons})`;
   const steps: SqlFragment[] = [
@@ -97,6 +106,11 @@ export async function purgeDemoData(db: Database): Promise<void> {
     sql`delete from marketing.push_notifications where is_demo`,
     sql`delete from promotions.coupons where is_demo`,
     sql`delete from gamification.prizes where is_demo`,
+    // Desafio real ligado a evento fictício perde só a ligação.
+    sql`update gamification.challenges set event_id = null
+        where event_id in (select id from agenda.events where is_demo)`,
+    // Interesses saem em cascata; a importação do site fica com event_id nulo.
+    sql`delete from agenda.events where is_demo`,
     // Favoritos, seguidas, tokens, interesses e resets saem em cascata.
     sql`delete from visitors.visitors where is_demo`,
   ];
@@ -556,6 +570,7 @@ async function generateDemoData(
   await insertMany(db, "gamification.qr_scans", activity.scans);
   await insertMany(db, "gamification.prize_redemptions", activity.redemptions);
   if (staffUserId) await insertNotifications(db, clock, coupons, staffUserId);
+  const events = await insertDemoEvents(db, rng, clock, activity.visitors);
 
   logger?.info(
     {
@@ -564,6 +579,7 @@ async function generateDemoData(
       selos: activity.earnedSeals.length,
       leiturasQr: activity.scans.length,
       trocas: activity.redemptions.length,
+      eventos: events,
     },
     "Dados fictícios de demonstração gerados",
   );

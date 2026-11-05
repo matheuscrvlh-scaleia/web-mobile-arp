@@ -1,7 +1,7 @@
 import { FlaskConical } from "lucide-react";
 import { cn } from "@/shared/lib/cn";
 
-export const DEMO_HINT = "Dado fictício de demonstração: não existe de verdade e o app não mostra.";
+export const DEMO_HINT = "Dado fictício de demonstração: não existe de verdade.";
 export const DEMO_MIXED_HINT =
   "Inclui dados fictícios de demonstração, gerados enquanto o app tem pouco uso.";
 
@@ -47,8 +47,7 @@ export function DemoNotice({ show = true, className }: { show?: boolean; classNa
       <DemoMark className="mt-px" hint={DEMO_MIXED_HINT} />
       <span>
         Os itens com este ícone são <strong>dados fictícios de demonstração</strong>, gerados
-        enquanto o app tem pouco uso. Não aparecem para os visitantes no app e somem quando a
-        demonstração for desligada.
+        enquanto o app tem pouco uso. Somem quando a demonstração for desligada.
       </span>
     </p>
   );
