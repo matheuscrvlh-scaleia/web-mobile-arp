@@ -7,6 +7,7 @@ import { useSearchParamOption } from "@/shared/hooks";
 import { pickDirty } from "@/shared/lib/forms";
 import {
   ButtonLink,
+  DemoMark,
   LoadError,
   LoadingRegion,
   PageHeader,
@@ -66,7 +67,11 @@ export function CampaignDetailPage() {
   return (
     <>
       <PageHeader
-        title={c.name}
+        title={
+          <>
+            {c.name} <DemoMark show={c.isDemo} />
+          </>
+        }
         description={
           <span className="flex flex-wrap items-center gap-2">
             <CampaignStatusBadge campaign={c} />

@@ -24,6 +24,7 @@ import {
   Can,
   Card,
   CardHeader,
+  DemoMark,
   EmptyState,
   ErrorState,
   InfoItem,
@@ -66,7 +67,11 @@ export function CouponDetailPage() {
   return (
     <>
       <PageHeader
-        title={c.title}
+        title={
+          <>
+            {c.title} <DemoMark show={c.isDemo} />
+          </>
+        }
         back={{ to: PATHS.coupons, label: "Promoções" }}
         description={
           <span className="inline-flex flex-wrap items-center gap-2">

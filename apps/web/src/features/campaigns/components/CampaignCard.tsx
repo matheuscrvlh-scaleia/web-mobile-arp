@@ -5,6 +5,7 @@ import { PATHS } from "@/shared/config/paths";
 import { cn } from "@/shared/lib/cn";
 import { formatNumber } from "@/shared/lib/format";
 import { iconFor } from "@/shared/lib/icons";
+import { DemoMark } from "@/shared/ui";
 import { formatPeriod, periodProgress } from "../lib/period";
 import { CampaignStatusBadge } from "./CampaignBadges";
 import { PeriodBar } from "./PeriodBar";
@@ -24,8 +25,9 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-lg font-semibold tracking-tight text-neutral-900">
+          <p className="flex items-center gap-2 truncate text-lg font-semibold tracking-tight text-neutral-900">
             {campaign.name}
+            <DemoMark show={campaign.isDemo} />
           </p>
           <p className="mt-0.5 flex items-center gap-1.5 text-xs text-neutral-500">
             <CalendarDays className="size-3.5" aria-hidden />

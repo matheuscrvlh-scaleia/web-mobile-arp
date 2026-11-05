@@ -49,7 +49,7 @@ export class PgClubStore {
 
   activePrize(id: string): Promise<{ id: string; name: string; points: number } | null> {
     return this.db.maybeOne(sql`
-      select id, name, points from gamification.prizes where id = ${id} and active
+      select id, name, points from gamification.prizes where id = ${id} and active and not is_demo
     `);
   }
 

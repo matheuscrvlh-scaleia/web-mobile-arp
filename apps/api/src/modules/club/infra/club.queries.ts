@@ -32,10 +32,11 @@ interface PrizeRow {
   image_url: string | null;
   active: boolean;
   sort_order: number;
+  is_demo: boolean;
 }
 
 const PRIZE_COLUMNS = sql.raw(
-  "p.id, p.name, p.description, p.kind, p.points, p.stock, p.image_url, p.active, p.sort_order",
+  "p.id, p.name, p.description, p.kind, p.points, p.stock, p.image_url, p.active, p.sort_order, p.is_demo",
 );
 
 /** Pontos de quem tem selo valendo (a lojinha e o ranking partem daqui). */
@@ -83,6 +84,7 @@ export class ClubQueries {
       redeemedCount: r.redeemed_count,
       visitorsEnough: r.visitors_enough,
       visitorsAlmost: r.visitors_almost,
+      isDemo: r.is_demo,
     }));
   }
 
@@ -98,10 +100,11 @@ export class ClubQueries {
       status: PrizeRedemptionStatus;
       created_at: Date;
       delivered_at: Date | null;
+      is_demo: boolean;
       total: number;
     }>(sql`
       select pr.id, pr.code, p.id as prize_id, p.name as prize_name, v.id as visitor_id,
-             v.name as visitor_name, pr.points, pr.status, pr.created_at, pr.delivered_at,
+             v.name as visitor_name, pr.points, pr.status, pr.created_at, pr.delivered_at, v.is_demo,
              count(*) over() as total
       from gamification.prize_redemptions pr
       join gamification.prizes p on p.id = pr.prize_id
@@ -122,6 +125,7 @@ export class ClubQueries {
       status: r.status,
       createdAt: iso(r.created_at),
       deliveredAt: isoOrNull(r.delivered_at),
+      isDemo: r.is_demo,
     }));
   }
 
@@ -265,7 +269,7 @@ export class ClubQueries {
     const [prizes, seals, ranking, me] = await Promise.all([
       this.db.many<PrizeRow>(sql`
         select ${PRIZE_COLUMNS} from gamification.prizes p
-        where p.active and p.stock > 0
+        where p.active and p.stock > 0 and not p.is_demo
         order by p.sort_order, p.points, p.name
       `),
       this.db.many<{

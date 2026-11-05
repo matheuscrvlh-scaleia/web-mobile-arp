@@ -43,6 +43,8 @@ interface KpiDef {
   formula: string;
   /** O filtro de loja não muda este número (base do app). */
   global?: boolean;
+  /** Só dados reais (os fictícios de demonstração nunca somam aqui). */
+  realOnly?: boolean;
   link?: (storeId?: string) => { href: string; label: string; permission: Permission | null };
 }
 
@@ -172,6 +174,7 @@ const KPIS: KpiDef[] = [
     icon: CalendarDays,
     format: int,
     hint: "Publicados, nos próximos 30 dias",
+    realOnly: true,
     source: "Agenda de eventos (tabela agenda.events)",
     formula: "Eventos publicados que acontecem de hoje até daqui a 30 dias (inclui os recorrentes)",
     link: () => ({
@@ -191,12 +194,15 @@ export function DashboardKpis({
   periodLabel,
   query,
   storeName,
+  demo = false,
 }: {
   kpis: DashboardOverview["kpis"];
   periodLabel: string;
   query: DashboardQuery;
   /** Loja do filtro (ou a do lojista); undefined = todas. */
   storeName?: string;
+  /** Há dados fictícios de demonstração somando nos números. */
+  demo?: boolean;
 }) {
   const qc = useQueryClient();
   const { can } = useAuth();
@@ -217,6 +223,7 @@ export function DashboardKpis({
         delta={delta}
         deltaLabel={k.stock ? "vs fim do período anterior" : vs}
         hint={k.hint}
+        demo={demo && !k.realOnly}
         onClick={() => setOpen(k.metric)}
         onPrefetch={() => prefetchDashboardDetail(qc, detailQuery(k.metric))}
       />

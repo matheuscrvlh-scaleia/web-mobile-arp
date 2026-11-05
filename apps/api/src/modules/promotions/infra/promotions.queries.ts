@@ -55,6 +55,7 @@ interface CouponRow {
   waiting: number;
   redeemed: number;
   returned: number;
+  is_demo: boolean;
 }
 
 /** Cupom + loja + estoque derivado (uma lateral por cupom, coberta pelo coupon_claims_stock_idx). */
@@ -63,7 +64,7 @@ function couponSelect(now: Date, extraColumns: SqlFragment = sql.empty): SqlFrag
     select c.id, c.title, c.headline, c.headline_sub, c.description, c.schedule_note, c.starts_at,
            c.ends_at, c.total_quantity, c.redeem_window_hours, c.expires_with_promotion, c.tone, c.icon,
            c.image_url, c.savings_cents, c.status, c.weekdays, c.review, c.review_note,
-           c.created_at, c.updated_at,
+           c.created_at, c.updated_at, c.is_demo,
            s.id as store_id, s.name as store_name, s.icon as store_icon,
            s.brand_color as store_brand_color, cat.kind as store_kind,
            st.waiting, st.redeemed, st.returned ${extraColumns}
@@ -119,6 +120,7 @@ function toCoupon(r: CouponRow): Coupon {
     },
     createdAt: iso(r.created_at),
     updatedAt: iso(r.updated_at),
+    isDemo: r.is_demo,
   };
 }
 
@@ -138,6 +140,7 @@ interface ClaimRow {
   visitor_name: string;
   redeemed_by_id: string | null;
   redeemed_by_name: string | null;
+  is_demo: boolean;
 }
 
 /** Ativo vencido aparece como expirado (a unidade já voltou), mesmo antes do job. */
@@ -150,7 +153,7 @@ function claimSelect(now: Date, extraColumns: SqlFragment = sql.empty): SqlFragm
     select cl.id, cl.code, ${effectiveStatus(now)} as status, cl.claimed_at, cl.expires_at,
            cl.redeemed_at, c.id as coupon_id, c.title as coupon_title,
            c.headline as coupon_headline, s.id as store_id, s.name as store_name,
-           v.id as visitor_id, v.name as visitor_name,
+           v.id as visitor_id, v.name as visitor_name, v.is_demo,
            u.id as redeemed_by_id, u.name as redeemed_by_name ${extraColumns}
     from promotions.coupon_claims cl
     join promotions.coupons c on c.id = cl.coupon_id
@@ -172,6 +175,7 @@ function toCouponClaim(r: ClaimRow): CouponClaim {
     store: { id: r.store_id, name: r.store_name },
     visitor: { id: r.visitor_id, name: r.visitor_name },
     redeemedBy: r.redeemed_by_id ? { id: r.redeemed_by_id, name: r.redeemed_by_name ?? "" } : null,
+    isDemo: r.is_demo,
   };
 }
 

@@ -9,6 +9,7 @@ import {
   Button,
   Card,
   type Column,
+  DemoMark,
   EmptyState,
   ErrorState,
   FilterBar,
@@ -36,7 +37,10 @@ const COLUMNS: Column<VisitorSummary>[] = [
       <Link to={PATHS.visitor(v.id)} className="flex items-center gap-3 hover:underline">
         <VisitorAvatar name={v.name} url={v.avatarUrl} muted={v.status === "blocked"} />
         <span className="min-w-0">
-          <span className="block font-medium text-neutral-900">{v.name}</span>
+          <span className="flex items-center gap-1.5 font-medium text-neutral-900">
+            {v.name}
+            <DemoMark show={v.isDemo} />
+          </span>
           <span className="block text-xs text-neutral-500">{v.email}</span>
         </span>
       </Link>

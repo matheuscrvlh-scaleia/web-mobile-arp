@@ -115,6 +115,7 @@ interface NotificationRow {
   sent_at: Date | null;
   status: NotificationStatus;
   recipients_count: number | null;
+  is_demo: boolean;
   created_by: string;
   created_by_name: string;
   created_at: Date;
@@ -124,7 +125,7 @@ interface NotificationRow {
 const NOTIFICATION_COLUMNS = sql`
   n.id, n.title, n.body, n.audience, n.store_id, s.name as store_name, n.deep_link,
   n.scheduled_at, n.sent_at, n.status, n.recipients_count, n.created_by,
-  u.name as created_by_name, n.created_at, n.updated_at
+  u.name as created_by_name, n.created_at, n.updated_at, n.is_demo
 `;
 
 const NOTIFICATION_FROM = sql`
@@ -148,6 +149,7 @@ function toNotification(r: NotificationRow): PushNotification {
     createdBy: { id: r.created_by, name: r.created_by_name },
     createdAt: iso(r.created_at),
     updatedAt: iso(r.updated_at),
+    isDemo: r.is_demo,
   };
 }
 

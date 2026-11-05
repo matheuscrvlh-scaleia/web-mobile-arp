@@ -4,6 +4,7 @@ export { Card, CardHeader, type CardVariant } from "./Card";
 export { BRAND_SWATCHES, ColorInput } from "./ColorInput";
 export { ComingSoon } from "./ComingSoon";
 export { DateTimeInput } from "./DateTimeInput";
+export { DEMO_HINT, DEMO_MIXED_HINT, DemoMark, DemoNotice } from "./DemoMark";
 export { EmptyState, ErrorState } from "./EmptyState";
 export { Field, fieldClass, useFieldControl } from "./Field";
 export { FieldRow, FormError, FormSection, SaveBar } from "./FormLayout";

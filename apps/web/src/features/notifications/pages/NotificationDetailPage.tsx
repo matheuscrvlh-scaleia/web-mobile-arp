@@ -9,6 +9,7 @@ import {
   Button,
   Card,
   CardHeader,
+  DemoMark,
   InfoItem,
   LoadError,
   LoadingRegion,
@@ -66,7 +67,15 @@ export function NotificationDetailPage() {
   return (
     <>
       <PageHeader
-        title={editable ? "Editar rascunho" : n.title}
+        title={
+          editable ? (
+            "Editar rascunho"
+          ) : (
+            <>
+              {n.title} <DemoMark show={n.isDemo} />
+            </>
+          )
+        }
         documentTitle={n.title}
         description={editable ? "Ajuste o texto e o público; depois envie ou agende." : undefined}
         back={BACK}

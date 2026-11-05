@@ -8,6 +8,9 @@ import { formatNumber } from "@/shared/lib/format";
 import {
   Card,
   CardHeader,
+  DEMO_MIXED_HINT,
+  DemoMark,
+  DemoNotice,
   ErrorState,
   LoadingRegion,
   Segmented,
@@ -49,6 +52,7 @@ export function DashboardPage() {
   const overview = useDashboardOverview(query);
   const stores = useStoreOptions({ enabled: !merchant });
   const data = overview.data;
+  const demo = Boolean(data?.hasDemoData);
   useDocumentTitle("Dashboard");
 
   return (
@@ -108,16 +112,22 @@ export function DashboardPage() {
         </LoadingRegion>
       ) : (
         <div className="flex flex-col gap-5" aria-busy={overview.isFetching || undefined}>
+          <DemoNotice show={demo} />
           <DashboardKpis
             kpis={data.kpis}
             periodLabel={PERIOD_TEXT[data.period]}
             query={query}
             storeName={user?.store?.name ?? stores.data?.find((s) => s.id === query.storeId)?.name}
+            demo={demo}
           />
 
           <Card>
             <CardHeader
-              title="Movimento por dia"
+              title={
+                <>
+                  Movimento por dia <DemoMark show={demo} hint={DEMO_MIXED_HINT} />
+                </>
+              }
               description={`Últimos ${PERIOD_TEXT[data.period]}, no horário de Brasília`}
               icon={LineChart}
             />
@@ -133,14 +143,22 @@ export function DashboardPage() {
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
             <Card>
               <CardHeader
-                title="Usos por hora"
+                title={
+                  <>
+                    Usos por hora <DemoMark show={demo} hint={DEMO_MIXED_HINT} />
+                  </>
+                }
                 description="Quando os cupons são validados no caixa"
               />
               <HourBars data={data.redemptionsByHour} description="Cupons usados por hora do dia" />
             </Card>
             <Card>
               <CardHeader
-                title="Leituras de QR Code"
+                title={
+                  <>
+                    Leituras de QR Code <DemoMark show={demo} hint={DEMO_MIXED_HINT} />
+                  </>
+                }
                 description={`${formatNumber(
                   data.scanOutcomes.awarded +
                     data.scanOutcomes.duplicate +
@@ -187,9 +205,9 @@ export function DashboardPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-            {!merchant && <TopStoresCard items={data.topStores} />}
+            {!merchant && <TopStoresCard items={data.topStores} demo={demo} />}
             <TopCouponsCard items={data.topCoupons} />
-            <SealsByChallengeCard items={data.sealsByChallenge} />
+            <SealsByChallengeCard items={data.sealsByChallenge} demo={demo} />
           </div>
         </div>
       )}

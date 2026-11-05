@@ -1,6 +1,7 @@
 import { type Coupon, imageVariantUrl, type Tone } from "@arp/contracts";
 import { cn } from "@/shared/lib/cn";
 import { iconFor } from "@/shared/lib/icons";
+import { DemoMark } from "@/shared/ui";
 
 /** O que o cartão precisa (a prévia do formulário monta isto sem a promoção salva). */
 export interface CouponCardData {
@@ -15,6 +16,8 @@ export interface CouponCardData {
   redeemWindowHours: number;
   total: number;
   remaining: number;
+  /** Cupom fictício de demonstração: mostra o ícone. */
+  isDemo?: boolean;
 }
 
 export function couponCardData(c: Coupon): CouponCardData {
@@ -30,6 +33,7 @@ export function couponCardData(c: Coupon): CouponCardData {
     redeemWindowHours: c.redeemWindowHours,
     total: c.stock.total,
     remaining: c.stock.remaining,
+    isDemo: c.isDemo,
   };
 }
 
@@ -84,6 +88,7 @@ export function CouponCard({
             <StoreIcon className="size-3.5" />
           </span>
           <span className="truncate">{data.storeName || "Loja"}</span>
+          <DemoMark show={data.isDemo} className="bg-[rgb(255_255_255/0.85)]" />
         </p>
         <p className="mt-3 text-[2.5rem] leading-none font-extrabold tracking-[-0.055em] break-words">
           {data.headline || "—"}

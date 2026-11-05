@@ -16,6 +16,7 @@ import {
   Can,
   Card,
   type Column,
+  DemoMark,
   EmptyState,
   ErrorState,
   FilterBar,
@@ -58,7 +59,10 @@ function baseColumns(): Column<PushNotification>[] {
       header: "Notificação",
       cell: (n) => (
         <Link to={PATHS.notification(n.id)} className="block max-w-md min-w-56 hover:underline">
-          <span className="block truncate font-medium text-neutral-900">{n.title}</span>
+          <span className="flex items-center gap-1.5 font-medium text-neutral-900">
+            <span className="truncate">{n.title}</span>
+            <DemoMark show={n.isDemo} />
+          </span>
           <span className="block truncate text-xs text-neutral-500">{n.body}</span>
         </Link>
       ),

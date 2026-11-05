@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  demoFlagSchema,
   idSchema,
   isoDateTimeSchema,
   listOf,
@@ -125,6 +126,7 @@ export const pushNotificationSchema = z.object({
   /** Estimativa ao agendar; número real depois do envio. */
   recipientsCount: z.number().int().nullable(),
   createdBy: refSchema,
+  isDemo: demoFlagSchema,
   createdAt: isoDateTimeSchema,
   updatedAt: isoDateTimeSchema,
 });

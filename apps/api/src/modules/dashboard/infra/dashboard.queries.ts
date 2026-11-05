@@ -45,20 +45,23 @@ export class DashboardQueries implements DashboardReader {
    * resultado fica em cache curto (DASHBOARD_CACHE_TTL_SECONDS).
    */
   async overview(req: OverviewRequest): Promise<DashboardOverview> {
-    const { kpis, daily, byHour, topStores, topCoupons, seals, scans } = await this.db.transaction(
-      async () => ({
-        kpis: await this.kpis(req),
-        daily: await this.daily(req),
-        byHour: await this.redemptionsByHour(req),
-        topStores: await this.topStores(req),
-        topCoupons: await this.topCoupons(req),
-        seals: await this.sealsByChallenge(req),
-        scans: await this.scanOutcomes(req),
-      }),
-      { isolationLevel: "repeatable read", readOnly: true },
-    );
+    const { kpis, daily, byHour, topStores, topCoupons, seals, scans, demo } =
+      await this.db.transaction(
+        async () => ({
+          kpis: await this.kpis(req),
+          daily: await this.daily(req),
+          byHour: await this.redemptionsByHour(req),
+          topStores: await this.topStores(req),
+          topCoupons: await this.topCoupons(req),
+          seals: await this.sealsByChallenge(req),
+          scans: await this.scanOutcomes(req),
+          demo: await this.hasDemoData(),
+        }),
+        { isolationLevel: "repeatable read", readOnly: true },
+      );
     return {
       period: req.period,
+      hasDemoData: demo,
       kpis: {
         visitorsTotal: { value: kpis.visitors_total, previous: kpis.visitors_total_prev },
         visitorsNew: { value: kpis.visitors_new, previous: kpis.visitors_new_prev },
@@ -240,7 +243,7 @@ export class DashboardQueries implements DashboardReader {
     const start = startOf(range.from);
     const end = endOf(range.to);
     return sql`
-      select c.id as coupon_id, c.title, c.total_quantity, c.store_id,
+      select c.id as coupon_id, c.title, c.total_quantity, c.store_id, c.is_demo,
              count(*) filter (where cc.claimed_at >= ${start} and cc.claimed_at < ${end}) as claims,
              count(*) filter (where cc.redeemed_at >= ${start} and cc.redeemed_at < ${end}) as redemptions
       from promotions.coupon_claims cc
@@ -282,6 +285,7 @@ export class DashboardQueries implements DashboardReader {
       claims: number;
       redemptions: number;
       remaining: number;
+      is_demo: boolean;
     }>(sql`
       with top as (
         select * from (${this.periodClaims(req)}) p
@@ -289,7 +293,7 @@ export class DashboardQueries implements DashboardReader {
         limit ${TOP_LIMIT}
       )
       select top.coupon_id, top.title, top.store_id, s.name as store_name,
-             top.claims, top.redemptions,
+             top.claims, top.redemptions, top.is_demo,
              greatest(top.total_quantity - stock.taken, 0)::int as remaining
       from top
       join directory.stores s on s.id = top.store_id
@@ -307,6 +311,7 @@ export class DashboardQueries implements DashboardReader {
       claims: r.claims,
       redemptions: r.redemptions,
       remaining: r.remaining,
+      isDemo: r.is_demo,
     }));
   }
 
@@ -346,6 +351,15 @@ export class DashboardQueries implements DashboardReader {
       },
       count: r.n,
     }));
+  }
+
+  /** Há dados fictícios de demonstração (seed/demo.ts) somando nos números? */
+  private async hasDemoData(): Promise<boolean> {
+    const row = await this.db.one<{ demo: boolean }>(sql`
+      select exists (select 1 from visitors.visitors where is_demo)
+          or exists (select 1 from promotions.coupons where is_demo) as demo
+    `);
+    return row.demo;
   }
 
   private scanOutcomes({

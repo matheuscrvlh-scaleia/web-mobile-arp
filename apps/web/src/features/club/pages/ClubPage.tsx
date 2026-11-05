@@ -20,6 +20,7 @@ import {
   CardHeader,
   type Column,
   ConfirmDialog,
+  DemoMark,
   EmptyState,
   ErrorState,
   Field,
@@ -107,7 +108,10 @@ function PrizesTab({ canEdit }: { canEdit: boolean }) {
       header: "Prêmio",
       cell: (p) => (
         <span className="flex flex-col">
-          <span className="font-medium">{p.name}</span>
+          <span className="inline-flex items-center gap-1.5 font-medium">
+            {p.name}
+            <DemoMark show={p.isDemo} />
+          </span>
           <span className="text-xs text-neutral-500">{PRIZE_KIND_LABEL[p.kind]}</span>
         </span>
       ),
@@ -254,7 +258,16 @@ function RedemptionsTab({ canEdit }: { canEdit: boolean }) {
       cell: (r) => <span className="font-mono font-semibold">{r.code}</span>,
     },
     { key: "prize", header: "Prêmio", cell: (r) => r.prize.name },
-    { key: "visitor", header: "Visitante", cell: (r) => r.visitor.name },
+    {
+      key: "visitor",
+      header: "Visitante",
+      cell: (r) => (
+        <span className="inline-flex items-center gap-1.5">
+          {r.visitor.name}
+          <DemoMark show={r.isDemo} />
+        </span>
+      ),
+    },
     { key: "points", header: "Pontos", numeric: true, cell: (r) => formatNumber(r.points) },
     { key: "at", header: "Trocado em", cell: (r) => formatDateTime(r.createdAt) },
     {

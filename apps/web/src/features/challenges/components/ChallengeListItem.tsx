@@ -6,6 +6,7 @@ import { PATHS } from "@/shared/config/paths";
 import { cn } from "@/shared/lib/cn";
 import { formatNumber, plural } from "@/shared/lib/format";
 import { iconFor } from "@/shared/lib/icons";
+import { DemoMark } from "@/shared/ui";
 import { ChallengeInactiveBadge, ValidationPill } from "./ChallengeBadges";
 
 /** Linha do desafio na lista (no jeito do app: ícone, título, como cumprir, selo). */
@@ -30,6 +31,7 @@ export function ChallengeListItem({ challenge: c }: { challenge: Challenge }) {
       <span className="min-w-0 flex-1 basis-56">
         <span className="flex flex-wrap items-center gap-2">
           <b className="font-semibold text-neutral-900">{c.title}</b>
+          <DemoMark show={c.isDemo} />
           {inactive && <ChallengeInactiveBadge />}
         </span>
         <span className="mt-0.5 block text-sm text-neutral-500">{c.howTo}</span>

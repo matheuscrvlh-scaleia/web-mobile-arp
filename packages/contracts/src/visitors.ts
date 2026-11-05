@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  demoFlagSchema,
   hexColorSchema,
   iconNameSchema,
   idSchema,
@@ -30,6 +31,7 @@ export const visitorSummarySchema = z.object({
   activeClaimsCount: z.number().int(),
   redeemedClaimsCount: z.number().int(),
   lastSeenAt: isoDateTimeSchema.nullable(),
+  isDemo: demoFlagSchema,
   createdAt: isoDateTimeSchema,
 });
 export type VisitorSummary = z.infer<typeof visitorSummarySchema>;

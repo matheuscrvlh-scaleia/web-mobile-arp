@@ -6,7 +6,8 @@ import { type ClaimStatus, walletStatusOf } from "../domain/wallet";
 /*
  * Trechos de SQL e mapeadores reaproveitados pelas consultas do app. O app
  * só enxerga o que está no ar: loja ativa, cupom ativo dentro do período,
- * evento publicado, campanha publicada no período.
+ * evento publicado, campanha publicada no período. Cupom e campanha fictícios
+ * (is_demo: dados de demonstração do painel) nunca chegam ao app.
  */
 
 type Tone = App.CouponCard["tone"];
@@ -14,7 +15,7 @@ type Kind = App.StoreRef["kind"];
 
 /** Cupom no ar (exige os aliases c = cupom e s = loja). */
 export const liveCoupon = (now: Date): SqlFragment => sql`
-  c.status = 'active' and c.review = 'approved'
+  c.status = 'active' and c.review = 'approved' and not c.is_demo
   and c.starts_at <= ${now} and (c.ends_at is null or c.ends_at > ${now})
   and s.status = 'active'
 `;
@@ -22,7 +23,7 @@ export const liveCoupon = (now: Date): SqlFragment => sql`
 /** Campanha publicada no ar agora (a mais recente, se houver sobreposição). */
 export const liveCampaignId = (now: Date): SqlFragment => sql`(
   select id from gamification.campaigns
-  where status = 'published' and starts_at <= ${now} and ends_at > ${now}
+  where status = 'published' and not is_demo and starts_at <= ${now} and ends_at > ${now}
   order by starts_at desc limit 1
 )`;
 

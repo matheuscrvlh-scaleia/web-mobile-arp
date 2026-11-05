@@ -54,6 +54,11 @@ export const seedEnvShape = {
     .min(8, "SEED_ADMIN_PASSWORD precisa de 8+ caracteres")
     .regex(/[A-Za-z]/, "SEED_ADMIN_PASSWORD precisa de uma letra")
     .regex(/\d/, "SEED_ADMIN_PASSWORD precisa de um número"),
+  /**
+   * Dados fictícios de demonstração (seed/demo.ts) no painel; o app nunca os
+   * mostra. false apaga os que existirem na próxima subida.
+   */
+  SEED_DEMO_DATA: booleanString.default(true),
 };
 
 const databaseEnvSchema = z.object(databaseEnvShape);

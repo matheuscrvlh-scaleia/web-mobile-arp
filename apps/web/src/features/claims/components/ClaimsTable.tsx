@@ -4,7 +4,7 @@ import { Link } from "react-router";
 import { useAuth } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
 import { formatDateTime, formatRelative } from "@/shared/lib/format";
-import { type Column, Table } from "@/shared/ui";
+import { type Column, DemoMark, Table } from "@/shared/ui";
 import { ClaimStatusBadge } from "./ClaimStatusBadge";
 
 export type HideableColumn = "coupon" | "store" | "visitor";
@@ -83,11 +83,18 @@ export function ClaimsTable({
         header: "Visitante",
         cell: (c) =>
           canVisitors ? (
-            <Link to={PATHS.visitor(c.visitor.id)} className="font-medium hover:underline">
+            <Link
+              to={PATHS.visitor(c.visitor.id)}
+              className="inline-flex items-center gap-1.5 font-medium hover:underline"
+            >
               {c.visitor.name}
+              <DemoMark show={c.isDemo} />
             </Link>
           ) : (
-            <span className="font-medium">{c.visitor.name}</span>
+            <span className="inline-flex items-center gap-1.5 font-medium">
+              {c.visitor.name}
+              <DemoMark show={c.isDemo} />
+            </span>
           ),
       },
       {

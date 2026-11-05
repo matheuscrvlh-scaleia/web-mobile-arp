@@ -6,6 +6,7 @@ import { Database, type DatabaseLogger } from "../database";
 import { type SqlFragment, sql } from "../sql";
 import { ADMIN_USER, EVENT_CATEGORIES, FLOORS, ROLES, SEALS, SETTINGS } from "./catalog";
 import { ART_POINTS, CONTENT_PAGES, RECYCLING_ITEMS } from "./content";
+import { type DemoSyncResult, syncDemoData } from "./demo";
 import { purgeLegacyDemo } from "./legacy-demo";
 import { SITE_BLOCKS, SITE_STORE_CATEGORIES, SITE_STORES } from "./site-data";
 
@@ -14,7 +15,8 @@ import { SITE_BLOCKS, SITE_STORE_CATEGORIES, SITE_STORES } from "./site-data";
  * real do site da ARP (lojas, blocos e categorias). Não sobrescreve o que foi
  * editado no painel, e o catálogo de lojas entra uma vez só: loja apagada no
  * painel não volta na próxima subida. Eventos vêm do botão "Importar do site"
- * da agenda.
+ * da agenda. Por fim, os dados fictícios de demonstração (seed/demo.ts,
+ * SEED_DEMO_DATA), marcados com is_demo e fora do app.
  */
 
 const SEED_LOCK_KEY = 7_310_528_605;
@@ -28,6 +30,8 @@ export interface SeedDeps {
 
 export interface SeedOptions {
   adminPassword: string;
+  /** Dados fictícios de demonstração (seed/demo.ts); false apaga os que existirem. Padrão: true. */
+  demoData?: boolean;
 }
 
 export interface SeedReport {
@@ -35,6 +39,7 @@ export interface SeedReport {
   counts: Record<string, number>;
   /** true se as lojas do site entraram nesta execução. */
   catalogSeeded: boolean;
+  demo: DemoSyncResult;
 }
 
 /** argon2id com os parâmetros mínimos recomendados pela OWASP (19 MiB, t=2, p=1). */
@@ -43,7 +48,8 @@ export const defaultHashPassword = (plain: string) =>
 
 export async function runSeed(deps: SeedDeps, options: SeedOptions): Promise<SeedReport> {
   const { db, logger } = deps;
-  const adminHash = await (deps.hashPassword ?? defaultHashPassword)(options.adminPassword);
+  const hashPassword = deps.hashPassword ?? defaultHashPassword;
+  const adminHash = await hashPassword(options.adminPassword);
 
   const catalogSeeded = await db.transaction(async () => {
     // Duas réplicas com SEED_ON_START não semeiam ao mesmo tempo.
@@ -58,10 +64,12 @@ export async function runSeed(deps: SeedDeps, options: SeedOptions): Promise<See
     await seeder.eventCategories();
     return seeder.directory();
   });
+  // Depois do catálogo: os dados fictícios usam as lojas e os selos reais.
+  const demo = await syncDemoData({ db, hashPassword, logger }, options.demoData ?? true);
 
   const counts = await countRows(db);
   logger?.info({}, catalogSeeded ? "Seed concluído (lojas do site gravadas)" : "Seed concluído");
-  return { counts, catalogSeeded };
+  return { counts, catalogSeeded, demo };
 }
 
 /* Inserção idempotente --------------------------------------------------- */
@@ -330,7 +338,7 @@ async function main(): Promise<void> {
   try {
     const report = await runSeed(
       { db, logger: consoleLogger },
-      { adminPassword: seedEnv.SEED_ADMIN_PASSWORD },
+      { adminPassword: seedEnv.SEED_ADMIN_PASSWORD, demoData: seedEnv.SEED_DEMO_DATA },
     );
     console.table(report.counts);
   } finally {

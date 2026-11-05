@@ -69,6 +69,7 @@ interface CampaignRow {
   challenges_count: number;
   participants_count: number;
   seals_awarded: number;
+  is_demo: boolean;
   created_at: Date;
   updated_at: Date;
 }
@@ -79,6 +80,7 @@ interface ChallengeRow {
   id: string;
   campaign_id: string;
   campaign_name: string;
+  is_demo: boolean;
   seal_id: string;
   seal_name: string;
   seal_icon: string;
@@ -106,7 +108,7 @@ interface ChallengeRow {
 }
 
 const CHALLENGE_SELECT = sql`
-  select ch.id, ch.campaign_id, c.name as campaign_name,
+  select ch.id, ch.campaign_id, c.name as campaign_name, c.is_demo,
          s.id as seal_id, s.name as seal_name, s.icon as seal_icon,
          s.gradient_from as seal_gradient_from, s.gradient_to as seal_gradient_to,
          ch.title, ch.how_to, ch.icon, ch.validation, ch.auto_trigger, ch.coupon_id,
@@ -150,6 +152,7 @@ const toChallenge = (r: ChallengeRow): Challenge => ({
   status: r.status,
   completionsCount: r.completions_count,
   qrCodesCount: r.qr_codes_count,
+  isDemo: r.is_demo,
   createdAt: iso(r.created_at),
   updatedAt: iso(r.updated_at),
 });
@@ -220,6 +223,7 @@ interface EarnedRow {
   visitor_id: string;
   visitor_name: string;
   earned_at: Date;
+  is_demo: boolean;
 }
 
 const toEarnedSeal = (r: EarnedRow): EarnedSeal => ({
@@ -235,6 +239,7 @@ const toEarnedSeal = (r: EarnedRow): EarnedSeal => ({
   campaign: { id: r.campaign_id, name: r.campaign_name },
   visitor: { id: r.visitor_id, name: r.visitor_name },
   earnedAt: iso(r.earned_at),
+  isDemo: r.is_demo,
 });
 
 /** Leituras de gamificação, já no formato do contrato. */
@@ -267,7 +272,7 @@ export class GamificationQueries {
    */
   async listCampaigns(id?: string): Promise<Campaign[]> {
     const rows = await this.db.many<CampaignRow>(sql`
-      select c.id, c.name, c.description, c.starts_at, c.ends_at, c.status, c.created_at,
+      select c.id, c.name, c.description, c.starts_at, c.ends_at, c.status, c.created_at, c.is_demo,
              c.updated_at,
              (select count(*) from gamification.challenges ch where ch.campaign_id = c.id)
                as challenges_count,
@@ -308,6 +313,7 @@ export class GamificationQueries {
       challengesCount: r.challenges_count,
       participantsCount: r.participants_count,
       sealsAwarded: r.seals_awarded,
+      isDemo: r.is_demo,
       createdAt: iso(r.created_at),
       updatedAt: iso(r.updated_at),
     }));
@@ -366,7 +372,7 @@ export class GamificationQueries {
              s.gradient_from as seal_gradient_from, s.gradient_to as seal_gradient_to,
              ch.id as challenge_id, ch.title as challenge_title,
              c.id as campaign_id, c.name as campaign_name,
-             v.id as visitor_id, v.name as visitor_name, e.earned_at,
+             v.id as visitor_id, v.name as visitor_name, v.is_demo, e.earned_at,
              count(*) over() as total
       from gamification.earned_seals e
       join gamification.seals s on s.id = e.seal_id

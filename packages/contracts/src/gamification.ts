@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  demoFlagSchema,
   hexColorSchema,
   iconNameSchema,
   idSchema,
@@ -107,6 +108,7 @@ export const campaignSchema = z.object({
   /** Visitantes com ao menos um selo na campanha. */
   participantsCount: z.number().int(),
   sealsAwarded: z.number().int(),
+  isDemo: demoFlagSchema,
   createdAt: isoDateTimeSchema,
   updatedAt: isoDateTimeSchema,
 });
@@ -181,6 +183,7 @@ export const challengeSchema = z.object({
   status: challengeStatusSchema,
   completionsCount: z.number().int(),
   qrCodesCount: z.number().int(),
+  isDemo: demoFlagSchema,
   createdAt: isoDateTimeSchema,
   updatedAt: isoDateTimeSchema,
 });
@@ -305,6 +308,7 @@ export const earnedSealSchema = z.object({
   campaign: refSchema,
   visitor: refSchema,
   earnedAt: isoDateTimeSchema,
+  isDemo: demoFlagSchema,
 });
 export type EarnedSeal = z.infer<typeof earnedSealSchema>;
 export const earnedSealPageSchema = paginated(earnedSealSchema);
@@ -336,6 +340,7 @@ export const prizeSchema = z.object({
   visitorsEnough: z.number().int(),
   /** Visitantes com 80% ou mais dos pontos. */
   visitorsAlmost: z.number().int(),
+  isDemo: demoFlagSchema,
 });
 export type Prize = z.infer<typeof prizeSchema>;
 export const prizeListSchema = listOf(prizeSchema);
@@ -367,6 +372,7 @@ export const prizeRedemptionSchema = z.object({
   status: prizeRedemptionStatusSchema,
   createdAt: isoDateTimeSchema,
   deliveredAt: isoDateTimeSchema.nullable(),
+  isDemo: demoFlagSchema,
 });
 export type PrizeRedemption = z.infer<typeof prizeRedemptionSchema>;
 export const prizeRedemptionPageSchema = paginated(prizeRedemptionSchema);

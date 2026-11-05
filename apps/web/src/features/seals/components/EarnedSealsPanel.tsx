@@ -12,6 +12,7 @@ import {
   Button,
   Card,
   type Column,
+  DemoMark,
   EmptyState,
   ErrorState,
   FilterBar,
@@ -53,11 +54,18 @@ export function EarnedSealsPanel() {
       header: "Visitante",
       cell: (e) =>
         can("visitors.view") ? (
-          <Link to={PATHS.visitor(e.visitor.id)} className="hover:underline">
+          <Link
+            to={PATHS.visitor(e.visitor.id)}
+            className="inline-flex items-center gap-1.5 hover:underline"
+          >
             {e.visitor.name}
+            <DemoMark show={e.isDemo} />
           </Link>
         ) : (
-          e.visitor.name
+          <span className="inline-flex items-center gap-1.5">
+            {e.visitor.name}
+            <DemoMark show={e.isDemo} />
+          </span>
         ),
     },
     {

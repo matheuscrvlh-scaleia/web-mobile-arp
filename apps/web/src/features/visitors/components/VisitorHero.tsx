@@ -2,7 +2,7 @@ import type { VisitorDetail } from "@arp/contracts";
 import { Ban, CalendarClock, Mail, Phone, ShieldCheck, Unlock } from "lucide-react";
 import { useState } from "react";
 import { formatDate, formatDateTime, formatRelative } from "@/shared/lib/format";
-import { Button, Can } from "@/shared/ui";
+import { Button, Can, DemoMark } from "@/shared/ui";
 import { OptInBadge, PROVIDER_LABEL, VisitorAvatar, VisitorStatusBadge } from "./VisitorBadges";
 import { BlockVisitorModal, UnblockVisitorDialog } from "./VisitorStatusDialogs";
 
@@ -27,6 +27,7 @@ export function VisitorHero({ visitor }: { visitor: VisitorDetail }) {
             className="mt-3 text-3xl font-semibold tracking-tight text-balance md:text-4xl"
           >
             {visitor.name}
+            <DemoMark show={visitor.isDemo} className="ml-2 size-7 [&>svg]:size-4" />
           </h1>
           <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-neutral-600">
             <li className="flex min-w-0 items-center gap-1.5">

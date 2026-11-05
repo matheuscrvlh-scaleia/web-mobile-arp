@@ -219,16 +219,16 @@ export class PgPushNotificationRepository implements PushNotificationRepository 
 
 /* Público ---------------------------------------------------------------- */
 
-/** Condição do público sobre visitors.visitors v (sempre só visitantes ativos). */
+/** Condição do público sobre visitors.visitors v (só visitantes ativos e reais: fictício não recebe). */
 function audienceCondition(audience: NotificationAudience, storeId: string | null): SqlFragment {
   switch (audience) {
     case "all":
-      return sql`v.status = 'active'`;
+      return sql`v.status = 'active' and not v.is_demo`;
     case "opted_in":
-      return sql`v.status = 'active' and v.marketing_opt_in`;
+      return sql`v.status = 'active' and not v.is_demo and v.marketing_opt_in`;
     case "store_followers":
       if (!storeId) return sql`false`;
-      return sql`v.status = 'active' and exists (
+      return sql`v.status = 'active' and not v.is_demo and exists (
         select 1 from visitors.store_follows f where f.visitor_id = v.id and f.store_id = ${storeId}
       )`;
   }

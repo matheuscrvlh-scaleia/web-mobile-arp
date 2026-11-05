@@ -25,6 +25,7 @@ interface SummaryRow {
   active_claims_count: number;
   redeemed_claims_count: number;
   last_seen_at: Date | null;
+  is_demo: boolean;
   created_at: Date;
 }
 
@@ -59,7 +60,7 @@ interface DetailRow extends SummaryRow {
 /** Contagens por subquery correlacionada (índices por visitor_id cobrem cada uma). */
 const SUMMARY_COLUMNS = sql`
   v.id, v.name, v.email, v.phone, v.avatar_url, v.auth_provider, v.status, v.marketing_opt_in,
-  v.last_seen_at, v.created_at,
+  v.last_seen_at, v.created_at, v.is_demo,
   (select count(*) from gamification.earned_seals es where es.visitor_id = v.id) as seals_count,
   (select count(*) from promotions.coupon_claims c
     where c.visitor_id = v.id and c.status = 'active' and c.expires_at > now()) as active_claims_count,
@@ -86,6 +87,7 @@ function toSummary(r: SummaryRow): VisitorSummary {
     redeemedClaimsCount: r.redeemed_claims_count,
     lastSeenAt: isoOrNull(r.last_seen_at),
     createdAt: iso(r.created_at),
+    isDemo: r.is_demo,
   };
 }
 

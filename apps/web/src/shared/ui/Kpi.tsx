@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/shared/lib/cn";
 import type { Delta } from "@/shared/lib/format";
 import type { CardVariant } from "./Card";
+import { DEMO_MIXED_HINT, DemoMark } from "./DemoMark";
 
 const TONES: Record<Exclude<CardVariant, "dashed">, string> = {
   glass: "vidro",
@@ -28,11 +29,14 @@ export function KpiCard({
   className,
   onClick,
   onPrefetch,
+  demo = false,
 }: {
   /** Com onClick, o cartão vira botão (abre o modal "de onde vem"). */
   onClick?: () => void;
   /** Mouse parado em cima, dedo encostado ou foco: hora de pré-carregar. */
   onPrefetch?: () => void;
+  /** O número inclui dados fictícios de demonstração (mostra o ícone). */
+  demo?: boolean;
   label: string;
   value: ReactNode;
   delta?: Delta | null;
@@ -76,7 +80,10 @@ export function KpiCard({
       )}
     >
       <p className="flex items-start justify-between gap-2 text-sm font-medium text-neutral-600">
-        <span>{label}</span>
+        <span className="inline-flex items-center gap-1.5">
+          {label}
+          <DemoMark show={demo} hint={DEMO_MIXED_HINT} />
+        </span>
         {Icon && (
           <span className="grid size-8 shrink-0 place-items-center rounded-full bg-neutral-900/[0.06] text-neutral-700">
             <Icon className="size-4" aria-hidden />

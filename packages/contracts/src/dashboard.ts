@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema, isoDateSchema, refSchema } from "./common";
+import { demoFlagSchema, idSchema, isoDateSchema, refSchema } from "./common";
 import { sealRefSchema } from "./gamification";
 
 export const dashboardPeriodSchema = z.enum(["7d", "30d", "90d"]);
@@ -21,6 +21,11 @@ export type Kpi = z.infer<typeof kpi>;
 
 export const dashboardOverviewSchema = z.object({
   period: dashboardPeriodSchema,
+  /**
+   * Há dados fictícios de demonstração no banco (seed/demo.ts): os cartões que
+   * somam atividade de visitantes mostram o ícone de "inclui dados fictícios".
+   */
+  hasDemoData: z.boolean().optional(),
   kpis: z.object({
     visitorsTotal: kpi,
     visitorsNew: kpi,
@@ -55,6 +60,7 @@ export const dashboardOverviewSchema = z.object({
       claims: z.number().int(),
       redemptions: z.number().int(),
       remaining: z.number().int(),
+      isDemo: demoFlagSchema,
     }),
   ),
   sealsByChallenge: z.array(

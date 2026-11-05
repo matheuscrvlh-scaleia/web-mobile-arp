@@ -4,6 +4,7 @@ import {
   centsSchema,
   couponToneSchema,
   cursorQuerySchema,
+  demoFlagSchema,
   hexColorSchema,
   iconNameSchema,
   idSchema,
@@ -102,6 +103,7 @@ export const couponSchema = z.object({
   /** Motivo da recusa (o lojista vê). */
   reviewNote: z.string().nullable(),
   stock: couponStockSchema,
+  isDemo: demoFlagSchema,
   createdAt: isoDateTimeSchema,
   updatedAt: isoDateTimeSchema,
 });
@@ -186,6 +188,7 @@ export const couponClaimSchema = z.object({
   store: refSchema,
   visitor: refSchema,
   redeemedBy: refSchema.nullable(),
+  isDemo: demoFlagSchema,
 });
 export type CouponClaim = z.infer<typeof couponClaimSchema>;
 export const couponClaimPageSchema = paginated(couponClaimSchema);

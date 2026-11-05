@@ -3,15 +3,26 @@ import { Award, Store, TicketPercent } from "lucide-react";
 import { useAuth } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
 import { formatNumber, plural } from "@/shared/lib/format";
-import { Card, CardHeader, SealIcon, StatusBadge } from "@/shared/ui";
+import { Card, CardHeader, DEMO_MIXED_HINT, DemoMark, SealIcon, StatusBadge } from "@/shared/ui";
 import { BarList } from "@/shared/ui/charts";
 
-export function TopStoresCard({ items }: { items: DashboardOverview["topStores"] }) {
+export function TopStoresCard({
+  items,
+  demo = false,
+}: {
+  items: DashboardOverview["topStores"];
+  /** Há dados fictícios somando. */
+  demo?: boolean;
+}) {
   const { can } = useAuth();
   return (
     <Card>
       <CardHeader
-        title="Lojas que mais movimentam"
+        title={
+          <>
+            Lojas que mais movimentam <DemoMark show={demo} hint={DEMO_MIXED_HINT} />
+          </>
+        }
         description="Cupons pegos no período"
         icon={Store}
       />
@@ -49,6 +60,7 @@ export function TopCouponsCard({ items }: { items: DashboardOverview["topCoupons
           valueText: formatNumber(t.claims),
           sublabel: (
             <span className="flex flex-wrap items-center gap-2">
+              <DemoMark show={t.isDemo} />
               {t.store.name} · {plural(t.redemptions, "usado", "usados")}
               {t.remaining === 0 ? (
                 <StatusBadge tone="danger">Esgotado</StatusBadge>
@@ -65,10 +77,25 @@ export function TopCouponsCard({ items }: { items: DashboardOverview["topCoupons
   );
 }
 
-export function SealsByChallengeCard({ items }: { items: DashboardOverview["sealsByChallenge"] }) {
+export function SealsByChallengeCard({
+  items,
+  demo = false,
+}: {
+  items: DashboardOverview["sealsByChallenge"];
+  /** Há dados fictícios somando. */
+  demo?: boolean;
+}) {
   return (
     <Card>
-      <CardHeader title="Selos por desafio" description="Selos dados no período" icon={Award} />
+      <CardHeader
+        title={
+          <>
+            Selos por desafio <DemoMark show={demo} hint={DEMO_MIXED_HINT} />
+          </>
+        }
+        description="Selos dados no período"
+        icon={Award}
+      />
       <BarList
         label="Selos dados por desafio"
         emptyText="Nenhum selo dado no período."

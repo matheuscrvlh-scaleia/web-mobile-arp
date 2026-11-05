@@ -10,6 +10,7 @@ import {
   Button,
   Can,
   ConfirmDialog,
+  DemoMark,
   LoadError,
   LoadingRegion,
   PageHeader,
@@ -62,7 +63,11 @@ export function ChallengeDetailPage() {
   return (
     <>
       <PageHeader
-        title={c.title}
+        title={
+          <>
+            {c.title} <DemoMark show={c.isDemo} />
+          </>
+        }
         back={{ to: PATHS.challengesOf(c.campaign.id), label: `Desafios · ${c.campaign.name}` }}
         description={
           <span className="flex flex-wrap items-center gap-2">
