@@ -240,8 +240,9 @@ export async function createContainer(options: ContainerOptions): Promise<Contai
       },
     });
   }
-  if (env.SEED_ON_START && env.SEED_DEMO_DATA) {
-    // Dados fictícios são relativos ao "agora": refeitos quando passam de STALE_MS.
+  if (env.SEED_DEMO_DATA) {
+    // Dados fictícios são relativos ao "agora": criados segundos depois da subida
+    // (mesmo sem SEED_ON_START) e refeitos quando passam de STALE_MS.
     jobs.push({
       name: "refresh-demo-data",
       intervalMs: 60 * 60_000,

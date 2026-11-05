@@ -56,7 +56,8 @@ export const seedEnvShape = {
     .regex(/\d/, "SEED_ADMIN_PASSWORD precisa de um número"),
   /**
    * Dados fictícios de demonstração (seed/demo.ts) no painel; o app nunca os
-   * mostra. false apaga os que existirem na próxima subida.
+   * mostra. Um job os cria e renova (refresh-demo-data). false: o job não roda e o
+   * seed (SEED_ON_START) apaga os que existirem.
    */
   SEED_DEMO_DATA: booleanString.default(true),
 };
