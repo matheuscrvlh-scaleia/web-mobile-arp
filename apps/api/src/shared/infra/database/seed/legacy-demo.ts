@@ -119,7 +119,7 @@ export async function purgeLegacyDemo(
     sql`delete from directory.floors f where f.level <> 0 and f.layout::text like '%Bloco 8%'
         and not exists (select 1 from directory.stores s where s.floor_id = f.id)
         and not exists (select 1 from agenda.events e where e.floor_id = f.id)`,
-    sql`update directory.floors set label = 'Térreo', short_label = 'T', layout = '[]'::jsonb
+    sql`update directory.floors set label = '1º andar', short_label = '1º', layout = '[]'::jsonb
         where level = 0 and layout::text like '%Bloco 80%'`,
     // Regras provisórias do seed antigo (mesmo salvas no painel sem mudar) dão lugar às do site.
     sql`update content.pages set body = ${SITE_TEXTS.rules}

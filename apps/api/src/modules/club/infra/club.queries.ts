@@ -43,7 +43,7 @@ const PRIZE_COLUMNS = sql.raw(
 /** Pontos de quem tem selo valendo (a lojinha e o ranking partem daqui). */
 const pointsCte = (now: Date) => sql`
   pts as (
-    select v.id, v.ranking_nickname, ${visitorPointsSql(sql`v.id`, now)} as total
+    select v.id, v.ranking_nickname, v.is_demo, ${visitorPointsSql(sql`v.id`, now)} as total
     from visitors.visitors v
     where v.status = 'active'
       and exists (select 1 from gamification.earned_seals es
@@ -183,7 +183,7 @@ export class ClubQueries {
         select id, ranking_nickname as nickname, total as points,
                row_number() over (order by total desc, ranking_nickname) as position
         from pts
-        where ranking_nickname is not null and total > 0
+        where ranking_nickname is not null and total > 0 and ${appShowsDemo("is_demo")}
       )
       select id, position::int, nickname, points from ranked
       where position <= ${limit} or id = ${visitorId}::uuid

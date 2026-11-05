@@ -85,8 +85,12 @@ export const ROLES: readonly RoleSeed[] = [
 
 export const ADMIN_USER = { name: "Administrador ARP", email: "admin@arp.com.br" } as const;
 
-/** Mapa: um andar só até a ARP desenhar a planta (o desenho é feito no painel). */
-export const FLOORS = [{ level: 0, label: "Térreo", shortLabel: "T" }] as const;
+/** Andares da ARP (nunca "Térreo"); a planta de cada um é desenhada no Mapa do painel. */
+export const FLOORS = [
+  { level: 0, label: "1º andar", shortLabel: "1º" },
+  { level: 1, label: "2º andar", shortLabel: "2º" },
+  { level: 2, label: "3º andar", shortLabel: "3º" },
+] as const;
 
 /* Selos ------------------------------------------------------------------ */
 

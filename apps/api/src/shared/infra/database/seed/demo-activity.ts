@@ -90,6 +90,9 @@ export interface VisitorRow {
   status: "active" | "blocked";
   blocked_reason: string | null;
   last_seen_at: Date;
+  /** Apelido no ranking do Clube (parte dos fictícios participa). */
+  ranking_nickname: string | null;
+  ranking_accepted_at: Date | null;
   is_demo: true;
   created_at: Date;
   updated_at: Date;
@@ -241,6 +244,7 @@ export function generateActivity(input: ActivityInput): Activity {
 
   const visitors: VisitorState[] = [];
   const usedEmails = new Set<string>();
+  const usedNicknames = new Set<string>();
   const oldCount = Math.round(input.visitorCount * 0.22);
   const blockedIndexes = new Set([7, 31]);
   for (let i = 0; i < input.visitorCount; i++) {
@@ -268,6 +272,13 @@ export function generateActivity(input: ActivityInput): Activity {
       ["apple", 0.1],
     ] as const);
     const blocked = blockedIndexes.has(i);
+    let nickname: string | null = null;
+    if (!blocked && rng.chance(0.45)) {
+      const nick = `${slugify(first)}${slugify(last).slice(0, 1).toUpperCase()}`;
+      nickname = `${nick[0]?.toUpperCase()}${nick.slice(1)}${rng.int(10, 99)}`;
+      while (usedNicknames.has(nickname.toLowerCase())) nickname = `${nickname}${rng.int(0, 9)}`;
+      usedNicknames.add(nickname.toLowerCase());
+    }
     visitors.push({
       row: {
         id: rng.uuidV7At(created),
@@ -286,6 +297,8 @@ export function generateActivity(input: ActivityInput): Activity {
             : "Compartilhou QR Codes de desafio em grupo público."
           : null,
         last_seen_at: created,
+        ranking_nickname: nickname,
+        ranking_accepted_at: nickname ? created : null,
         is_demo: true,
         created_at: created,
         updated_at: created,

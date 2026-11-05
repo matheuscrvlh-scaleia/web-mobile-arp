@@ -10,6 +10,7 @@ import {
   type PrizeInput,
 } from "./demo-activity";
 import { insertDemoEvents } from "./demo-events";
+import { insertShowcaseActivity, SHOWCASE_EMAILS } from "./demo-showcase";
 import { createDemoClock, DAY_MS, type DemoClock, HOUR_MS, zoned } from "./demo-time";
 import { Random } from "./random";
 
@@ -57,10 +58,22 @@ export async function syncDemoData(
     const state = await db.one<{
       generated_at: Date | null;
       any_demo: boolean;
-      has_events: boolean;
+      current: boolean;
     }>(sql`
       select (select max(created_at) from visitors.visitors where is_demo) as generated_at,
-             exists (select 1 from agenda.events where is_demo) as has_events,
+             -- Marcas da versão atual do gerador: eventos, apelidos no ranking e
+             -- conta de demonstração já preenchida. Faltou alguma, refaz já.
+             exists (select 1 from agenda.events where is_demo)
+               and exists (select 1 from visitors.visitors where is_demo and ranking_nickname is not null)
+               and not exists (
+                 select 1 from visitors.visitors v
+                 where not v.is_demo and v.status = 'active'
+                   and lower(v.email) = any(${[...SHOWCASE_EMAILS]}::text[])
+                   and not exists (
+                     select 1 from gamification.earned_seals es
+                     join gamification.campaigns ca on ca.id = es.campaign_id
+                     where es.visitor_id = v.id and ca.is_demo))
+               as current,
              exists (select 1 from visitors.visitors where is_demo)
                or exists (select 1 from agenda.events where is_demo)
                or exists (select 1 from promotions.coupons where is_demo)
@@ -73,9 +86,8 @@ export async function syncDemoData(
       await purgeDemoData(db);
       return "removed";
     }
-    // Sem eventos fictícios = gerados por uma versão anterior: refaz já.
     const fresh = state.generated_at && now.getTime() - state.generated_at.getTime() < STALE_MS;
-    if (fresh && state.has_events) {
+    if (fresh && state.current) {
       return "kept";
     }
     if (state.any_demo) await purgeDemoData(db);
@@ -571,6 +583,13 @@ async function generateDemoData(
   await insertMany(db, "gamification.prize_redemptions", activity.redemptions);
   if (staffUserId) await insertNotifications(db, clock, coupons, staffUserId);
   const events = await insertDemoEvents(db, rng, clock, activity.visitors);
+  // Depois dos eventos: a conta de demonstração marca interesse neles.
+  const showcase = await insertShowcaseActivity(db, rng, clock, {
+    coupons,
+    campaigns,
+    prizes,
+    staffUserId,
+  });
 
   logger?.info(
     {
@@ -580,6 +599,7 @@ async function generateDemoData(
       leiturasQr: activity.scans.length,
       trocas: activity.redemptions.length,
       eventos: events,
+      contasDemonstracao: showcase,
     },
     "Dados fictícios de demonstração gerados",
   );

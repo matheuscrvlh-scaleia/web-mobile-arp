@@ -55,7 +55,7 @@ export function MapCanvas({
   className,
   ...props
 }: ComponentProps<"svg"> & {
-  /** Nome do mapa para leitores de tela (ex.: "Mapa do Térreo"). */
+  /** Nome do mapa para leitores de tela (ex.: "Mapa do 1º andar"). */
   title: string;
   children: ReactNode;
 }) {
