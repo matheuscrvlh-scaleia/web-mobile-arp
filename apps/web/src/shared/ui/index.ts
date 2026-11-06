@@ -3,6 +3,7 @@ export { Button, ButtonLink, type ButtonProps, buttonClasses, IconButton } from 
 export { Card, CardHeader, type CardVariant } from "./Card";
 export { BRAND_SWATCHES, ColorInput } from "./ColorInput";
 export { ComingSoon } from "./ComingSoon";
+export { ConfirmHost, type ConfirmOptions, confirmar } from "./confirm";
 export { DateTimeInput } from "./DateTimeInput";
 export { DEMO_HINT, DEMO_MIXED_HINT, DemoMark, DemoNotice } from "./DemoMark";
 export { EmptyState, ErrorState } from "./EmptyState";
@@ -30,3 +31,4 @@ export { type Column, Table } from "./Table";
 export { NavTabs, Segmented, type TabItem, TabPanel, Tabs } from "./Tabs";
 export { Toaster, toast } from "./Toast";
 export { TONE_LABEL, TonePicker } from "./TonePicker";
+export { avisarVersaoNova, startVersionCheck, UpdateNotice } from "./UpdateNotice";

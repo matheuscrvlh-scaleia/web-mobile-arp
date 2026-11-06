@@ -1,4 +1,6 @@
 export {
+  hasUnsavedChanges,
+  reloadPage,
   useCopyToClipboard,
   useDebouncedValue,
   useDocumentTitle,

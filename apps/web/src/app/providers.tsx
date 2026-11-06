@@ -2,7 +2,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { lazy, type ReactNode, Suspense, useState } from "react";
 import { AuthProvider } from "@/shared/auth";
 import { ThemeProvider } from "@/shared/theme/ThemeProvider";
-import { Toaster } from "@/shared/ui";
+import { ConfirmHost, Toaster } from "@/shared/ui";
 import { createQueryClient } from "./query-client";
 
 // Devtools só em desenvolvimento (fora do pacote de produção).
@@ -20,6 +20,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
         <AuthProvider>
           {children}
           <Toaster />
+          <ConfirmHost />
         </AuthProvider>
         <Suspense>
           <Devtools buttonPosition="bottom-left" />

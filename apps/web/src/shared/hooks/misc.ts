@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useBlocker } from "react-router";
+import { confirmar } from "@/shared/ui/confirm";
 
 /** Valor que só muda depois de `ms` sem alteração (busca enquanto digita). */
 export function useDebouncedValue<T>(value: T, ms = 300): T {
@@ -42,22 +43,50 @@ export function useCopyToClipboard(): [boolean, (text: string) => Promise<boolea
   return [copied, copy];
 }
 
+// Telas abertas com alterações não salvas (o "Atualizar" da versão nova
+// pergunta antes de recarregar) e a liberação para recarregar sem o aviso
+// do navegador depois que a pessoa já confirmou no modal.
+let dirtyScreens = 0;
+let unloadReleased = false;
+
+/** Alguma tela aberta tem alterações não salvas? */
+export function hasUnsavedChanges(): boolean {
+  return dirtyScreens > 0;
+}
+
+/** Recarrega sem o aviso do navegador (a confirmação já foi feita no modal). */
+export function reloadPage() {
+  unloadReleased = true;
+  window.location.reload();
+}
+
 /**
- * Segura a saída da tela com alterações não salvas: confirma ao trocar de
- * rota e avisa o navegador ao fechar/recarregar a aba. Depois de salvar e
- * antes de navegar de propósito, chame `allowLeave()`.
+ * Segura a saída da tela com alterações não salvas: confirma num modal ao
+ * trocar de rota e avisa o navegador ao fechar/recarregar a aba (esse aviso
+ * é do próprio navegador, não dá para trocar). Depois de salvar e antes de
+ * navegar de propósito, chame `allowLeave()`.
  */
 export function useUnsavedChangesGuard(dirty: boolean): { allowLeave: () => void } {
   const released = useRef(false);
+  const asking = useRef(false);
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       dirty && !released.current && currentLocation.pathname !== nextLocation.pathname,
   );
 
   useEffect(() => {
-    if (blocker.state !== "blocked") return;
-    if (window.confirm("Há alterações não salvas. Sair mesmo assim?")) blocker.proceed();
-    else blocker.reset();
+    if (blocker.state !== "blocked" || asking.current) return;
+    asking.current = true;
+    void confirmar({
+      title: "Sair sem salvar?",
+      description: "Há alterações não salvas nesta tela. Se sair agora, elas se perdem.",
+      confirmLabel: "Sair sem salvar",
+      danger: true,
+    }).then((ok) => {
+      asking.current = false;
+      if (ok) blocker.proceed();
+      else blocker.reset();
+    });
   }, [blocker]);
 
   useEffect(() => {
@@ -65,11 +94,15 @@ export function useUnsavedChangesGuard(dirty: boolean): { allowLeave: () => void
       released.current = false;
       return;
     }
+    dirtyScreens++;
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (!released.current) e.preventDefault();
+      if (!released.current && !unloadReleased) e.preventDefault();
     };
     window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+    return () => {
+      dirtyScreens--;
+      window.removeEventListener("beforeunload", onBeforeUnload);
+    };
   }, [dirty]);
 
   const allowLeave = useCallback(() => {

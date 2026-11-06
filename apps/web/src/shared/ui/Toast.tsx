@@ -2,6 +2,7 @@ import { CircleCheck, CircleX, Info, type LucideIcon, X } from "lucide-react";
 import { useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { errorMessage } from "@/shared/api";
+import { UpdateNotice } from "./UpdateNotice";
 
 // Avisos rápidos no canto inferior direito: o retorno das ações ("Loja
 // salva.", erros). Sucesso some sozinho; erro fica mais tempo. Um
@@ -78,6 +79,7 @@ export function Toaster() {
       aria-live="polite"
       className="pointer-events-none fixed right-4 bottom-4 z-[70] flex w-[min(22rem,calc(100vw-2rem))] flex-col items-stretch gap-2 md:right-6 md:bottom-6"
     >
+      <UpdateNotice />
       {list.map((t) => {
         const { icon: Icon, className, label } = STYLE[t.kind];
         return (

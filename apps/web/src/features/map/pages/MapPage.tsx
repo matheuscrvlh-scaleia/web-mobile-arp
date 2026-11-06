@@ -9,6 +9,7 @@ import { plural } from "@/shared/lib/format";
 import {
   Button,
   Card,
+  confirmar,
   EmptyState,
   ErrorState,
   LoadingRegion,
@@ -95,13 +96,17 @@ export function MapPage() {
   });
   const { allowLeave } = useUnsavedChangesGuard(editor.layoutDirty && !saveLayout.isPending);
 
-  const selectFloor = (id: string) => {
+  const selectFloor = async (id: string) => {
     if (id === floorId) return;
     if (
       editor.layoutDirty &&
-      !window.confirm(
-        "O desenho deste andar tem alterações não salvas. Trocar de andar mesmo assim?",
-      )
+      !(await confirmar({
+        title: "Trocar de andar sem salvar?",
+        description:
+          "O desenho deste andar tem alterações não salvas. Se trocar agora, elas se perdem.",
+        confirmLabel: "Trocar sem salvar",
+        danger: true,
+      }))
     )
       return;
     allowLeave();
