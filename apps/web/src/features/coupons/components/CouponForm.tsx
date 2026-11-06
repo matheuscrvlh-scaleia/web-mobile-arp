@@ -390,6 +390,7 @@ export function CouponForm({
         </aside>
       </div>
       <SaveBar
+        besidePreview
         dirty={isDirty}
         saving={saving}
         alwaysVisible={creating}

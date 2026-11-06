@@ -42,7 +42,8 @@ export function FieldRow({ children, className }: { children: ReactNode; classNa
 
 /**
  * Barra de salvar: gruda no pé da tela enquanto há alterações, com
- * "Desfazer" para voltar ao que estava salvo.
+ * "Desfazer" para voltar ao que estava salvo. Só o botão (criação, nada
+ * alterado ainda): sem a pílula escura em volta.
  */
 export function SaveBar({
   dirty,
@@ -51,6 +52,7 @@ export function SaveBar({
   submitLabel = "Salvar alterações",
   disabled = false,
   alwaysVisible = false,
+  besidePreview = false,
 }: {
   dirty: boolean;
   saving: boolean;
@@ -59,29 +61,61 @@ export function SaveBar({
   disabled?: boolean;
   /** Formulários de criação: botão sempre visível, mesmo sem alteração. */
   alwaysVisible?: boolean;
+  /**
+   * Formulário com a prévia do app numa coluna de ~20rem à direita (xl): a
+   * barra fica na coluna do formulário, sem cobrir a prévia.
+   */
+  besidePreview?: boolean;
 }) {
   if (!dirty && !alwaysVisible) return null;
+  const note = dirty && !alwaysVisible;
+  const undo = Boolean(onReset) && dirty;
+  const submit = (
+    <Button
+      type="submit"
+      variant="brand"
+      icon={Save}
+      loading={saving}
+      disabled={disabled}
+      className={cn(!note && !undo && "pointer-events-auto shadow-lg")}
+    >
+      {submitLabel}
+    </Button>
+  );
   return (
-    <div className="sticky bottom-3 z-20 mt-6 flex justify-end">
-      <div className="fume flex flex-wrap items-center gap-2 rounded-full py-1.5 pr-1.5 pl-5">
-        {dirty && !alwaysVisible && (
-          <span className="mr-2 text-sm text-[rgb(255_255_255/0.8)]">Alterações não salvas</span>
-        )}
-        {onReset && dirty && (
-          <button
-            type="button"
-            onClick={onReset}
-            disabled={saving}
-            className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full px-4 text-sm text-[rgb(255_255_255/0.85)] transition hover:bg-[rgb(255_255_255/0.1)] disabled:opacity-50"
-          >
-            <RotateCcw className="size-4" aria-hidden />
-            Desfazer
-          </button>
-        )}
-        <Button type="submit" variant="brand" icon={Save} loading={saving} disabled={disabled}>
-          {submitLabel}
-        </Button>
-      </div>
+    // A faixa inteira é transparente a cliques: só a pílula/botão recebe.
+    <div
+      className={cn(
+        "pointer-events-none sticky bottom-3 z-20 mt-6 flex justify-end",
+        besidePreview && "xl:pr-[21.5rem]",
+      )}
+    >
+      {!note && !undo ? (
+        submit
+      ) : (
+        <div
+          className={cn(
+            "fume pointer-events-auto flex flex-wrap items-center gap-2 rounded-full py-1.5 pr-1.5",
+            note ? "pl-5" : "pl-1.5",
+          )}
+        >
+          {note && (
+            <span className="mr-2 text-sm text-[rgb(255_255_255/0.8)]">Alterações não salvas</span>
+          )}
+          {undo && (
+            <button
+              type="button"
+              onClick={onReset}
+              disabled={saving}
+              className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full px-4 text-sm text-[rgb(255_255_255/0.85)] transition hover:bg-[rgb(255_255_255/0.1)] disabled:opacity-50"
+            >
+              <RotateCcw className="size-4" aria-hidden />
+              Desfazer
+            </button>
+          )}
+          {submit}
+        </div>
+      )}
     </div>
   );
 }

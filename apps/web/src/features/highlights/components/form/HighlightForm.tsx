@@ -235,6 +235,7 @@ export function HighlightForm({
       </div>
       {!readOnly && (
         <SaveBar
+          besidePreview
           dirty={isDirty}
           saving={saving}
           alwaysVisible={creating}

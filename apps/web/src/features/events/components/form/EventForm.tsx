@@ -197,6 +197,7 @@ export function EventForm({
       </div>
       {!readOnly && (
         <SaveBar
+          besidePreview
           dirty={isDirty}
           saving={saving}
           alwaysVisible={creating}
