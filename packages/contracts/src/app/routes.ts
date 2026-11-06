@@ -74,7 +74,6 @@ export const APP_ROUTES = {
   /* Clube ARP (Fase 2): pontos, selos, lojinha e ranking. */
   club: {
     get: r("GET", "/club", "Clube ARP: pontos, selos, lojinha e ranking", open),
-    redeem: r("POST", "/club/prizes/:id/redeem", "Trocar pontos por prêmio"),
     joinRanking: r("PUT", "/club/ranking", "Entrar no ranking com apelido"),
     leaveRanking: r("DELETE", "/club/ranking", "Sair do ranking"),
   },

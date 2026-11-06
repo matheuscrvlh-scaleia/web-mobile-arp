@@ -4,8 +4,9 @@ import { prizeKindSchema, rankingEntrySchema, sealRefSchema } from "../gamificat
 
 /*
  * Clube ARP (Fase 2). Cada selo vale pontos e vence depois de alguns meses;
- * vencido, os pontos saem do total. Os pontos são trocados por prêmios na
- * lojinha. O ranking mostra só quem aceitou, só com apelido.
+ * vencido, os pontos saem do total. O app só mostra a lojinha: quem troca é
+ * a equipe do Centro de Informações, pelo painel. O ranking mostra só quem
+ * aceitou, só com apelido.
  */
 
 export const clubPointsSchema = z.object({
@@ -61,15 +62,6 @@ export const clubSchema = z.object({
   }),
 });
 export type Club = z.infer<typeof clubSchema>;
-
-/** Troca feita: o visitante mostra o código no Centro de Informações. */
-export const prizeRedeemResultSchema = z.object({
-  code: z.string(),
-  prize: z.object({ id: idSchema, name: z.string() }),
-  points: z.number().int(),
-  totalPoints: z.number().int(),
-});
-export type PrizeRedeemResult = z.infer<typeof prizeRedeemResultSchema>;
 
 export const joinRankingBodySchema = z.object({
   nickname: z

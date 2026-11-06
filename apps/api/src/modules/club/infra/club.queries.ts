@@ -100,18 +100,26 @@ export class ClubQueries {
       status: PrizeRedemptionStatus;
       created_at: Date;
       delivered_at: Date | null;
+      delivered_by_id: string | null;
+      delivered_by_name: string | null;
+      cancelled_at: Date | null;
       is_demo: boolean;
       total: number;
     }>(sql`
       select pr.id, pr.code, p.id as prize_id, p.name as prize_name, v.id as visitor_id,
-             v.name as visitor_name, pr.points, pr.status, pr.created_at, pr.delivered_at, v.is_demo,
+             v.name as visitor_name, pr.points, pr.status, pr.created_at, pr.delivered_at,
+             u.id as delivered_by_id, u.name as delivered_by_name, pr.cancelled_at, v.is_demo,
              count(*) over() as total
       from gamification.prize_redemptions pr
       join gamification.prizes p on p.id = pr.prize_id
       join visitors.visitors v on v.id = pr.visitor_id
+      left join identity.users u on u.id = pr.delivered_by
       ${sql.where([
         query.status ? sql`pr.status = ${query.status}` : null,
-        query.code ? sql`pr.code = ${query.code.toUpperCase()}` : null,
+        query.q
+          ? sql`(pr.code = ${query.q.toUpperCase()}
+                 or public.f_unaccent(lower(v.name)) like ${sql.containsPattern(query.q)})`
+          : null,
       ])}
       order by pr.created_at desc, pr.id desc
       limit ${query.pageSize} offset ${offsetOf(query)}
@@ -125,6 +133,10 @@ export class ClubQueries {
       status: r.status,
       createdAt: iso(r.created_at),
       deliveredAt: isoOrNull(r.delivered_at),
+      deliveredBy: r.delivered_by_id
+        ? { id: r.delivered_by_id, name: r.delivered_by_name ?? "" }
+        : null,
+      cancelledAt: isoOrNull(r.cancelled_at),
       isDemo: r.is_demo,
     }));
   }

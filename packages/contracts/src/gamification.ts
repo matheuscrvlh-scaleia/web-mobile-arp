@@ -370,12 +370,16 @@ export type CreatePrizeBody = z.infer<typeof createPrizeBodySchema>;
 export const updatePrizeBodySchema = z.object(patchOf(createPrizeBodySchema.shape));
 export type UpdatePrizeBody = z.infer<typeof updatePrizeBodySchema>;
 
-export const prizeRedemptionStatusSchema = z.enum(["pending", "delivered", "cancelled"]);
+/**
+ * A troca só acontece no balcão (o app não pede): sai entregue na hora.
+ * Cancelada = o Centro de Informações desfez (pontos e estoque voltam).
+ */
+export const prizeRedemptionStatusSchema = z.enum(["delivered", "cancelled"]);
 export type PrizeRedemptionStatus = z.infer<typeof prizeRedemptionStatusSchema>;
 
 export const prizeRedemptionSchema = z.object({
   id: idSchema,
-  /** Código de retirada (Centro de Informações). */
+  /** Comprovante da troca (6 letras). */
   code: z.string(),
   prize: refSchema,
   visitor: refSchema,
@@ -383,13 +387,17 @@ export const prizeRedemptionSchema = z.object({
   status: prizeRedemptionStatusSchema,
   createdAt: isoDateTimeSchema,
   deliveredAt: isoDateTimeSchema.nullable(),
+  /** Quem fez a troca no balcão (null = usuário apagado). */
+  deliveredBy: refSchema.nullable(),
+  cancelledAt: isoDateTimeSchema.nullable(),
   isDemo: demoFlagSchema,
 });
 export type PrizeRedemption = z.infer<typeof prizeRedemptionSchema>;
 export const prizeRedemptionPageSchema = paginated(prizeRedemptionSchema);
 export const listPrizeRedemptionsQuerySchema = paginationQuerySchema.extend({
   status: prizeRedemptionStatusSchema.optional(),
-  code: z.string().trim().max(20).optional(),
+  /** Comprovante ou nome do visitante. */
+  q: z.string().trim().max(120).optional(),
 });
 export type ListPrizeRedemptionsQuery = z.infer<typeof listPrizeRedemptionsQuerySchema>;
 

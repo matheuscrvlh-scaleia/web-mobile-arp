@@ -123,11 +123,11 @@ export const ROUTES = {
       "club.manage",
       "Trocar pontos por prêmio no balcão (já entregue)",
     ),
-    deliver: r(
+    cancel: r(
       "POST",
-      "/prize-redemptions/:id/deliver",
+      "/prize-redemptions/:id/cancel",
       "club.manage",
-      "Marcar prêmio como entregue",
+      "Desfazer troca (pontos e estoque voltam)",
     ),
   },
   clubReports: {

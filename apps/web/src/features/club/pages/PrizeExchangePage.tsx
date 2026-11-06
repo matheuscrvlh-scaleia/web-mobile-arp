@@ -11,6 +11,7 @@ import {
   PackageCheck,
   RotateCcw,
   TriangleAlert,
+  Undo2,
   UserSearch,
 } from "lucide-react";
 import { useState } from "react";
@@ -33,24 +34,40 @@ import {
   SearchInput,
   Skeleton,
   StatusBadge,
+  toast,
 } from "@/shared/ui";
-import { useCounterRedeem, usePrizes, useRedemptionVisitors } from "../api";
+import { useCancelRedemption, useCounterRedeem, usePrizes, useRedemptionVisitors } from "../api";
 
 /**
- * Tela de balcão do Clube ARP: acha o visitante, mostra o saldo, escolhe o
- * prêmio e troca. O prêmio sai entregue na hora (sem código para conferir).
+ * Tela de balcão do Clube ARP, o único lugar onde se troca pontos (o app só
+ * mostra a lojinha): acha o visitante, mostra o saldo, escolhe o prêmio que
+ * tem no estoque e troca. O prêmio sai entregue na hora. Errou? Desfaz.
  */
 export function PrizeExchangePage() {
   const [visitor, setVisitor] = useState<RedemptionVisitor | null>(null);
   const [prizeId, setPrizeId] = useState<string | null>(null);
   const [done, setDone] = useState<CounterRedeemResult | null>(null);
   const redeem = useCounterRedeem();
+  const undo = useCancelRedemption();
 
   const reset = () => {
     setVisitor(null);
     setPrizeId(null);
     setDone(null);
     redeem.reset();
+    undo.reset();
+  };
+
+  const undoLast = () => {
+    if (!done || !visitor) return;
+    undo.mutate(done.id, {
+      onSuccess: () => {
+        toast.success("Troca desfeita. Pontos e estoque voltaram.");
+        setVisitor({ ...visitor, points: visitor.points + done.points });
+        setDone(null);
+      },
+      onError: (e) => toast.error(errorMessage(e)),
+    });
   };
 
   const pickVisitor = (v: RedemptionVisitor | null) => {
@@ -83,8 +100,8 @@ export function PrizeExchangePage() {
   return (
     <>
       <PageHeader
-        title="Validar troca"
-        description="Ache o visitante, confira o saldo de pontos e troque por um prêmio da lojinha. O prêmio sai entregue na hora."
+        title="Trocar pontos"
+        description="Ache o visitante, confira o saldo e escolha um prêmio que tem no estoque. O prêmio sai entregue na hora."
         actions={
           <ButtonLink to={PATHS.club("trocas")} icon={PackageCheck} variant="secondary">
             Trocas
@@ -98,14 +115,19 @@ export function PrizeExchangePage() {
             icon={CircleCheckBig}
             title="Troca feita!"
             action={
-              <Button variant="secondary" icon={RotateCcw} onClick={reset}>
-                Próximo visitante
-              </Button>
+              <span className="flex flex-wrap gap-2">
+                <Button variant="ghost" icon={Undo2} loading={undo.isPending} onClick={undoLast}>
+                  Desfazer
+                </Button>
+                <Button variant="secondary" icon={RotateCcw} onClick={reset}>
+                  Próximo visitante
+                </Button>
+              </span>
             }
           >
             <p>
               <b>{done.prize.name}</b> para {done.visitor.name} · {formatNumber(done.points)} pontos
-              · código <b className="font-mono">{done.code}</b>
+              · comprovante <b className="font-mono">{done.code}</b>
             </p>
             <p className="mt-1 text-xs text-neutral-500">
               Sobraram {formatNumber(done.totalPoints)} pontos. Entregue o prêmio.
@@ -253,11 +275,17 @@ function PrizeStep({
   onPick: (id: string) => void;
 }) {
   const prizes = usePrizes();
-  const list = (prizes.data ?? []).filter((p) => p.active);
+  // Esgotado aparece (a equipe vê que acabou), mas por último e sem dar para escolher.
+  const list = (prizes.data ?? [])
+    .filter((p) => p.active)
+    .sort((a, b) => Number(a.stock <= 0) - Number(b.stock <= 0));
 
   return (
     <Card>
-      <CardHeader title="2. Prêmio" description="Só dá para escolher o que o saldo cobre." />
+      <CardHeader
+        title="2. Prêmio"
+        description="Só dá para escolher o que tem no estoque e o saldo cobre."
+      />
       {prizes.error ? (
         <ErrorState compact error={prizes.error} onRetry={() => void prizes.refetch()} />
       ) : prizes.isLoading ? (

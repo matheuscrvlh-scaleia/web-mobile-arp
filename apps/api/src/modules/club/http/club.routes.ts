@@ -29,9 +29,8 @@ import type { CreateCatalogItemUseCase } from "../../directory/application/creat
 import type { DeleteCatalogItemUseCase } from "../../directory/application/delete-catalog-item.use-case";
 import type { UpdateCatalogItemUseCase } from "../../directory/application/update-catalog-item.use-case";
 import type {
+  CancelRedemptionUseCase,
   CounterRedeemPrizeUseCase,
-  DeliverRedemptionUseCase,
-  RedeemPrizeUseCase,
   SetRankingNicknameUseCase,
 } from "../application/club.use-cases";
 import { PRIZE_NOT_FOUND, type PrizeProps } from "../domain/club";
@@ -47,7 +46,7 @@ export interface ClubRoutesDeps {
     update: UpdateCatalogItemUseCase<PrizeProps>;
     remove: DeleteCatalogItemUseCase<PrizeProps>;
   };
-  deliver: DeliverRedemptionUseCase;
+  cancel: CancelRedemptionUseCase;
   counterRedeem: CounterRedeemPrizeUseCase;
 }
 
@@ -111,8 +110,8 @@ export function clubRoutes(deps: ClubRoutesDeps): FastifyPluginAsyncZod {
       async (request, reply) =>
         reply.status(201).send(await deps.counterRedeem.execute(request.body, staffOf(request))),
     );
-    r.route(ROUTES.prizeRedemptions.deliver, { params: idParamsSchema }, async (request, reply) => {
-      await deps.deliver.execute(request.params, staffOf(request));
+    r.route(ROUTES.prizeRedemptions.cancel, { params: idParamsSchema }, async (request, reply) => {
+      await deps.cancel.execute(request.params, staffOf(request));
       return reply.status(204).send();
     });
 
@@ -142,7 +141,6 @@ export interface AppClubRoutesDeps {
   queries: ClubQueries;
   clock: Clock;
   optionalVisitor: OptionalVisitor;
-  redeem: RedeemPrizeUseCase;
   setNickname: SetRankingNicknameUseCase;
 }
 
@@ -154,17 +152,6 @@ export function appClubRoutes(deps: AppClubRoutesDeps): FastifyPluginAsyncZod {
 
     r.route(APP_ROUTES.club.get, { response: { 200: App.clubSchema } }, async (request) =>
       queries.club(await deps.optionalVisitor(request), clock.now()),
-    );
-    r.route(
-      APP_ROUTES.club.redeem,
-      { params: idParamsSchema, response: { 201: App.prizeRedeemResultSchema } },
-      async (request, reply) => {
-        const result = await deps.redeem.execute(
-          { prizeId: request.params.id },
-          visitorOf(request),
-        );
-        return reply.status(201).send(result);
-      },
     );
     r.route(
       APP_ROUTES.club.joinRanking,

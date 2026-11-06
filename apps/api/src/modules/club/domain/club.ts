@@ -28,7 +28,7 @@ export class NotEnoughPointsError extends DomainError {
   }
 }
 
-/** Código de retirada: sem 0/O, 1/I (lido em voz alta no balcão). */
+/** Comprovante da troca: sem 0/O, 1/I (lido em voz alta no balcão). */
 export const REDEMPTION_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 export const REDEMPTION_CODE_LENGTH = 6;
 export const PRIZE_NOT_FOUND = "Prêmio não encontrado";

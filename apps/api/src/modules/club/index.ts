@@ -5,9 +5,8 @@ import { CreateCatalogItemUseCase } from "../directory/application/create-catalo
 import { DeleteCatalogItemUseCase } from "../directory/application/delete-catalog-item.use-case";
 import { UpdateCatalogItemUseCase } from "../directory/application/update-catalog-item.use-case";
 import {
+  CancelRedemptionUseCase,
   CounterRedeemPrizeUseCase,
-  DeliverRedemptionUseCase,
-  RedeemPrizeUseCase,
   SetRankingNicknameUseCase,
 } from "./application/club.use-cases";
 import { PRIZE_NOT_FOUND } from "./domain/club";
@@ -40,14 +39,13 @@ export function createClubModule(
       update: new UpdateCatalogItemUseCase(prizeDeps),
       remove: new DeleteCatalogItemUseCase(prizeDeps),
     },
-    deliver: new DeliverRedemptionUseCase(clubDeps),
+    cancel: new CancelRedemptionUseCase(clubDeps),
     counterRedeem: new CounterRedeemPrizeUseCase(clubDeps),
   });
   const app = appClubRoutes({
     queries,
     clock,
     optionalVisitor: createOptionalVisitor(tokens, deps.isVisitorActive),
-    redeem: new RedeemPrizeUseCase(clubDeps),
     setNickname: new SetRankingNicknameUseCase(clubDeps),
   });
 

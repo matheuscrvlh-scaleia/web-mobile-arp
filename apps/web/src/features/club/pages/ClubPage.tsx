@@ -7,15 +7,26 @@ import {
   type RankingEntry,
   type SealsReportRow,
 } from "@arp/contracts";
-import { Gift, Medal, PackageCheck, Pencil, Plus, Store, Trash2 } from "lucide-react";
+import {
+  ArrowRightLeft,
+  Gift,
+  Medal,
+  PackageCheck,
+  Pencil,
+  Plus,
+  Store,
+  Trash2,
+  Undo2,
+} from "lucide-react";
 import { useState } from "react";
-import { errorMessage } from "@/shared/api";
 import { useAuth } from "@/shared/auth";
-import { useSearchParamOption } from "@/shared/hooks";
+import { PATHS } from "@/shared/config/paths";
+import { useDebouncedValue, useSearchParamOption } from "@/shared/hooks";
 import { addDaysIso, todayIso } from "@/shared/lib/dates";
 import { formatDateTime, formatNumber } from "@/shared/lib/format";
 import {
   Button,
+  ButtonLink,
   Card,
   CardHeader,
   type Column,
@@ -40,8 +51,8 @@ import {
   toast,
 } from "@/shared/ui";
 import {
+  useCancelRedemption,
   useDeletePrize,
-  useDeliverRedemption,
   usePrizes,
   useRanking,
   useRedemptions,
@@ -233,31 +244,28 @@ function PrizesTab({ canEdit }: { canEdit: boolean }) {
 /* Trocas ------------------------------------------------------------------ */
 
 const REDEMPTION_STATUS: Record<PrizeRedemptionStatus, { label: string; tone: StatusTone }> = {
-  pending: { label: "Para retirar", tone: "warning" },
   delivered: { label: "Entregue", tone: "success" },
   cancelled: { label: "Cancelada", tone: "neutral" },
 };
 
+/** Histórico das trocas feitas no balcão. Troca errada se cancela (pontos e estoque voltam). */
 function RedemptionsTab({ canEdit }: { canEdit: boolean }) {
-  const [status, setStatus] = useState<PrizeRedemptionStatus | "">("pending");
-  const [code, setCode] = useState("");
+  const [status, setStatus] = useState<PrizeRedemptionStatus | "">("");
+  const [term, setTerm] = useState("");
+  const q = useDebouncedValue(term, 300).trim();
   const [page, setPage] = useState(1);
   const query = {
     page,
     pageSize: 20,
     ...(status ? { status } : {}),
-    ...(code.trim() ? { code: code.trim() } : {}),
+    ...(q ? { q } : {}),
   };
   const list = useRedemptions(query);
-  const deliver = useDeliverRedemption();
+  const cancel = useCancelRedemption();
+  const [cancelling, setCancelling] = useState<PrizeRedemption | null>(null);
 
   const columns: Column<PrizeRedemption>[] = [
-    {
-      key: "code",
-      header: "Código",
-      cell: (r) => <span className="font-mono font-semibold">{r.code}</span>,
-    },
-    { key: "prize", header: "Prêmio", cell: (r) => r.prize.name },
+    { key: "at", header: "Trocado em", cell: (r) => formatDateTime(r.createdAt) },
     {
       key: "visitor",
       header: "Visitante",
@@ -268,8 +276,18 @@ function RedemptionsTab({ canEdit }: { canEdit: boolean }) {
         </span>
       ),
     },
+    { key: "prize", header: "Prêmio", cell: (r) => r.prize.name },
     { key: "points", header: "Pontos", numeric: true, cell: (r) => formatNumber(r.points) },
-    { key: "at", header: "Trocado em", cell: (r) => formatDateTime(r.createdAt) },
+    {
+      key: "by",
+      header: "Feita por",
+      cell: (r) => <span className="text-neutral-600">{r.deliveredBy?.name ?? "—"}</span>,
+    },
+    {
+      key: "code",
+      header: "Comprovante",
+      cell: (r) => <span className="font-mono text-xs font-semibold">{r.code}</span>,
+    },
     {
       key: "status",
       header: "Situação",
@@ -286,20 +304,14 @@ function RedemptionsTab({ canEdit }: { canEdit: boolean }) {
             header: <span className="sr-only">Ações</span>,
             numeric: true,
             cell: (r: PrizeRedemption) =>
-              r.status === "pending" && (
-                <Button
+              r.status === "delivered" && (
+                <IconButton
+                  icon={Undo2}
                   size="sm"
-                  variant="secondary"
-                  loading={deliver.isPending && deliver.variables === r.id}
-                  onClick={() =>
-                    deliver.mutate(r.id, {
-                      onSuccess: () => toast.success(`${r.prize.name} entregue.`),
-                      onError: (e) => toast.error(errorMessage(e)),
-                    })
-                  }
-                >
-                  Entregar
-                </Button>
+                  variant="danger"
+                  label={`Cancelar troca de ${r.visitor.name}`}
+                  onClick={() => setCancelling(r)}
+                />
               ),
           },
         ]
@@ -310,17 +322,29 @@ function RedemptionsTab({ canEdit }: { canEdit: boolean }) {
     <Card>
       <CardHeader
         title="Trocas"
-        description="O visitante mostra o código no Centro de Informações. Confira e marque como entregue."
+        description="Trocas feitas no Centro de Informações. O app só mostra a lojinha: quem troca é a equipe."
+        action={
+          canEdit && (
+            <ButtonLink
+              to={PATHS.prizeExchange}
+              size="sm"
+              variant="secondary"
+              icon={ArrowRightLeft}
+            >
+              Nova troca
+            </ButtonLink>
+          )
+        }
       />
       <div className="mb-4 flex flex-wrap gap-3">
         <SearchInput
-          value={code}
+          value={term}
           onChange={(v) => {
-            setCode(v);
+            setTerm(v);
             setPage(1);
           }}
-          placeholder="Código"
-          label="Buscar pelo código"
+          placeholder="Visitante ou comprovante"
+          label="Buscar troca"
         />
         <Select
           aria-label="Situação"
@@ -357,6 +381,32 @@ function RedemptionsTab({ canEdit }: { canEdit: boolean }) {
           )}
         </>
       )}
+      <ConfirmDialog
+        open={cancelling !== null}
+        onClose={() => {
+          setCancelling(null);
+          cancel.reset();
+        }}
+        danger
+        title="Cancelar esta troca?"
+        description={
+          cancelling
+            ? `${cancelling.visitor.name} recebe de volta ${formatNumber(cancelling.points)} pontos e ${cancelling.prize.name} volta ao estoque. Recolha o prêmio.`
+            : undefined
+        }
+        confirmLabel="Cancelar troca"
+        loading={cancel.isPending}
+        error={cancel.error}
+        onConfirm={() =>
+          cancelling &&
+          cancel.mutate(cancelling.id, {
+            onSuccess: () => {
+              toast.success("Troca cancelada. Pontos e estoque voltaram.");
+              setCancelling(null);
+            },
+          })
+        }
+      />
     </Card>
   );
 }

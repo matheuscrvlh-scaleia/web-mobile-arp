@@ -26,7 +26,7 @@ export const prizeRepository = (db: Database) =>
 
 export class RedemptionCodeCollisionError extends Error {}
 
-/** Escritas do Clube: trocas, entrega e apelido do ranking. */
+/** Escritas do Clube: trocas no balcão, cancelamento e apelido do ranking. */
 export class PgClubStore {
   constructor(private readonly db: Database) {}
 
@@ -63,22 +63,22 @@ export class PgClubStore {
     return rowCount > 0;
   }
 
+  /** Grava a troca do balcão, já entregue por quem trocou. */
   async insertRedemption(d: {
     prizeId: string;
     visitorId: string;
     points: number;
     code: string;
-    /** Troca no balcão: já sai entregue por quem trocou. */
-    delivered?: { by: string; at: Date };
+    by: string;
+    at: Date;
   }): Promise<string> {
     const { id } = await translateConstraintErrors(
       () =>
         this.db.one<{ id: string }>(sql`
           insert into gamification.prize_redemptions
-            (prize_id, visitor_id, points, code, status, delivered_at, delivered_by)
-          values (${d.prizeId}, ${d.visitorId}, ${d.points}, ${d.code},
-                  ${d.delivered ? "delivered" : "pending"},
-                  ${d.delivered?.at ?? null}, ${d.delivered?.by ?? null})
+            (prize_id, visitor_id, points, code, status, created_at, delivered_at, delivered_by)
+          values (${d.prizeId}, ${d.visitorId}, ${d.points}, ${d.code}, 'delivered',
+                  ${d.at}, ${d.at}, ${d.by})
           returning id
         `),
       { prize_redemptions_code_key: () => new RedemptionCodeCollisionError() },
@@ -86,17 +86,23 @@ export class PgClubStore {
     return id;
   }
 
-  /** Marca como entregue; null = não existe; "done" = já entregue/cancelada. */
-  async deliver(id: string, by: string, now: Date): Promise<"ok" | "done" | null> {
-    const row = await this.db.maybeOne<{ status: string }>(sql`
-      select status from gamification.prize_redemptions where id = ${id} for update
+  /**
+   * Cancela e devolve a unidade ao estoque (os pontos voltam sozinhos: a soma
+   * ignora troca cancelada). null = não existe; "done" = já cancelada.
+   */
+  async cancel(id: string, by: string, now: Date): Promise<"ok" | "done" | null> {
+    const row = await this.db.maybeOne<{ status: string; prize_id: string }>(sql`
+      select status, prize_id from gamification.prize_redemptions where id = ${id} for update
     `);
     if (!row) return null;
-    if (row.status !== "pending") return "done";
+    if (row.status === "cancelled") return "done";
     await this.db.query(sql`
       update gamification.prize_redemptions
-      set status = 'delivered', delivered_at = ${now}, delivered_by = ${by}
+      set status = 'cancelled', cancelled_at = ${now}, cancelled_by = ${by}
       where id = ${id}
+    `);
+    await this.db.query(sql`
+      update gamification.prizes set stock = stock + 1 where id = ${row.prize_id}
     `);
     return "ok";
   }

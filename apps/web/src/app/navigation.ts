@@ -87,7 +87,7 @@ const STAFF_NAV: NavSection[] = [
       item("Selos", PATHS.seals, Award, ROUTES.seals.list.permission),
       item("Clube ARP", PATHS.club(), Gift, ROUTES.prizes.list.permission),
       item(
-        "Validar troca",
+        "Trocar pontos",
         PATHS.prizeExchange,
         ArrowRightLeft,
         ROUTES.prizeRedemptions.create.permission,

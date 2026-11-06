@@ -27,7 +27,7 @@ export const clubApi = {
   removePrize: (id: string) => apiCall(ROUTES.prizes.remove, { params: { id } }),
   redemptions: (query: ListPrizeRedemptionsQuery, signal?: AbortSignal) =>
     apiRequest(ROUTES.prizeRedemptions.list, prizeRedemptionPageSchema, { query, signal }),
-  deliver: (id: string) => apiCall(ROUTES.prizeRedemptions.deliver, { params: { id } }),
+  cancelRedemption: (id: string) => apiCall(ROUTES.prizeRedemptions.cancel, { params: { id } }),
   redemptionVisitors: (q: string, signal?: AbortSignal) =>
     apiRequest(ROUTES.prizeRedemptions.visitors, redemptionVisitorListSchema, {
       query: { q },
@@ -112,7 +112,7 @@ export function useRedemptionVisitors(q: string) {
   });
 }
 
-/** Troca no balcão: baixa pontos e estoque e já sai entregue. */
+/** Troca no balcão (único jeito de trocar): baixa pontos e estoque e já sai entregue. */
 export function useCounterRedeem() {
   const qc = useQueryClient();
   return useMutation({
@@ -125,10 +125,15 @@ export function useCounterRedeem() {
   });
 }
 
-export function useDeliverRedemption() {
+/** Desfaz a troca: pontos e estoque voltam. */
+export function useCancelRedemption() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: clubApi.deliver,
-    onSuccess: () => qc.invalidateQueries({ queryKey: clubKeys.allRedemptions }),
+    mutationFn: clubApi.cancelRedemption,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: clubKeys.prizes });
+      void qc.invalidateQueries({ queryKey: clubKeys.allRedemptions });
+      void qc.invalidateQueries({ queryKey: clubKeys.allRedemptionVisitors });
+    },
   });
 }
