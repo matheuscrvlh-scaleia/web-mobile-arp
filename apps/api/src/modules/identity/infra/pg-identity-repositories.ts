@@ -1,3 +1,4 @@
+import { withImpliedPermissions } from "@arp/contracts";
 import { ConflictError } from "../../../shared/domain/errors";
 import type { Database } from "../../../shared/infra/database/database";
 import {
@@ -8,6 +9,7 @@ import {
 import { sql } from "../../../shared/infra/database/sql";
 import type {
   NewSession,
+  PendingSignupReader,
   RoleRepository,
   SessionRepository,
   StaffProfile,
@@ -217,7 +219,8 @@ export class PgUserRepository implements UserRepository, StaffProfileReader {
       name: row.name,
       status: row.status,
       roleId: row.role_id,
-      permissions: row.permissions,
+      // Implícitas (club.manage → club.redeem) valem mesmo em cargo antigo.
+      permissions: withImpliedPermissions(row.permissions),
       storeId: row.store_id,
     };
   }
@@ -352,5 +355,19 @@ export class PgStoreExistence implements StoreExistence {
 
   exists(storeId: string): Promise<boolean> {
     return this.db.exists(sql`select 1 from directory.stores where id = ${storeId}`);
+  }
+}
+
+export class PgPendingSignupReader implements PendingSignupReader {
+  constructor(private readonly db: Database) {}
+
+  async pendingPasswordHash(email: string): Promise<string | null> {
+    const row = await this.db.maybeOne<{ password_hash: string }>(sql`
+      select password_hash from identity.merchant_signups
+      where lower(email) = ${email.toLowerCase()} and status = 'pending'
+      order by created_at desc
+      limit 1
+    `);
+    return row?.password_hash ?? null;
   }
 }

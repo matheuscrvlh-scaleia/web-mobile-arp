@@ -3,7 +3,7 @@ import { snapshot } from "../../../shared/application/audit-changes";
 import { NotFoundError } from "../../../shared/domain/errors";
 import { CHALLENGE_NOT_FOUND, type GamificationDeps } from "./gamification-deps";
 
-/** Apaga desafio que ainda não deu selo (os QR Codes vão junto, em cascata). */
+/** Exclui desafio que ainda não deu selo, mesmo ativo (os QR Codes vão junto, em cascata). */
 export class DeleteChallengeUseCase {
   constructor(private readonly deps: GamificationDeps) {}
 

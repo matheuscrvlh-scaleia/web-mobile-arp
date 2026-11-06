@@ -7,7 +7,7 @@ import type {
 } from "../application/get-dashboard-overview.use-case";
 import { redemptionRate } from "../domain/period";
 import { metricDetail } from "./dashboard-detail.queries";
-import { endOf, startOf, TZ, UPCOMING_EVENT_DAYS } from "./period-sql";
+import { endOf, startOf, TZ, UPCOMING_EVENT_DAYS, visitorBase } from "./period-sql";
 
 const TOP_LIMIT = 5;
 const SEALS_LIMIT = 10;
@@ -123,7 +123,7 @@ export class DashboardQueries implements DashboardReader {
           count(*) filter (where ${createdAt} < ${curStart}) as visitors_total_prev,
           count(*) filter (where ${inCur(createdAt)}) as visitors_new,
           count(*) filter (where ${inPrev(createdAt)}) as visitors_new_prev
-        from visitors.visitors v
+        from ${visitorBase(storeId)} v
         where ${createdAt} < ${curEnd}
       ),
       -- Pegos e usados em varreduras separadas, cada uma no seu índice de
@@ -194,7 +194,7 @@ export class DashboardQueries implements DashboardReader {
       ),
       signups as (
         select ${localDay("v.created_at")} as day, count(*) as n
-        from visitors.visitors v
+        from ${visitorBase(storeId)} v
         where v.created_at >= ${start} and v.created_at < ${end}
         group by 1
       ),

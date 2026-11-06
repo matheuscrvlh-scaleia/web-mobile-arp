@@ -18,6 +18,7 @@ import { authRoutes } from "./http/auth.routes";
 import { usersRoutes } from "./http/users.routes";
 import { IdentityQueries } from "./infra/identity.queries";
 import {
+  PgPendingSignupReader,
   PgRoleRepository,
   PgSessionRepository,
   PgStoreExistence,
@@ -57,6 +58,7 @@ export function createIdentityModule(core: CoreDeps) {
     await app.register(
       authRoutes({
         login: new LoginUseCase({
+          pendingSignups: new PgPendingSignupReader(db),
           users,
           profiles: users,
           hasher,

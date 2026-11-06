@@ -1,10 +1,10 @@
 import { type Campaign, listChallengesQuerySchema } from "@arp/contracts";
-import { Plus, Target, Trophy } from "lucide-react";
+import { Plus, Trophy } from "lucide-react";
 import { Link } from "react-router";
-import { useCampaigns } from "@/features/campaigns";
+import { CampaignStatusBadge, useCampaigns } from "@/features/campaigns";
 import { PATHS } from "@/shared/config/paths";
 import { useUrlState } from "@/shared/hooks";
-import { formatDateShort, plural } from "@/shared/lib/format";
+import { formatDateShort } from "@/shared/lib/format";
 import {
   ButtonLink,
   Can,
@@ -13,13 +13,10 @@ import {
   ErrorState,
   FilterBar,
   PageHeader,
-  PHASE_LABEL,
-  PhaseBadge,
   Select,
   SkeletonGrid,
 } from "@/shared/ui";
-import { useChallenges } from "../api";
-import { ChallengeListItem } from "../components/ChallengeListItem";
+import { ChallengeList } from "../components/ChallengeList";
 
 /** Sem campanha na URL: a que está no ar, senão a próxima, senão a mais recente. */
 function defaultCampaign(list: Campaign[]): Campaign | undefined {
@@ -27,41 +24,31 @@ function defaultCampaign(list: Campaign[]): Campaign | undefined {
   return (
     published.find((c) => c.phase === "live") ??
     published.find((c) => c.phase === "upcoming") ??
-    [...list].sort((a, b) => b.startsAt.localeCompare(a.startsAt))[0]
+    [...list]
+      .filter((c) => c.status !== "archived")
+      .sort((a, b) => b.startsAt.localeCompare(a.startsAt))[0] ??
+    list[0]
   );
 }
 
-function optionLabel(c: Campaign): string {
-  if (c.status === "draft") return `${c.name} (rascunho)`;
-  if (c.status === "archived") return `${c.name} (arquivada)`;
-  return `${c.name} · ${PHASE_LABEL[c.phase].toLowerCase()}`;
-}
-
+/**
+ * Atalho para os desafios de uma campanha (a casa deles é a aba Desafios da
+ * campanha). A situação da campanha fica fora do select, para não cortar.
+ */
 export function ChallengesPage() {
   const [query, setQuery] = useUrlState(listChallengesQuerySchema);
   const campaigns = useCampaigns();
   const list = campaigns.data ?? [];
   const campaign =
     (query.campaignId && list.find((c) => c.id === query.campaignId)) || defaultCampaign(list);
-  const challenges = useChallenges(campaign?.id, { enabled: Boolean(campaign) });
-  const rows = [...(challenges.data ?? [])].sort(
-    (a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title),
-  );
+  // Arquivadas só aparecem no select se já estiverem escolhidas.
+  const options = list.filter((c) => c.status !== "archived" || c.id === campaign?.id);
 
   return (
     <>
       <PageHeader
         title="Desafios"
         description="O que o visitante faz para ganhar cada selo da campanha."
-        actions={
-          campaign && (
-            <Can permission="challenges.manage">
-              <ButtonLink to={PATHS.challengeNew(campaign.id)} icon={Plus}>
-                Novo desafio
-              </ButtonLink>
-            </Can>
-          )
-        }
       />
       {campaigns.error ? (
         <Card>
@@ -91,65 +78,26 @@ export function ChallengesPage() {
               aria-label="Campanha"
               value={campaign.id}
               onChange={(e) => setQuery({ campaignId: e.target.value })}
-              className="w-full sm:w-80"
+              className="w-full sm:w-96"
             >
-              {list.map((c) => (
+              {options.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {optionLabel(c)}
+                  {c.name}
                 </option>
               ))}
             </Select>
-            {campaign.status === "published" && <PhaseBadge phase={campaign.phase} />}
+            <CampaignStatusBadge campaign={campaign} />
             <span className="text-sm text-neutral-500">
               {formatDateShort(campaign.startsAt)} – {formatDateShort(campaign.endsAt)}
             </span>
             <Link
-              to={PATHS.campaign(campaign.id)}
+              to={PATHS.campaign(campaign.id, "desafios")}
               className="text-sm font-medium text-neutral-700 underline-offset-4 hover:underline"
             >
-              Ver campanha
+              Abrir campanha
             </Link>
           </FilterBar>
-
-          {challenges.error ? (
-            <Card>
-              <ErrorState error={challenges.error} onRetry={() => void challenges.refetch()} />
-            </Card>
-          ) : !challenges.data ? (
-            <SkeletonGrid count={4} className="grid-cols-1" itemClassName="h-24" />
-          ) : rows.length === 0 ? (
-            <Card>
-              <EmptyState
-                icon={Target}
-                title="Nenhum desafio nesta campanha"
-                description="Comece por desafios fáceis de comprovar: tour, descarte, evento, estacionamento."
-                action={
-                  <Can permission="challenges.manage">
-                    <ButtonLink to={PATHS.challengeNew(campaign.id)} icon={Plus}>
-                      Novo desafio
-                    </ButtonLink>
-                  </Can>
-                }
-              />
-            </Card>
-          ) : (
-            <>
-              <p className="mb-3 text-sm text-neutral-500" aria-live="polite">
-                {plural(rows.length, "desafio", "desafios")} · cada um dá um selo
-              </p>
-              <ul
-                aria-label={`Desafios de ${campaign.name}`}
-                aria-busy={challenges.isFetching || undefined}
-                className="flex flex-col gap-3"
-              >
-                {rows.map((c) => (
-                  <li key={c.id}>
-                    <ChallengeListItem challenge={c} />
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
+          <ChallengeList key={campaign.id} campaign={campaign} />
         </>
       )}
     </>

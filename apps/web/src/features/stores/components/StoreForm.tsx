@@ -98,15 +98,23 @@ export function StoreForm({
   const { allowLeave } = useUnsavedChangesGuard(isDirty && !saving);
 
   const categories = useStoreCategories();
-  const blocks = useBlocks();
-  const floors = useFloors();
+  // Lojista (só leitura) não tem acesso às listas do mapa: mostra o bloco e o andar da própria loja.
+  const blocks = useBlocks({ enabled: !readOnly });
+  const floors = useFloors({ enabled: !readOnly });
+  const blockOptions = blocks.data ?? (store ? [store.block] : []);
+  const floorOptions = floors.data ?? (store ? [store.floor] : []);
   const [name, slug, icon, brandColor, coverImageUrl, description, categoryId] = useWatch({
     control,
     name: ["name", "slug", "icon", "brandColor", "coverImageUrl", "description", "categoryId"],
   });
 
   return (
-    <form onSubmit={form.handleSubmit((v) => onSubmit(v, { form, allowLeave }))} noValidate>
+    <form
+      onSubmit={form.handleSubmit((v) => onSubmit(v, { form, allowLeave }))}
+      noValidate
+      // Criação: o botão fixo "Criar loja" não cobre os últimos campos.
+      className={creating ? "pb-24" : undefined}
+    >
       <fieldset disabled={readOnly} className="min-w-0">
         <Card padding="lg">
           <FormSection
@@ -117,26 +125,13 @@ export function StoreForm({
               <Field label="Nome" required error={errors.name?.message}>
                 <Input autoFocus={creating} {...register("name")} />
               </Field>
-              <Field
-                label="Endereço no app (slug)"
-                optional
-                hint={
-                  !slug && name
-                    ? `Sem preencher: ${slugify(name)}`
-                    : "Letras minúsculas, números e hífens."
-                }
-                error={errors.slug?.message}
-              >
-                <Input
-                  className="font-mono"
-                  placeholder={slugify(name ?? "") || "casa-brava"}
-                  {...register("slug", { setValueAs: (v: unknown) => (v === "" ? undefined : v) })}
-                />
-              </Field>
-            </FieldRow>
-            <FieldRow>
               <Field label="Categoria principal" required error={errors.categoryId?.message}>
-                <Select placeholder="Escolha a categoria" {...register("categoryId")}>
+                {/* key: remonta quando as opções chegam, senão o select nativo fica no placeholder. */}
+                <Select
+                  key={categories.data ? "ok" : "carregando"}
+                  placeholder="Escolha a categoria"
+                  {...register("categoryId")}
+                >
                   {storeKindSchema.options.map((kind) => (
                     <optgroup key={kind} label={STORE_KIND_LABEL[kind]}>
                       {(categories.data ?? [])
@@ -150,22 +145,23 @@ export function StoreForm({
                   ))}
                 </Select>
               </Field>
+            </FieldRow>
+            {/* Na edição, ativar/desativar fica só no topo da página (age na hora). */}
+            {creating && (
               <Controller
                 control={control}
                 name="status"
                 render={({ field }) => (
-                  <div className="flex items-end pb-1">
-                    <Switch
-                      checked={field.value === "active"}
-                      onCheckedChange={(on) => field.onChange(on ? "active" : "inactive")}
-                      label="Loja ativa"
-                      description="Inativa some do app, mas o histórico continua."
-                      disabled={readOnly}
-                    />
-                  </div>
+                  <Switch
+                    checked={field.value === "active"}
+                    onCheckedChange={(on) => field.onChange(on ? "active" : "inactive")}
+                    label="Já aparece no app"
+                    description="Desligado, a loja fica cadastrada mas fora do app até você ativar."
+                    disabled={readOnly}
+                  />
                 )}
               />
-            </FieldRow>
+            )}
             <Controller
               control={control}
               name="extraCategoryIds"
@@ -183,12 +179,20 @@ export function StoreForm({
 
           <FormSection
             title="Onde fica"
-            description="Bloco e andar. O ponto exato no mapa fica na aba Localização."
+            description={
+              creating
+                ? "Bloco e andar. O ponto exato no mapa fica na aba Localização."
+                : "Bloco e andar. O ponto exato fica na aba Localização; trocar o andar tira a loja do mapa."
+            }
           >
             <FieldRow>
               <Field label="Bloco" required error={errors.blockId?.message}>
-                <Select placeholder="Escolha o bloco" {...register("blockId")}>
-                  {(blocks.data ?? []).map((b) => (
+                <Select
+                  key={blocks.data ? "ok" : "loja"}
+                  placeholder="Escolha o bloco"
+                  {...register("blockId")}
+                >
+                  {blockOptions.map((b) => (
                     <option key={b.id} value={b.id}>
                       {b.name}
                     </option>
@@ -196,8 +200,12 @@ export function StoreForm({
                 </Select>
               </Field>
               <Field label="Andar" required error={errors.floorId?.message}>
-                <Select placeholder="Escolha o andar" {...register("floorId")}>
-                  {(floors.data ?? []).map((f) => (
+                <Select
+                  key={floors.data ? "ok" : "loja"}
+                  placeholder="Escolha o andar"
+                  {...register("floorId")}
+                >
+                  {floorOptions.map((f) => (
                     <option key={f.id} value={f.id}>
                       {f.label}
                     </option>
@@ -332,6 +340,31 @@ export function StoreForm({
               </Field>
             </FieldRow>
           </FormSection>
+
+          {/* Campo técnico: quase nunca precisa mexer (o sistema gera pelo nome). */}
+          <details className="group mt-2" open={Boolean(errors.slug)}>
+            <summary className="cursor-pointer text-sm font-medium text-neutral-600 hover:text-neutral-900">
+              Avançado
+            </summary>
+            <div className="mt-4 max-w-md">
+              <Field
+                label="Endereço da loja no app"
+                optional
+                hint={
+                  !slug && name
+                    ? `Sem preencher, fica: ${slugify(name)}. Mudar quebra links já enviados.`
+                    : "Letras minúsculas, números e hífens. Mudar quebra links já enviados."
+                }
+                error={errors.slug?.message}
+              >
+                <Input
+                  className="font-mono"
+                  placeholder={slugify(name ?? "") || "casa-brava"}
+                  {...register("slug", { setValueAs: (v: unknown) => (v === "" ? undefined : v) })}
+                />
+              </Field>
+            </div>
+          </details>
         </Card>
       </fieldset>
       {!readOnly && (

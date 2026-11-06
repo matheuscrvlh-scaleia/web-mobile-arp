@@ -1,7 +1,13 @@
 import type { StaffActor } from "../../../shared/application/actor";
 import { snapshot } from "../../../shared/application/audit-changes";
 import { generateTemporaryPassword } from "./temporary-password";
-import { auditState, requireRole, requireStore, type UserUseCaseDeps } from "./user-rules";
+import {
+  auditState,
+  requireRole,
+  requireStore,
+  requireStoreForRole,
+  type UserUseCaseDeps,
+} from "./user-rules";
 
 export class CreateUserUseCase {
   constructor(private readonly deps: UserUseCaseDeps) {}
@@ -21,7 +27,8 @@ export class CreateUserUseCase {
     const passwordHash = await hasher.hash(input.password ?? (temporaryPassword as string));
 
     return uow.run(async () => {
-      await requireRole(roles, input.roleId);
+      const role = await requireRole(roles, input.roleId);
+      requireStoreForRole(role, input.storeId);
       await requireStore(stores, input.storeId);
       const user = await users.create({
         name: input.name,

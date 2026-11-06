@@ -1,9 +1,13 @@
 import {
   type Coupon,
   type CouponStatus,
+  type CouponsByPromotionQuery,
   type CreateCouponBody,
+  type CreateCouponsBody,
+  couponListSchema,
   couponPageSchema,
   couponSchema,
+  couponsByPromotionSchema,
   type ListCouponsQuery,
   type ReviewCouponBody,
   ROUTES,
@@ -18,7 +22,7 @@ import {
 } from "@tanstack/react-query";
 import { useAppSettings } from "@/features/settings";
 import { storeKeys } from "@/features/stores";
-import { apiRequest, snapshotQueries, updateListItem } from "@/shared/api";
+import { apiCall, apiRequest, snapshotQueries, updateListItem } from "@/shared/api";
 import { useAuth } from "@/shared/auth";
 
 export const couponsApi = {
@@ -33,6 +37,16 @@ export const couponsApi = {
     apiRequest(ROUTES.coupons.changeStatus, couponSchema, { params: { id }, body: { status } }),
   review: (id: string, body: ReviewCouponBody) =>
     apiRequest(ROUTES.coupons.review, couponSchema, { params: { id }, body }),
+  createMany: (body: CreateCouponsBody) =>
+    apiRequest(ROUTES.coupons.createMany, couponListSchema, { body }),
+  archive: (id: string, archived: boolean) =>
+    apiRequest(ROUTES.coupons.archive, couponSchema, { params: { id }, body: { archived } }),
+  remove: (id: string) => apiCall(ROUTES.coupons.remove, { params: { id } }),
+  byPromotion: (query: CouponsByPromotionQuery, signal?: AbortSignal) =>
+    apiRequest(ROUTES.clubReports.couponsByPromotion, couponsByPromotionSchema, {
+      query,
+      signal,
+    }),
 };
 
 export const couponKeys = {
@@ -93,7 +107,6 @@ export function useUpdateCoupon(id: string) {
   });
 }
 
-/** Ativar, pausar ou encerrar. Otimista no detalhe e nas listas em cache. */
 /** Aprovar ou recusar o cupom do lojista (coupons.approve). */
 export function useReviewCoupon() {
   const qc = useQueryClient();
@@ -103,6 +116,7 @@ export function useReviewCoupon() {
   });
 }
 
+/** Ativar, pausar ou encerrar. Otimista no detalhe e nas listas em cache. */
 export function useChangeCouponStatus() {
   const qc = useQueryClient();
   return useMutation({
@@ -111,13 +125,67 @@ export function useChangeCouponStatus() {
     onMutate: async ({ id, status }) => {
       await qc.cancelQueries({ queryKey: couponKeys.all });
       const rollback = snapshotQueries(qc, couponKeys.all);
-      qc.setQueryData<Coupon>(couponKeys.detail(id), (old) => (old ? { ...old, status } : old));
-      updateListItem<Coupon>(qc, couponKeys.lists(), id, (c) => ({ ...c, status }));
+      const next = (c: Coupon): Coupon => ({ ...c, status, lifecycle: guessLifecycle(c, status) });
+      qc.setQueryData<Coupon>(couponKeys.detail(id), (old) => (old ? next(old) : old));
+      updateListItem<Coupon>(qc, couponKeys.lists(), id, next);
       return { rollback };
     },
     onError: (_e, _v, ctx) => ctx?.rollback(),
     onSuccess: (coupon) => couponSaved(qc, coupon),
   });
+}
+
+/** A mesma promoção para várias lojas (uma por loja, tudo ou nada). */
+export function useCreateCoupons() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: couponsApi.createMany,
+    onSuccess: (r) => Promise.all(r.data.map((c) => couponSaved(qc, c))),
+  });
+}
+
+/** Arquivar ou desarquivar (o "Desfazer" do aviso chama de novo com o contrário). */
+export function useArchiveCoupon() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, archived }: { id: string; archived: boolean }) =>
+      couponsApi.archive(id, archived),
+    onSuccess: (coupon) => couponSaved(qc, coupon),
+  });
+}
+
+/** Excluir de vez (só sem cupons pegos; a API recusa com o motivo). */
+export function useDeleteCoupon() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: couponsApi.remove,
+    onSuccess: (_r, id) => {
+      qc.removeQueries({ queryKey: couponKeys.detail(id) });
+      return Promise.all([
+        qc.invalidateQueries({ queryKey: couponKeys.lists() }),
+        qc.invalidateQueries({ queryKey: storeKeys.all }),
+        qc.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
+    },
+  });
+}
+
+/** Relatório por promoção no período. */
+export function useCouponsByPromotion(query: CouponsByPromotionQuery, { enabled = true } = {}) {
+  return useQuery({
+    queryKey: [...couponKeys.all, "report", query] as const,
+    queryFn: ({ signal }) => couponsApi.byPromotion(query, signal),
+    select: (r) => r.data,
+    placeholderData: keepPreviousData,
+    enabled,
+  });
+}
+
+/** Situação provável logo depois de mudar o status (a resposta da API confirma). */
+function guessLifecycle(c: Coupon, status: CouponStatus): Coupon["lifecycle"] {
+  if (status !== "active") return status;
+  if (new Date(c.startsAt).getTime() > Date.now()) return "scheduled";
+  return c.stock.remaining <= 0 ? "soldout" : "active";
 }
 
 export const FALLBACK_WINDOW_HOURS = 24;

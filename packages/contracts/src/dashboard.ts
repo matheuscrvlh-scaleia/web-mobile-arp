@@ -130,3 +130,44 @@ export const dashboardDetailSchema = z.object({
   tables: z.array(dashboardDetailTableSchema),
 });
 export type DashboardDetail = z.infer<typeof dashboardDetailSchema>;
+
+/* Pendências (o que precisa de atenção agora) --------------------------- */
+
+/**
+ * Tipos de pendência. Cada um só aparece para quem tem a permissão da tela
+ * que resolve (ex.: cupons para aprovar → coupons.approve). Lojista vê só
+ * os da própria loja.
+ */
+export const pendingKindSchema = z.enum([
+  /** Cupons de lojista aguardando a revisão da ARP. */
+  "couponsToReview",
+  /** Lojistas que se cadastraram pelo link e esperam aprovação. */
+  "merchantSignups",
+  /** Promoções no ar com menos de 10% do estoque. */
+  "couponsLowStock",
+  /** Promoções no ar que terminam nos próximos 3 dias. */
+  "couponsEndingSoon",
+  /** Campanha publicada do mês atual sem nenhum desafio. */
+  "campaignWithoutChallenges",
+  /** Nenhuma campanha começa no mês que vem. */
+  "nextMonthWithoutCampaign",
+  /** Notificações agendadas para sair hoje. */
+  "notificationsToday",
+  /** Prêmios ativos da lojinha com estoque zerado. */
+  "prizesOutOfStock",
+]);
+export type PendingKind = z.infer<typeof pendingKindSchema>;
+
+export const pendingItemSchema = z.object({
+  kind: pendingKindSchema,
+  count: z.number().int(),
+  /** Até 3 exemplos (para o texto e o link direto quando é um só). */
+  samples: z.array(z.object({ id: idSchema, name: z.string() })),
+});
+export type PendingItem = z.infer<typeof pendingItemSchema>;
+
+export const pendingSchema = z.object({
+  /** Só os tipos com algo a fazer, na ordem de prioridade. */
+  data: z.array(pendingItemSchema),
+});
+export type Pending = z.infer<typeof pendingSchema>;

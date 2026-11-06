@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { errorMessage } from "@/shared/api";
 import { cn } from "@/shared/lib/cn";
 import { Button } from "./Button";
+import { confirmar } from "./confirm";
 import { Input } from "./inputs";
 
 // Modal padrão: <dialog> nativo (Esc fecha, foco preso dentro, fundo
@@ -30,6 +31,8 @@ export interface ModalProps {
   busy?: boolean;
   /** Papel de alerta (erros e confirmações perigosas). */
   alert?: boolean;
+  /** Há texto digitado: Esc, clique fora e o X perguntam antes de descartar (PLAN). */
+  dirty?: boolean;
 }
 
 export function Modal(props: ModalProps) {
@@ -46,6 +49,7 @@ function ModalPanel({
   size = "md",
   busy = false,
   alert = false,
+  dirty = false,
 }: ModalProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -65,8 +69,20 @@ function ModalPanel({
     };
   }, []);
 
-  const close = () => {
-    if (!busy) onClose();
+  const close = async () => {
+    if (busy) return;
+    if (
+      dirty &&
+      !(await confirmar({
+        title: "Descartar o que você digitou?",
+        description: "O texto deste formulário se perde ao fechar.",
+        confirmLabel: "Descartar",
+        cancelLabel: "Continuar editando",
+        danger: true,
+      }))
+    )
+      return;
+    onClose();
   };
 
   return (
@@ -78,10 +94,10 @@ function ModalPanel({
       aria-busy={busy || undefined}
       onCancel={(e) => {
         e.preventDefault();
-        close();
+        void close();
       }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) close();
+        if (e.target === e.currentTarget) void close();
       }}
       onKeyDown={() => undefined}
       className={cn(
@@ -110,7 +126,7 @@ function ModalPanel({
           </div>
           <button
             type="button"
-            onClick={close}
+            onClick={() => void close()}
             disabled={busy}
             aria-label="Fechar"
             className="-mt-1 -mr-2 grid size-9 shrink-0 cursor-pointer place-items-center rounded-full text-neutral-500 transition hover:bg-neutral-900/[0.07] hover:text-neutral-900 disabled:opacity-50"
@@ -143,10 +159,12 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel,
+  cancelLabel = "Voltar",
   danger = false,
   loading = false,
   error,
   confirmText,
+  children,
 }: {
   open: boolean;
   onClose: () => void;
@@ -154,12 +172,19 @@ export function ConfirmDialog({
   title: string;
   description?: ReactNode;
   confirmLabel: string;
+  /** Botão neutro (padrão "Voltar"). Ex.: "Manter evento" ao lado de "Cancelar evento". */
+  cancelLabel?: string;
   danger?: boolean;
   loading?: boolean;
   /** Erro da última tentativa (ex.: mutation.error). */
   error?: unknown;
-  /** Trava extra: o botão só libera depois de digitar este texto (ex.: o nome). */
+  /**
+   * Trava extra: o botão só libera depois de digitar este texto. Só para
+   * ação em massa (regra do painel); excluir um item não pede isso.
+   */
   confirmText?: string;
+  /** Conteúdo extra abaixo da descrição (ex.: o que continua valendo). */
+  children?: ReactNode;
 }) {
   const hasError = error !== null && error !== undefined;
   const [typed, setTyped] = useState("");
@@ -199,9 +224,9 @@ export function ConfirmDialog({
       description={hasError ? errorMessage(error) : description}
       footer={
         <>
-          {/* Cancelar vem antes no DOM: é ele que recebe o foco ao abrir. */}
+          {/* O neutro vem antes no DOM: é ele que recebe o foco ao abrir. */}
           <Button variant="secondary" onClick={onClose} disabled={loading}>
-            {hasError ? "Fechar" : "Cancelar"}
+            {hasError ? "Fechar" : cancelLabel}
           </Button>
           <Button
             variant={danger ? "danger" : "primary"}
@@ -214,20 +239,25 @@ export function ConfirmDialog({
         </>
       }
     >
-      {confirmText && !hasError ? (
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor={inputId} className="text-sm text-neutral-700">
-            Para confirmar, digite <strong className="font-semibold">{confirmText}</strong>
-          </label>
-          <Input
-            id={inputId}
-            value={typed}
-            onChange={(e) => setTyped(e.target.value)}
-            autoComplete="off"
-            disabled={loading}
-          />
-        </div>
-      ) : undefined}
+      {hasError || (!children && !confirmText) ? undefined : (
+        <>
+          {children}
+          {confirmText && (
+            <div className={cn("flex flex-col gap-1.5", children ? "mt-4" : undefined)}>
+              <label htmlFor={inputId} className="text-sm text-neutral-700">
+                Para confirmar, digite <strong className="font-semibold">{confirmText}</strong>
+              </label>
+              <Input
+                id={inputId}
+                value={typed}
+                onChange={(e) => setTyped(e.target.value)}
+                autoComplete="off"
+                disabled={loading}
+              />
+            </div>
+          )}
+        </>
+      )}
     </Modal>
   );
 }

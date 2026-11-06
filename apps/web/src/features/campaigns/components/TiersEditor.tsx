@@ -55,7 +55,8 @@ export function TiersEditor({ campaign, readOnly }: { campaign: Campaign; readOn
   const tiers = useWatch({ control, name: "tiers" }) ?? [];
   useUnsavedChangesGuard(isDirty && !replace.isPending);
 
-  const max = Math.max(campaign.challengesCount, ...tiers.map((t) => Number(t.threshold) || 0), 1);
+  // Sem desafios e sem faixas não há o que simular (nada de "1 de 1 selos").
+  const max = Math.max(campaign.challengesCount, ...tiers.map((t) => Number(t.threshold) || 0), 0);
   const [simulated, setSimulated] = useState(() => Math.min(1, max));
   const value = Math.min(simulated, max);
 
@@ -192,39 +193,56 @@ export function TiersEditor({ campaign, readOnly }: { campaign: Campaign; readOn
             </fieldset>
           )}
           <p className="mt-4 text-xs text-neutral-500">
-            Até {MAX_TIERS} faixas. A campanha tem{" "}
-            {plural(campaign.challengesCount, "desafio", "desafios")}, então dá para juntar até{" "}
-            {plural(campaign.challengesCount, "selo", "selos")}.
+            {campaign.challengesCount === 0 ? (
+              <>
+                Até {MAX_TIERS} faixas. A campanha ainda não tem desafios: crie os desafios antes
+                (aba Desafios). Cada desafio dá um selo.
+              </>
+            ) : (
+              <>
+                Até {MAX_TIERS} faixas. A campanha tem{" "}
+                {plural(campaign.challengesCount, "desafio", "desafios")}, então dá para juntar até{" "}
+                {plural(campaign.challengesCount, "selo", "selos")}.
+              </>
+            )}
           </p>
         </Card>
 
         <div className="flex flex-col gap-3">
           <p className="text-xs font-medium text-neutral-500">Prévia no app</p>
-          <ProgressHero
-            title={campaign.name}
-            daysLeft={campaign.status === "published" ? daysLeft(campaign.endsAt) : null}
-            tiers={tiers.map((t) => ({
-              threshold: Number(t.threshold) || 0,
-              label: t.label ?? "",
-              icon: t.icon ?? "gift",
-            }))}
-            max={max}
-            value={value}
-          />
-          <label className="flex flex-col gap-1.5 text-xs text-neutral-600">
-            <span>
-              Simular visitante com <b className="tabular-nums">{value}</b>{" "}
-              {value === 1 ? "selo" : "selos"}
-            </span>
-            <input
-              type="range"
-              min={0}
-              max={max}
-              value={value}
-              onChange={(e) => setSimulated(Number(e.target.value))}
-              className="accent-neutral-900"
-            />
-          </label>
+          {max === 0 ? (
+            <p className="rounded-3xl bg-neutral-900/[0.05] px-4 py-6 text-center text-sm text-neutral-600">
+              A prévia do progresso aparece quando a campanha tiver desafios ou faixas.
+            </p>
+          ) : (
+            <>
+              <ProgressHero
+                title={campaign.name}
+                daysLeft={campaign.status === "published" ? daysLeft(campaign.endsAt) : null}
+                tiers={tiers.map((t) => ({
+                  threshold: Number(t.threshold) || 0,
+                  label: t.label ?? "",
+                  icon: t.icon ?? "gift",
+                }))}
+                max={max}
+                value={value}
+              />
+              <label className="flex flex-col gap-1.5 text-xs text-neutral-600">
+                <span>
+                  Simular visitante com <b className="tabular-nums">{value}</b>{" "}
+                  {value === 1 ? "selo" : "selos"}
+                </span>
+                <input
+                  type="range"
+                  min={0}
+                  max={max}
+                  value={value}
+                  onChange={(e) => setSimulated(Number(e.target.value))}
+                  className="accent-neutral-900"
+                />
+              </label>
+            </>
+          )}
         </div>
       </div>
       {!readOnly && (

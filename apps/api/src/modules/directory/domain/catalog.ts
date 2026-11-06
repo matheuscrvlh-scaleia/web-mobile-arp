@@ -13,6 +13,7 @@ export interface MapShapeData {
   y: number;
   w: number;
   h: number;
+  blockId?: string | null | undefined;
 }
 
 export interface FloorProps {
@@ -21,6 +22,8 @@ export interface FloorProps {
   label: string;
   shortLabel: string;
   layout: MapShapeData[];
+  /** Planta de fundo do editor do painel. */
+  backgroundImageUrl: string | null;
 }
 
 export interface BlockProps {

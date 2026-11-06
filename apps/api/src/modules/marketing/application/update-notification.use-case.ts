@@ -3,6 +3,8 @@ import { diff, hasChanges } from "../../../shared/application/audit-changes";
 import { NotFoundError } from "../../../shared/domain/errors";
 import type { NotificationChanges } from "../domain/push-notification";
 import {
+  assertDeepLink,
+  assertNotificationEvent,
   assertNotificationStore,
   NOTIFICATION_NOT_FOUND,
   type NotificationUseCaseDeps,
@@ -22,6 +24,12 @@ export class UpdateNotificationUseCase {
       if (!hasChanges(changes)) return;
       if (changes.storeId) {
         await assertNotificationStore(this.deps.references, notification.content.storeId);
+      }
+      if (changes.eventId) {
+        await assertNotificationEvent(this.deps.references, notification.content.eventId);
+      }
+      if (changes.deepLink) {
+        await assertDeepLink(this.deps.references, notification.content.deepLink);
       }
       await this.deps.notifications.save(notification);
       await this.deps.audit.log({

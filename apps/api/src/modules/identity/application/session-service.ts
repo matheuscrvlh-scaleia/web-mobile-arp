@@ -90,6 +90,15 @@ export class SessionService {
     return result;
   }
 
+  /** Dono do refresh token, mesmo revogado ou vencido (para explicar por que caiu). */
+  async subjectOf(audience: SessionAudience, refreshToken: string): Promise<string | null> {
+    const tokenHash = this.deps.opaqueTokens.hash(refreshToken);
+    return this.deps.uow.run(async () => {
+      const session = await this.deps.sessions.findByTokenHashForUpdate(tokenHash);
+      return session && session.audience === audience ? session.subjectId : null;
+    });
+  }
+
   /** Logout: revoga a sessão do token (se existir). Idempotente. */
   async end(refreshToken: string): Promise<{ subjectId: string } | null> {
     const tokenHash = this.deps.opaqueTokens.hash(refreshToken);

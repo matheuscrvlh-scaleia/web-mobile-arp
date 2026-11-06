@@ -104,7 +104,8 @@ export class CancelRedemptionUseCase {
     await uow.run(async () => {
       const result = await store.cancel(input.id, actor.id, clock.now());
       if (!result) throw new NotFoundError(REDEMPTION_NOT_FOUND);
-      if (result === "done") throw new ConflictError("Esta troca já foi cancelada");
+      if (result === "done")
+        throw new ConflictError("Esta troca já foi desfeita: os pontos e o prêmio já voltaram");
       await audit.log({
         actor,
         action: "prize_redemption.cancel",

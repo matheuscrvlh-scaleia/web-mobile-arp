@@ -5,45 +5,48 @@ import {
   type PrizeRedemption,
   type PrizeRedemptionStatus,
   type RankingEntry,
-  type SealsReportRow,
 } from "@arp/contracts";
 import {
   ArrowRightLeft,
+  BookOpen,
+  Eye,
+  EyeOff,
   Gift,
   Medal,
   PackageCheck,
   Pencil,
   Plus,
-  Store,
   Trash2,
   Undo2,
 } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router";
+import { useSeals } from "@/features/seals";
+import { useAppSettings } from "@/features/settings";
 import { useAuth } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
 import { useDebouncedValue, useSearchParamOption } from "@/shared/hooks";
-import { addDaysIso, todayIso } from "@/shared/lib/dates";
-import { formatDateTime, formatNumber } from "@/shared/lib/format";
+import { formatDateTime, formatNumber, plural } from "@/shared/lib/format";
+import { normalize } from "@/shared/lib/text";
 import {
+  ActionMenu,
   Button,
   ButtonLink,
   Card,
   CardHeader,
   type Column,
-  ConfirmDialog,
+  confirmar,
   DemoMark,
   EmptyState,
   ErrorState,
-  Field,
-  FieldRow,
-  IconButton,
-  Input,
   PageHeader,
   Pagination,
   SearchInput,
   Select,
   StatusBadge,
+  StatusTabs,
   type StatusTone,
+  statusTabLabel,
   type TabItem,
   Table,
   TabPanel,
@@ -56,18 +59,18 @@ import {
   usePrizes,
   useRanking,
   useRedemptions,
-  useSealsReport,
+  useSavePrize,
 } from "../api";
 import { PrizeFormModal } from "../components/PrizeFormModal";
 
 type Tab = "lojinha" | "trocas" | "ranking";
 const TABS: (TabItem<Tab> & { permission: Permission | null })[] = [
   { value: "lojinha", label: "Lojinha", icon: Gift, permission: null },
-  { value: "trocas", label: "Trocas", icon: PackageCheck, permission: "club.manage" },
+  { value: "trocas", label: "Trocas", icon: PackageCheck, permission: "club.redeem" },
   { value: "ranking", label: "Ranking", icon: Medal, permission: "reports.view" },
 ];
 
-/** Clube ARP (Fase 2): lojinha, trocas e ranking (cada aba com a sua permissão). */
+/** Clube ARP (Fase 2): regras, lojinha, trocas e ranking (cada aba com a sua permissão). */
 export function ClubPage() {
   const { can } = useAuth();
   const canEdit = can("club.manage");
@@ -79,11 +82,19 @@ export function ClubPage() {
   );
 
   return (
-    <>
+    <div className="min-w-0">
       <PageHeader
         title="Clube ARP"
-        description="Selos valem pontos, que o visitante troca por prêmios na lojinha. O ranking mostra só apelidos."
+        description="Selos valem pontos, que o visitante troca por prêmios no balcão do Centro de Informações. O app mostra a lojinha e o ranking (só apelidos)."
+        actions={
+          can("club.redeem") && (
+            <ButtonLink to={PATHS.prizeExchange} icon={ArrowRightLeft}>
+              Trocar pontos
+            </ButtonLink>
+          )
+        }
       />
+      <ClubRulesCard />
       <Tabs
         idBase="clube"
         label="Clube ARP"
@@ -96,27 +107,148 @@ export function ClubPage() {
         {tab === "lojinha" ? (
           <PrizesTab canEdit={canEdit} />
         ) : tab === "trocas" ? (
-          <RedemptionsTab canEdit={canEdit} />
+          <RedemptionsTab />
         ) : (
           <RankingTab />
         )}
       </TabPanel>
-    </>
+    </div>
+  );
+}
+
+/* Regras ------------------------------------------------------------------ */
+
+/**
+ * As regras do Clube num lugar só (antes espalhadas por Selos e
+ * Configurações), cada uma com o link para mudar.
+ */
+function ClubRulesCard() {
+  const { can } = useAuth();
+  const seals = useSeals({ enabled: can("challenges.view") });
+  const settings = useAppSettings({ enabled: can("settings.manage") });
+  const active = (seals.data ?? []).filter((s) => s.status === "active");
+  const points = active.map((s) => s.points);
+  const range = (list: number[], unit: (n: number) => string) => {
+    const min = Math.min(...list);
+    const max = Math.max(...list);
+    return min === max ? unit(min) : `de ${formatNumber(min)} a ${unit(max)}`;
+  };
+  const months = (n: number) => plural(n, "mês", "meses");
+  // O saldo conta o selo que não venceu E foi ganho dentro do limite do clube
+  // (club-points.ts): vale o que vencer primeiro. Uma regra só, já combinada.
+  const limit = settings.data?.pointsValidityMonths;
+  const sealMonths = active.map((s) => s.validityMonths);
+  const effective = limit ? sealMonths.map((m) => Math.min(m, limit)) : sealMonths;
+  const notice =
+    settings.data && settings.data.pointsExpiryNoticeDays > 0
+      ? ` O app avisa ${plural(settings.data.pointsExpiryNoticeDays, "dia", "dias")} antes.`
+      : "";
+  const validity =
+    effective.length > 0
+      ? `Cada ponto vale ${range(effective, months)} depois de ganho${
+          limit && sealMonths.some((m) => m > limit)
+            ? ` (o limite do clube é ${months(limit)}, mesmo que o selo valha mais)`
+            : ", e vence junto com o selo"
+        }.${notice}`
+      : limit
+        ? `Cada ponto vale até ${months(limit)} depois de ganho, ou menos se o selo vencer antes.${notice}`
+        : "Os pontos vencem junto com o selo do visitante.";
+
+  const rules: { text: string; link?: { to: string; label: string } }[] = [
+    {
+      text:
+        points.length > 0
+          ? `Cada selo dá ${range(points, (n) => plural(n, "ponto", "pontos"))}.`
+          : "Cada selo dá os pontos definidos no cadastro do selo.",
+      link: can("challenges.view") ? { to: PATHS.seals, label: "Mudar em Selos" } : undefined,
+    },
+    {
+      text: validity,
+      link: settings.data
+        ? { to: PATHS.settings, label: "Mudar o limite em Configurações" }
+        : undefined,
+    },
+    {
+      text: "O app só mostra a lojinha. A troca é no balcão: a equipe acha o visitante, troca os pontos e entrega o prêmio na hora. Errou? Desfaça a troca, e pontos e estoque voltam.",
+      link: can("club.redeem") ? { to: PATHS.prizeExchange, label: "Trocar pontos" } : undefined,
+    },
+  ];
+
+  return (
+    <Card variant="dashed" className="mb-5">
+      <CardHeader title="Regras do clube" icon={BookOpen} />
+      <ul className="flex flex-col gap-2 text-sm text-neutral-700">
+        {rules.map((r) => (
+          <li key={r.text} className="flex flex-wrap items-baseline gap-x-2">
+            <span className="min-w-0">{r.text}</span>
+            {r.link && (
+              <Link to={r.link.to} className="text-xs font-medium text-neutral-900 underline">
+                {r.link.label}
+              </Link>
+            )}
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }
 
 /* Lojinha ----------------------------------------------------------------- */
 
+// Filtro padrão (R2G-11): situação com contador + busca pelo nome.
+type PrizeSituation = "all" | "active" | "soldOut" | "hidden";
+const PRIZE_MATCH: Record<PrizeSituation, (p: Prize) => boolean> = {
+  all: () => true,
+  active: (p) => p.active && p.stock > 0,
+  soldOut: (p) => p.active && p.stock <= 0,
+  hidden: (p) => !p.active,
+};
+
 function PrizesTab({ canEdit }: { canEdit: boolean }) {
   const prizes = usePrizes();
   const remove = useDeletePrize();
+  const save = useSavePrize();
   const [editing, setEditing] = useState<Prize | "new" | null>(null);
-  const [deleting, setDeleting] = useState<Prize | null>(null);
+  const [situation, setSituation] = useState<PrizeSituation>("all");
+  const [search, setSearch] = useState("");
+  const term = normalize(search.trim());
+  const all = prizes.data ?? [];
+  const countOf = (s: PrizeSituation) => all.filter(PRIZE_MATCH[s]).length;
+  const rows = prizes.data?.filter(
+    (p) => PRIZE_MATCH[situation](p) && (!term || normalize(p.name).includes(term)),
+  );
+
+  const setActive = (p: Prize, active: boolean) =>
+    save.mutate(
+      { id: p.id, body: { active } },
+      {
+        onSuccess: () =>
+          toast.success(active ? `${p.name} voltou à lojinha.` : `${p.name} saiu da lojinha.`, {
+            action: { label: "Desfazer", onClick: () => setActive(p, !active) },
+          }),
+        onError: (e) => toast.fromError(e),
+      },
+    );
+
+  const destroy = async (p: Prize) => {
+    const ok = await confirmar({
+      title: `Excluir ${p.name}?`,
+      description: "O prêmio some de vez. Isso não dá para desfazer.",
+      confirmLabel: "Excluir prêmio",
+      danger: true,
+    });
+    if (!ok) return;
+    remove.mutate(p.id, {
+      onSuccess: () => toast.success(`${p.name} excluído.`),
+      onError: (e) => toast.fromError(e),
+    });
+  };
 
   const columns: Column<Prize>[] = [
     {
       key: "name",
       header: "Prêmio",
+      primary: true,
       cell: (p) => (
         <span className="flex flex-col">
           <span className="inline-flex items-center gap-1.5 font-medium">
@@ -127,6 +259,16 @@ function PrizesTab({ canEdit }: { canEdit: boolean }) {
         </span>
       ),
     },
+    {
+      key: "status",
+      header: "App",
+      status: true,
+      cell: (p) => (
+        <StatusBadge tone={p.active && p.stock > 0 ? "success" : "neutral"}>
+          {!p.active ? "Fora da lojinha" : p.stock > 0 ? "Na lojinha" : "Esgotado"}
+        </StatusBadge>
+      ),
+    },
     { key: "points", header: "Pontos", numeric: true, cell: (p) => formatNumber(p.points) },
     { key: "stock", header: "Estoque", numeric: true, cell: (p) => formatNumber(p.stock) },
     {
@@ -134,27 +276,21 @@ function PrizesTab({ canEdit }: { canEdit: boolean }) {
       header: "Trocados",
       numeric: true,
       cell: (p) => formatNumber(p.redeemedCount),
+      hideOnMobile: true,
     },
     {
       key: "enough",
       header: "Já podem trocar",
       numeric: true,
       cell: (p) => formatNumber(p.visitorsEnough),
+      hideOnMobile: true,
     },
     {
       key: "almost",
       header: "Perto (80%+)",
       numeric: true,
       cell: (p) => formatNumber(p.visitorsAlmost),
-    },
-    {
-      key: "status",
-      header: "App",
-      cell: (p) => (
-        <StatusBadge tone={p.active && p.stock > 0 ? "success" : "neutral"}>
-          {!p.active ? "Oculto" : p.stock > 0 ? "Na lojinha" : "Esgotado"}
-        </StatusBadge>
-      ),
+      hideOnMobile: true,
     },
     ...(canEdit
       ? [
@@ -162,22 +298,33 @@ function PrizesTab({ canEdit }: { canEdit: boolean }) {
             key: "actions",
             header: <span className="sr-only">Ações</span>,
             numeric: true,
+            actions: true,
             cell: (p: Prize) => (
-              <span className="inline-flex gap-1">
-                <IconButton
-                  icon={Pencil}
-                  size="sm"
-                  label={`Editar ${p.name}`}
-                  onClick={() => setEditing(p)}
-                />
-                <IconButton
-                  icon={Trash2}
-                  size="sm"
-                  variant="danger"
-                  label={`Apagar ${p.name}`}
-                  onClick={() => setDeleting(p)}
-                />
-              </span>
+              <ActionMenu
+                size="sm"
+                ariaLabel={`Ações de ${p.name}`}
+                items={[
+                  { label: "Editar", icon: Pencil, onSelect: () => setEditing(p) },
+                  p.active
+                    ? {
+                        label: "Tirar da lojinha",
+                        icon: EyeOff,
+                        onSelect: () => setActive(p, false),
+                      }
+                    : { label: "Voltar à lojinha", icon: Eye, onSelect: () => setActive(p, true) },
+                  {
+                    label: "Excluir",
+                    icon: Trash2,
+                    danger: true,
+                    onSelect: () => void destroy(p),
+                    disabled: p.redeemedCount > 0,
+                    hint:
+                      p.redeemedCount > 0
+                        ? `Já foi trocado ${plural(p.redeemedCount, "vez", "vezes")}: tire da lojinha em vez de excluir`
+                        : undefined,
+                  },
+                ]}
+              />
             ),
           },
         ]
@@ -185,7 +332,7 @@ function PrizesTab({ canEdit }: { canEdit: boolean }) {
   ];
 
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader
         title="Lojinha"
         description="“Já podem trocar” e “Perto” ajudam a decidir quanto comprar de cada prêmio."
@@ -197,45 +344,54 @@ function PrizesTab({ canEdit }: { canEdit: boolean }) {
           )
         }
       />
+      {all.length > 0 && (
+        <div className="flex flex-wrap items-start gap-3 px-1 pt-3">
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Buscar prêmio"
+            label="Buscar prêmio"
+            className="w-full sm:w-64"
+          />
+          <StatusTabs
+            value={situation}
+            onChange={setSituation}
+            className="mb-0"
+            options={[
+              { value: "all", label: statusTabLabel("all"), count: countOf("all") },
+              { value: "active", label: "Na lojinha", count: countOf("active") },
+              { value: "soldOut", label: statusTabLabel("soldOut"), count: countOf("soldOut") },
+              { value: "hidden", label: "Fora da lojinha", count: countOf("hidden") },
+            ]}
+          />
+        </div>
+      )}
       {prizes.error ? (
         <ErrorState compact error={prizes.error} onRetry={() => void prizes.refetch()} />
       ) : (
         <Table
           caption="Prêmios da lojinha"
           columns={columns}
-          rows={prizes.data}
+          rows={rows}
           rowKey={(p) => p.id}
+          onRowClick={canEdit ? (p) => setEditing(p) : undefined}
+          rowLabel={(p) => `Editar ${p.name}`}
           loading={prizes.isLoading}
           skeletonRows={4}
-          empty={<EmptyState compact icon={Gift} title="Nenhum prêmio ainda" />}
+          mobile="cards"
+          empty={
+            <EmptyState
+              compact
+              icon={Gift}
+              title={all.length > 0 ? "Nenhum prêmio neste filtro" : "Nenhum prêmio ainda"}
+            />
+          }
         />
       )}
       <PrizeFormModal
         open={editing !== null}
         prize={editing === "new" || editing === null ? undefined : editing}
         onClose={() => setEditing(null)}
-      />
-      <ConfirmDialog
-        open={deleting !== null}
-        onClose={() => {
-          setDeleting(null);
-          remove.reset();
-        }}
-        danger
-        title={`Apagar ${deleting?.name ?? "o prêmio"}?`}
-        description="Prêmio já trocado não pode ser apagado: desative."
-        confirmLabel="Apagar"
-        loading={remove.isPending}
-        error={remove.error}
-        onConfirm={() =>
-          deleting &&
-          remove.mutate(deleting.id, {
-            onSuccess: () => {
-              toast.success("Prêmio apagado.");
-              setDeleting(null);
-            },
-          })
-        }
       />
     </Card>
   );
@@ -245,11 +401,14 @@ function PrizesTab({ canEdit }: { canEdit: boolean }) {
 
 const REDEMPTION_STATUS: Record<PrizeRedemptionStatus, { label: string; tone: StatusTone }> = {
   delivered: { label: "Entregue", tone: "success" },
-  cancelled: { label: "Cancelada", tone: "neutral" },
+  cancelled: { label: "Desfeita", tone: "neutral" },
 };
 
-/** Histórico das trocas feitas no balcão. Troca errada se cancela (pontos e estoque voltam). */
-function RedemptionsTab({ canEdit }: { canEdit: boolean }) {
+/**
+ * Histórico das trocas feitas no balcão (o app não troca). Troca errada se
+ * desfaz: pontos e estoque voltam. Mesma permissão do balcão (club.redeem).
+ */
+function RedemptionsTab() {
   const [status, setStatus] = useState<PrizeRedemptionStatus | "">("");
   const [term, setTerm] = useState("");
   const q = useDebouncedValue(term, 300).trim();
@@ -262,78 +421,90 @@ function RedemptionsTab({ canEdit }: { canEdit: boolean }) {
   };
   const list = useRedemptions(query);
   const cancel = useCancelRedemption();
-  const [cancelling, setCancelling] = useState<PrizeRedemption | null>(null);
+
+  const undo = async (r: PrizeRedemption) => {
+    const ok = await confirmar({
+      title: `Desfazer a troca de ${r.visitor.name}?`,
+      description: `${formatNumber(r.points)} pontos voltam para ${r.visitor.name} e ${r.prize.name} volta ao estoque. Recolha o prêmio no balcão.`,
+      confirmLabel: "Desfazer troca",
+      cancelLabel: "Manter troca",
+      danger: true,
+    });
+    if (!ok) return;
+    cancel.mutate(r.id, {
+      onSuccess: () =>
+        toast.success(`Troca desfeita: ${r.visitor.name} recebeu os pontos de volta.`),
+      onError: (e) => toast.fromError(e),
+    });
+  };
 
   const columns: Column<PrizeRedemption>[] = [
-    { key: "at", header: "Trocado em", cell: (r) => formatDateTime(r.createdAt) },
     {
       key: "visitor",
       header: "Visitante",
+      primary: true,
       cell: (r) => (
-        <span className="inline-flex items-center gap-1.5">
+        <span className="inline-flex items-center gap-1.5 font-medium">
           {r.visitor.name}
           <DemoMark show={r.isDemo} />
         </span>
       ),
     },
-    { key: "prize", header: "Prêmio", cell: (r) => r.prize.name },
-    { key: "points", header: "Pontos", numeric: true, cell: (r) => formatNumber(r.points) },
-    {
-      key: "by",
-      header: "Feita por",
-      cell: (r) => <span className="text-neutral-600">{r.deliveredBy?.name ?? "—"}</span>,
-    },
-    {
-      key: "code",
-      header: "Comprovante",
-      cell: (r) => <span className="font-mono text-xs font-semibold">{r.code}</span>,
-    },
     {
       key: "status",
       header: "Situação",
+      status: true,
       cell: (r) => (
         <StatusBadge tone={REDEMPTION_STATUS[r.status].tone}>
           {REDEMPTION_STATUS[r.status].label}
         </StatusBadge>
       ),
     },
-    ...(canEdit
-      ? [
-          {
-            key: "actions",
-            header: <span className="sr-only">Ações</span>,
-            numeric: true,
-            cell: (r: PrizeRedemption) =>
-              r.status === "delivered" && (
-                <IconButton
-                  icon={Undo2}
-                  size="sm"
-                  variant="danger"
-                  label={`Cancelar troca de ${r.visitor.name}`}
-                  onClick={() => setCancelling(r)}
-                />
-              ),
-          },
-        ]
-      : []),
+    { key: "prize", header: "Prêmio", cell: (r) => r.prize.name },
+    { key: "points", header: "Pontos", numeric: true, cell: (r) => formatNumber(r.points) },
+    { key: "at", header: "Trocado em", cell: (r) => formatDateTime(r.createdAt) },
+    {
+      key: "by",
+      header: "Feita por",
+      cell: (r) => <span className="text-neutral-600">{r.deliveredBy?.name ?? "—"}</span>,
+      hideOnMobile: true,
+    },
+    {
+      key: "code",
+      header: "Comprovante",
+      cell: (r) => <span className="font-mono text-xs font-semibold">{r.code}</span>,
+      hideOnMobile: true,
+    },
+    {
+      key: "actions",
+      header: <span className="sr-only">Ações</span>,
+      numeric: true,
+      actions: true,
+      cell: (r: PrizeRedemption) =>
+        r.status === "delivered" && (
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={Undo2}
+            loading={cancel.isPending && cancel.variables === r.id}
+            onClick={() => void undo(r)}
+            aria-label={`Desfazer a troca de ${r.prize.name} de ${r.visitor.name}`}
+          >
+            Desfazer troca
+          </Button>
+        ),
+    },
   ];
 
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader
         title="Trocas"
         description="Trocas feitas no Centro de Informações. O app só mostra a lojinha: quem troca é a equipe."
         action={
-          canEdit && (
-            <ButtonLink
-              to={PATHS.prizeExchange}
-              size="sm"
-              variant="secondary"
-              icon={ArrowRightLeft}
-            >
-              Nova troca
-            </ButtonLink>
-          )
+          <ButtonLink to={PATHS.prizeExchange} size="sm" variant="secondary" icon={ArrowRightLeft}>
+            Trocar pontos
+          </ButtonLink>
         }
       />
       <div className="mb-4 flex flex-wrap gap-3">
@@ -345,6 +516,7 @@ function RedemptionsTab({ canEdit }: { canEdit: boolean }) {
           }}
           placeholder="Visitante ou comprovante"
           label="Buscar troca"
+          className="w-full sm:w-72"
         />
         <Select
           aria-label="Situação"
@@ -353,7 +525,7 @@ function RedemptionsTab({ canEdit }: { canEdit: boolean }) {
             setStatus(e.target.value as PrizeRedemptionStatus | "");
             setPage(1);
           }}
-          className="w-44"
+          className="w-full sm:w-44"
         >
           <option value="">Todas</option>
           {Object.entries(REDEMPTION_STATUS).map(([value, s]) => (
@@ -374,6 +546,7 @@ function RedemptionsTab({ canEdit }: { canEdit: boolean }) {
             rowKey={(r) => r.id}
             loading={list.isLoading}
             skeletonRows={6}
+            mobile="cards"
             empty={<EmptyState compact icon={PackageCheck} title="Nenhuma troca aqui" />}
           />
           {list.data && (
@@ -381,32 +554,6 @@ function RedemptionsTab({ canEdit }: { canEdit: boolean }) {
           )}
         </>
       )}
-      <ConfirmDialog
-        open={cancelling !== null}
-        onClose={() => {
-          setCancelling(null);
-          cancel.reset();
-        }}
-        danger
-        title="Cancelar esta troca?"
-        description={
-          cancelling
-            ? `${cancelling.visitor.name} recebe de volta ${formatNumber(cancelling.points)} pontos e ${cancelling.prize.name} volta ao estoque. Recolha o prêmio.`
-            : undefined
-        }
-        confirmLabel="Cancelar troca"
-        loading={cancel.isPending}
-        error={cancel.error}
-        onConfirm={() =>
-          cancelling &&
-          cancel.mutate(cancelling.id, {
-            onSuccess: () => {
-              toast.success("Troca cancelada. Pontos e estoque voltaram.");
-              setCancelling(null);
-            },
-          })
-        }
-      />
     </Card>
   );
 }
@@ -421,7 +568,7 @@ function RankingTab() {
     { key: "points", header: "Pontos", numeric: true, cell: (r) => formatNumber(r.points) },
   ];
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader
         title="Ranking"
         description="Só quem aceitou participar, só com apelido. Os 100 primeiros."
@@ -437,72 +584,6 @@ function RankingTab() {
           loading={ranking.isLoading}
           skeletonRows={8}
           empty={<EmptyState compact icon={Medal} title="Ninguém no ranking ainda" />}
-        />
-      )}
-    </Card>
-  );
-}
-
-/* Selos por loja ---------------------------------------------------------- */
-
-export function SealsReportTab() {
-  const today = todayIso();
-  const [from, setFrom] = useState(addDaysIso(today, -29));
-  const [to, setTo] = useState(today);
-  const report = useSealsReport({ from, to });
-  const total = (report.data ?? []).reduce((sum, r) => sum + r.count, 0);
-
-  const columns: Column<SealsReportRow>[] = [
-    { key: "store", header: "Loja", cell: (r) => r.store?.name ?? "ARP" },
-    {
-      key: "challenge",
-      header: "Desafio",
-      cell: (r) => (
-        <span className="flex flex-col">
-          <span>{r.challenge.name}</span>
-          {r.product && <span className="text-xs text-neutral-500">Produto: {r.product}</span>}
-        </span>
-      ),
-    },
-    { key: "seal", header: "Selo", cell: (r) => r.seal.name },
-    { key: "count", header: "Selos dados", numeric: true, cell: (r) => formatNumber(r.count) },
-  ];
-
-  return (
-    <Card>
-      <CardHeader
-        title="Selos dados por loja e produto"
-        description={`Base da cobrança dos parceiros. Total no período: ${formatNumber(total)}.`}
-      />
-      <FieldRow className="mb-4 max-w-md">
-        <Field label="De">
-          <Input
-            type="date"
-            value={from}
-            max={to}
-            onChange={(e) => e.target.value && setFrom(e.target.value)}
-          />
-        </Field>
-        <Field label="Até">
-          <Input
-            type="date"
-            value={to}
-            min={from}
-            onChange={(e) => e.target.value && setTo(e.target.value)}
-          />
-        </Field>
-      </FieldRow>
-      {report.error ? (
-        <ErrorState compact error={report.error} onRetry={() => void report.refetch()} />
-      ) : (
-        <Table
-          caption="Selos dados por loja e produto"
-          columns={columns}
-          rows={report.data}
-          rowKey={(r) => `${r.store?.id ?? "arp"}-${r.challenge.id}`}
-          loading={report.isLoading}
-          skeletonRows={6}
-          empty={<EmptyState compact icon={Store} title="Nenhum selo no período" />}
         />
       )}
     </Card>

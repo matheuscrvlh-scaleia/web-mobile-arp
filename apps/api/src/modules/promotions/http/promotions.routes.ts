@@ -1,10 +1,15 @@
 import {
+  archiveCouponBodySchema,
   changeCouponStatusBodySchema,
   couponClaimPageSchema,
   couponClaimSchema,
+  couponListSchema,
   couponPageSchema,
   couponSchema,
+  couponsByPromotionQuerySchema,
+  couponsByPromotionSchema,
   createCouponBodySchema,
+  createCouponsBodySchema,
   idParamsSchema,
   listClaimsQuerySchema,
   listCouponsQuerySchema,
@@ -22,8 +27,13 @@ import { staffOf } from "../../../shared/infra/http/auth";
 import { actorRateLimitKey } from "../../../shared/infra/http/rate-limit";
 import { createRouter } from "../../../shared/infra/http/router";
 import { toDate } from "../../../shared/infra/presenters";
+import type { ArchiveCouponUseCase } from "../application/archive-coupon.use-case";
 import type { ChangeCouponStatusUseCase } from "../application/change-coupon-status.use-case";
-import type { CreateCouponUseCase } from "../application/create-coupon.use-case";
+import type {
+  CreateCouponsUseCase,
+  CreateCouponUseCase,
+} from "../application/create-coupon.use-case";
+import type { DeleteCouponUseCase } from "../application/delete-coupon.use-case";
 import type { LookupClaimUseCase } from "../application/lookup-claim.use-case";
 import { COUPON_NOT_FOUND } from "../application/promotions-deps";
 import { CODE_NOT_FOUND, type RedeemClaimUseCase } from "../application/redeem-claim.use-case";
@@ -34,7 +44,10 @@ import type { PromotionsQueries } from "../infra/promotions.queries";
 export interface PromotionsRoutesDeps {
   queries: PromotionsQueries;
   createCoupon: CreateCouponUseCase;
+  createCoupons: CreateCouponsUseCase;
   updateCoupon: UpdateCouponUseCase;
+  archiveCoupon: ArchiveCouponUseCase;
+  deleteCoupon: DeleteCouponUseCase;
   changeCouponStatus: ChangeCouponStatusUseCase;
   reviewCoupon: ReviewCouponUseCase;
   lookupClaim: LookupClaimUseCase;
@@ -94,6 +107,50 @@ export function promotionsRoutes(deps: PromotionsRoutesDeps): FastifyPluginAsync
           staffOf(request),
         );
         return reply.status(201).send(await coupon(id));
+      },
+    );
+
+    r.route(
+      ROUTES.coupons.createMany,
+      { body: createCouponsBodySchema, response: { 201: couponListSchema } },
+      async (request, reply) => {
+        const { startsAt, endsAt, useUntil, ...body } = request.body;
+        const ids = await deps.createCoupons.execute(
+          {
+            ...body,
+            startsAt: toDate(startsAt),
+            endsAt: toDate(endsAt),
+            useUntil: toDate(useUntil),
+          },
+          staffOf(request),
+        );
+        return reply.status(201).send({ data: await Promise.all(ids.map(coupon)) });
+      },
+    );
+
+    r.route(
+      ROUTES.coupons.archive,
+      { params: idParamsSchema, body: archiveCouponBodySchema, response: { 200: couponSchema } },
+      async (request) => {
+        await deps.archiveCoupon.execute(
+          { id: request.params.id, archived: request.body.archived },
+          staffOf(request),
+        );
+        return coupon(request.params.id);
+      },
+    );
+
+    r.route(ROUTES.coupons.remove, { params: idParamsSchema }, async (request, reply) => {
+      await deps.deleteCoupon.execute(request.params, staffOf(request));
+      return reply.status(204).send();
+    });
+
+    r.route(
+      ROUTES.clubReports.couponsByPromotion,
+      { querystring: couponsByPromotionQuerySchema, response: { 200: couponsByPromotionSchema } },
+      async (request) => {
+        const storeId = scopedStoreId(staffOf(request), request.query.storeId);
+        return { data: await queries.couponsByPromotion({ ...request.query, storeId }) };
       },
     );
 

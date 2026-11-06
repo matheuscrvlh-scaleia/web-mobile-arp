@@ -4,25 +4,16 @@ import { Controller, useForm } from "react-hook-form";
 import type { z } from "zod";
 import { applyApiErrors, errorMessage } from "@/shared/api";
 import { saveInput } from "@/shared/lib/forms";
-import {
-  Button,
-  Field,
-  FieldRow,
-  IconPicker,
-  Input,
-  Modal,
-  Switch,
-  Textarea,
-  toast,
-} from "@/shared/ui";
+import { Button, Field, IconPicker, Input, Modal, Switch, Textarea, toast } from "@/shared/ui";
 import { useSaveRecyclingItem } from "../api";
+import { confirmDiscard } from "./ArtPointFormModal";
 
 type Input_ = z.input<typeof createRecyclingItemBodySchema>;
 type Values = z.output<typeof createRecyclingItemBodySchema>;
 
-const FIELDS = ["name", "icon", "accepts", "rejects", "becomes", "sortOrder"] as const;
+const FIELDS = ["name", "icon", "accepts", "rejects", "becomes"] as const;
 
-function toValues(i?: RecyclingItem): Input_ {
+function toValues(i: RecyclingItem | undefined, nextOrder: number): Input_ {
   return {
     name: i?.name ?? "",
     icon: i?.icon ?? "recycle",
@@ -30,7 +21,8 @@ function toValues(i?: RecyclingItem): Input_ {
     rejects: i?.rejects ?? "",
     becomes: i?.becomes ?? "",
     givesSeal: i?.givesSeal ?? false,
-    sortOrder: i?.sortOrder ?? 0,
+    // Novo item entra no fim da lista; a ordem muda arrastando na lista.
+    sortOrder: i?.sortOrder ?? nextOrder,
     active: i?.active ?? true,
   };
 }
@@ -39,22 +31,28 @@ function toValues(i?: RecyclingItem): Input_ {
 export function RecyclingItemFormModal({
   open,
   item,
+  nextOrder,
   onClose,
 }: {
   open: boolean;
   item?: RecyclingItem;
+  /** Posição de um item novo (fim da lista). */
+  nextOrder: number;
   onClose: () => void;
 }) {
   const save = useSaveRecyclingItem();
   const form = useForm<Input_, unknown, Values>({
     resolver: zodResolver(createRecyclingItemBodySchema),
-    values: toValues(item),
+    values: toValues(item, nextOrder),
   });
-  const { errors } = form.formState;
+  const { errors, isDirty } = form.formState;
   const close = () => {
     form.reset();
     save.reset();
     onClose();
+  };
+  const requestClose = async () => {
+    if (await confirmDiscard(isDirty, item ? "as alterações" : "o novo item")) close();
   };
   const onSubmit = form.handleSubmit((values) =>
     save.mutate(saveInput(item?.id, values, form.formState.dirtyFields), {
@@ -71,14 +69,14 @@ export function RecyclingItemFormModal({
   return (
     <Modal
       open={open}
-      onClose={close}
+      onClose={() => void requestClose()}
       busy={save.isPending}
       title={item ? `Editar ${item.name}` : "Novo item do Sustentarp"}
       description="O que o visitante pode descartar no Sustentarp."
       footer={
         <>
-          <Button variant="secondary" onClick={close} disabled={save.isPending}>
-            Cancelar
+          <Button variant="secondary" onClick={() => void requestClose()} disabled={save.isPending}>
+            Voltar
           </Button>
           <Button type="submit" form="form-sustentarp" loading={save.isPending}>
             {item ? "Salvar" : "Criar item"}
@@ -90,23 +88,13 @@ export function RecyclingItemFormModal({
         <Field label="Nome" required error={errors.name?.message}>
           <Input autoFocus placeholder="Cápsulas de café" {...form.register("name")} />
         </Field>
-        <FieldRow>
-          <Field label="Ícone" required error={errors.icon?.message}>
-            <Controller
-              control={form.control}
-              name="icon"
-              render={({ field }) => <IconPicker value={field.value} onChange={field.onChange} />}
-            />
-          </Field>
-          <Field label="Ordem" hint="Menor aparece primeiro" error={errors.sortOrder?.message}>
-            <Input
-              type="number"
-              min={0}
-              max={999}
-              {...form.register("sortOrder", { valueAsNumber: true })}
-            />
-          </Field>
-        </FieldRow>
+        <Field label="Ícone" required error={errors.icon?.message}>
+          <Controller
+            control={form.control}
+            name="icon"
+            render={({ field }) => <IconPicker value={field.value} onChange={field.onChange} />}
+          />
+        </Field>
         <Field label="Aceita" optional error={errors.accepts?.message}>
           <Textarea rows={2} maxLength={600} {...form.register("accepts")} />
         </Field>

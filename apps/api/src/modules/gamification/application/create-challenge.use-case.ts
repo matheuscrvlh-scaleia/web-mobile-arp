@@ -19,7 +19,10 @@ export type CreateChallengeInput = Omit<
   | "couponId"
   | "availableFrom"
   | "availableUntil"
+  | "sortOrder"
 > & {
+  /** Sem ordem: entra no fim da campanha. */
+  sortOrder?: number;
   availableFrom?: Date | null;
   availableUntil?: Date | null;
   autoTrigger?: NewChallenge["autoTrigger"];
@@ -34,16 +37,17 @@ export class CreateChallengeUseCase {
 
   async execute(input: CreateChallengeInput, actor: StaffActor): Promise<string> {
     const { campaigns, challenges, audit, uow } = this.deps;
-    const data: NewChallenge = normalizeChallengeTrigger({
-      ...input,
-      autoTrigger: input.autoTrigger ?? null,
-      couponId: input.couponId ?? null,
-      storeId: input.storeId ?? null,
-      product: input.product ?? null,
-      eventId: input.eventId ?? null,
-      availableFrom: input.availableFrom ?? null,
-      availableUntil: input.availableUntil ?? null,
-    });
+    const data: Omit<NewChallenge, "sortOrder"> & { sortOrder?: number } =
+      normalizeChallengeTrigger({
+        ...input,
+        autoTrigger: input.autoTrigger ?? null,
+        couponId: input.couponId ?? null,
+        storeId: input.storeId ?? null,
+        product: input.product ?? null,
+        eventId: input.eventId ?? null,
+        availableFrom: input.availableFrom ?? null,
+        availableUntil: input.availableUntil ?? null,
+      });
     assertAvailability(data);
     return uow.run(async () => {
       if (!(await campaigns.findById(data.campaignId))) {
@@ -52,7 +56,10 @@ export class CreateChallengeUseCase {
       // Gatilho de cupom: o desafio é da loja do cupom.
       data.storeId = (await couponStoreOf(this.deps, data.couponId)) ?? data.storeId;
       await assertChallengeReferences(this.deps, data);
-      const challenge = await challenges.create(data);
+      const challenge = await challenges.create({
+        ...data,
+        sortOrder: data.sortOrder ?? (await challenges.nextSortOrder(data.campaignId)),
+      });
       await audit.log({
         actor,
         action: "challenge.create",

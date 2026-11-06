@@ -104,7 +104,36 @@ export class UpdateJobUseCase {
   }
 }
 
-/** Tira a vaga do ar antes do prazo (apaga). */
+/**
+ * Encerra a vaga agora: sai do app e vai para "Encerradas", de onde pode ser
+ * republicada (PATCH { days }). Já encerrada: nada a fazer.
+ */
+export class CloseJobUseCase {
+  constructor(private readonly deps: JobDeps) {}
+
+  async execute(input: { id: string }, actor: StaffActor): Promise<void> {
+    const { jobs, clock, audit, uow } = this.deps;
+    await uow.run(async () => {
+      const job = await jobs.findById(input.id);
+      if (!job) throw new NotFoundError(JOB_NOT_FOUND);
+      const before = job.toState();
+      assertStoreAccess(actor, before.storeId);
+      const now = clock.now();
+      if (before.expiresAt <= now) return;
+      job.update({ expiresAt: now });
+      await jobs.save(job);
+      await audit.log({
+        actor,
+        action: "job.close",
+        entityType: "job",
+        entityId: job.id,
+        changes: diff(before, job.toState()),
+      });
+    });
+  }
+}
+
+/** Exclui a vaga de vez (o comum é Encerrar, que guarda a vaga em "Encerradas"). */
 export class RemoveJobUseCase {
   constructor(private readonly deps: JobDeps) {}
 

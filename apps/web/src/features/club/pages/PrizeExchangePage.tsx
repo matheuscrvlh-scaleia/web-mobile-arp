@@ -15,12 +15,13 @@ import {
   UserSearch,
 } from "lucide-react";
 import { useState } from "react";
+import { useSearchParams } from "react-router";
 import { Banner } from "@/features/claims/components/RedeemFeedback";
 import { errorMessage } from "@/shared/api";
 import { PATHS } from "@/shared/config/paths";
 import { useDebouncedValue } from "@/shared/hooks";
 import { cn } from "@/shared/lib/cn";
-import { formatNumber } from "@/shared/lib/format";
+import { formatNumber, plural } from "@/shared/lib/format";
 import {
   Avatar,
   Button,
@@ -42,39 +43,49 @@ import { useCancelRedemption, useCounterRedeem, usePrizes, useRedemptionVisitors
  * Tela de balcão do Clube ARP, o único lugar onde se troca pontos (o app só
  * mostra a lojinha): acha o visitante, mostra o saldo, escolhe o prêmio que
  * tem no estoque e troca. O prêmio sai entregue na hora. Errou? Desfaz.
+ * Com `?visitante=<id>` (vindo do detalhe do visitante) já abre com a pessoa.
  */
 export function PrizeExchangePage() {
-  const [visitor, setVisitor] = useState<RedemptionVisitor | null>(null);
+  const [params, setParams] = useSearchParams();
+  const presetId = params.get("visitante") ?? "";
+  const preset = useRedemptionVisitors(presetId);
+  const [picked, setPicked] = useState<RedemptionVisitor | null>(null);
+  const visitor = picked ?? preset.data?.find((v) => v.id === presetId) ?? null;
   const [prizeId, setPrizeId] = useState<string | null>(null);
   const [done, setDone] = useState<CounterRedeemResult | null>(null);
   const redeem = useCounterRedeem();
   const undo = useCancelRedemption();
 
-  const reset = () => {
-    setVisitor(null);
+  const pickVisitor = (v: RedemptionVisitor | null) => {
+    setPicked(v);
     setPrizeId(null);
     setDone(null);
     redeem.reset();
     undo.reset();
+    if (presetId) {
+      setParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete("visitante");
+          return next;
+        },
+        { replace: true },
+      );
+    }
   };
 
   const undoLast = () => {
     if (!done || !visitor) return;
     undo.mutate(done.id, {
       onSuccess: () => {
-        toast.success("Troca desfeita. Pontos e estoque voltaram.");
-        setVisitor({ ...visitor, points: visitor.points + done.points });
+        toast.success(
+          `Troca desfeita: ${plural(done.points, "ponto voltou", "pontos voltaram")} para ${done.visitor.name} e ${done.prize.name} voltou ao estoque. Recolha o prêmio.`,
+        );
+        setPicked({ ...visitor, points: visitor.points + done.points });
         setDone(null);
       },
       onError: (e) => toast.error(errorMessage(e)),
     });
-  };
-
-  const pickVisitor = (v: RedemptionVisitor | null) => {
-    setVisitor(v);
-    setPrizeId(null);
-    setDone(null);
-    redeem.reset();
   };
 
   const pickPrize = (id: string) => {
@@ -90,7 +101,7 @@ export function PrizeExchangePage() {
       {
         onSuccess: (result) => {
           setDone(result);
-          setVisitor({ ...visitor, points: result.totalPoints });
+          setPicked({ ...visitor, points: result.totalPoints });
           setPrizeId(null);
         },
       },
@@ -104,7 +115,7 @@ export function PrizeExchangePage() {
         description="Ache o visitante, confira o saldo e escolha um prêmio que tem no estoque. O prêmio sai entregue na hora."
         actions={
           <ButtonLink to={PATHS.club("trocas")} icon={PackageCheck} variant="secondary">
-            Trocas
+            Ver trocas
           </ButtonLink>
         }
       />
@@ -117,9 +128,9 @@ export function PrizeExchangePage() {
             action={
               <span className="flex flex-wrap gap-2">
                 <Button variant="ghost" icon={Undo2} loading={undo.isPending} onClick={undoLast}>
-                  Desfazer
+                  Desfazer troca
                 </Button>
-                <Button variant="secondary" icon={RotateCcw} onClick={reset}>
+                <Button variant="secondary" icon={RotateCcw} onClick={() => pickVisitor(null)}>
                   Próximo visitante
                 </Button>
               </span>
@@ -140,7 +151,13 @@ export function PrizeExchangePage() {
           </Banner>
         )}
 
-        <VisitorStep visitor={visitor} onPick={pickVisitor} />
+        {!visitor && presetId && preset.isLoading ? (
+          <LoadingRegion label="Abrindo o visitante…">
+            <Skeleton className="h-32 rounded-2xl" />
+          </LoadingRegion>
+        ) : (
+          <VisitorStep visitor={visitor} onPick={pickVisitor} />
+        )}
         {visitor && !visitor.blocked && (
           <PrizeStep balance={visitor.points} selected={prizeId} onPick={pickPrize} />
         )}
@@ -190,7 +207,7 @@ function VisitorStep({
             </p>
           </div>
           <Button variant="secondary" icon={UserSearch} onClick={() => onPick(null)}>
-            Trocar visitante
+            Escolher outro visitante
           </Button>
         </div>
         {visitor.blocked && (
@@ -388,7 +405,7 @@ function ConfirmStep({
           icon={ArrowRightLeft}
           loading={loading}
           onClick={onConfirm}
-          className="h-16 flex-1 text-base"
+          className="h-16 w-full shrink-0 text-base sm:w-auto sm:flex-1"
         >
           Trocar e entregar
         </Button>
@@ -399,7 +416,7 @@ function ConfirmStep({
           disabled={loading}
           className="h-16"
         >
-          Cancelar
+          Escolher outro prêmio
         </Button>
       </div>
     </Card>

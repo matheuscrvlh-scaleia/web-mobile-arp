@@ -4,7 +4,13 @@ import { Button, FilterBar, Input, SearchInput, Select } from "@/shared/ui";
 import { useEventCategories } from "../api";
 import { EVENT_STATUS_LABEL, RECURRENCE_LABEL } from "./EventBadges";
 
-type Filters = Pick<ListEventsQuery, "categoryId" | "status" | "recurrence" | "from" | "to">;
+type Filters = Pick<
+  ListEventsQuery,
+  "categoryId" | "status" | "recurrence" | "from" | "to" | "archived"
+>;
+
+/** Valor do filtro "Arquivados" no select de situação (não é um status). */
+const ARCHIVED = "arquivados";
 
 /** Busca e filtros da lista de eventos (o estado mora na URL). */
 export function EventFilters({
@@ -22,7 +28,12 @@ export function EventFilters({
   const active =
     Boolean(search) ||
     Boolean(
-      filters.categoryId || filters.status || filters.recurrence || filters.from || filters.to,
+      filters.categoryId ||
+        filters.status ||
+        filters.recurrence ||
+        filters.from ||
+        filters.to ||
+        filters.archived,
     );
   return (
     <div className="mb-5 flex flex-col gap-3">
@@ -50,8 +61,15 @@ export function EventFilters({
         <Select
           aria-label="Situação"
           placeholder="Todas as situações"
-          value={filters.status ?? ""}
-          onChange={(e) => onChange({ status: e.target.value || undefined })}
+          value={filters.archived ? ARCHIVED : (filters.status ?? "")}
+          onChange={(e) => {
+            const v = e.target.value;
+            onChange(
+              v === ARCHIVED
+                ? { status: undefined, archived: "true" }
+                : { status: v || undefined, archived: undefined },
+            );
+          }}
           className="w-full sm:w-44"
         >
           {eventStatusSchema.options.map((s) => (
@@ -59,6 +77,7 @@ export function EventFilters({
               {EVENT_STATUS_LABEL[s]}
             </option>
           ))}
+          <option value={ARCHIVED}>Arquivados</option>
         </Select>
         <Select
           aria-label="Recorrência"
@@ -105,6 +124,7 @@ export function EventFilters({
                 recurrence: undefined,
                 from: undefined,
                 to: undefined,
+                archived: undefined,
               });
             }}
           >

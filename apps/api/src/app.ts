@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { API_PREFIX } from "@arp/contracts";
+import { API_PREFIX, configureZodMessages } from "@arp/contracts";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
@@ -14,7 +14,6 @@ import {
   validatorCompiler,
   type ZodTypeProvider,
 } from "fastify-type-provider-zod";
-import { z } from "zod";
 import type { Env } from "./config/env";
 import type { Container } from "./container";
 import { authPlugin } from "./shared/infra/http/auth";
@@ -85,8 +84,9 @@ function trustHops(hops: number) {
   return (_address: string, hop: number) => hop < hops;
 }
 
-// Mensagens padrão do Zod (as que o contrato não personaliza) em português.
-z.config(z.locales.ptBR());
+// Mensagens padrão do Zod (as que o contrato não personaliza) em português
+// de gente, as mesmas do painel ("Obrigatório", "Escolha uma opção"…).
+configureZodMessages();
 
 const REQUEST_ID = /^[A-Za-z0-9._-]{8,64}$/;
 

@@ -1,6 +1,7 @@
 import { listEventsQuerySchema } from "@arp/contracts";
 import { CalendarDays, Plus, SearchX } from "lucide-react";
 import { useCallback } from "react";
+import { useAuth } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
 import { useSearchText, useUrlState } from "@/shared/hooks";
 import {
@@ -19,12 +20,20 @@ import { EventRow } from "./EventRow";
 
 /** Aba "Lista": eventos paginados com busca e filtros na URL. */
 export function EventsListTab() {
+  const { can } = useAuth();
+  const canManage = can("events.manage");
   const [query, setQuery] = useUrlState(listEventsQuerySchema);
   const commit = useCallback((q: string) => setQuery({ q }, { replace: true }), [setQuery]);
   const [search, setSearch] = useSearchText(query.q, commit);
   const events = useEvents(query);
   const filtered = Boolean(
-    query.q || query.categoryId || query.status || query.recurrence || query.from || query.to,
+    query.q ||
+      query.categoryId ||
+      query.status ||
+      query.recurrence ||
+      query.from ||
+      query.to ||
+      query.archived,
   );
 
   return (
@@ -70,7 +79,7 @@ export function EventsListTab() {
             >
               {events.data.data.map((e) => (
                 <li key={e.id} className="py-1">
-                  <EventRow event={e} />
+                  <EventRow event={e} canManage={canManage} />
                 </li>
               ))}
             </ul>

@@ -1,3 +1,4 @@
+import { withImpliedPermissions } from "@arp/contracts";
 import type { StaffActor } from "../../../shared/application/actor";
 import { snapshot } from "../../../shared/application/audit-changes";
 import type { NewRole } from "../domain/role";
@@ -13,7 +14,7 @@ export class CreateRoleUseCase {
     const data: NewRole = {
       name: input.name,
       description: input.description ?? null,
-      permissions: [...new Set(input.permissions)],
+      permissions: withImpliedPermissions(input.permissions),
     };
     return this.deps.uow.run(async () => {
       const role = await this.deps.roles.create(data);

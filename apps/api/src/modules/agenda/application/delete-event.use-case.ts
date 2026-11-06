@@ -3,7 +3,7 @@ import { snapshot } from "../../../shared/application/audit-changes";
 import { NotFoundError } from "../../../shared/domain/errors";
 import { EVENT_NOT_FOUND, type EventUseCaseDeps } from "./agenda-deps";
 
-/** Apaga rascunho. Publicado se cancela (PATCH status = cancelled). */
+/** Exclui evento sem interessados (qualquer situação). Com interessados: arquivar. */
 export class DeleteEventUseCase {
   constructor(private readonly deps: EventUseCaseDeps) {}
 
@@ -11,7 +11,7 @@ export class DeleteEventUseCase {
     const imageUrl = await this.deps.uow.run(async () => {
       const event = await this.deps.events.findById(input.id);
       if (!event) throw new NotFoundError(EVENT_NOT_FOUND);
-      event.assertDeletable();
+      event.assertDeletable(await this.deps.events.countInterests(event.id));
       await this.deps.events.delete(event.id);
       await this.deps.audit.log({
         actor,

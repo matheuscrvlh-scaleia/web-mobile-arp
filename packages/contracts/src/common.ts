@@ -130,6 +130,9 @@ export const ERROR_CODES = [
   "UNAUTHENTICATED",
   "INVALID_CREDENTIALS",
   "TOKEN_EXPIRED",
+  "ACCOUNT_DISABLED",
+  /** Lojista acertou a senha, mas o cadastro ainda espera a aprovação da ARP. 401. */
+  "SIGNUP_PENDING",
   "FORBIDDEN",
   "NOT_FOUND",
   "CONFLICT",

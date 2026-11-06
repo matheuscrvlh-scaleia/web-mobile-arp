@@ -1,3 +1,4 @@
+import { parseDeepLink } from "@arp/contracts";
 import type { ImageCleanup } from "../../../shared/application/image-variants";
 import type { AuditLogger } from "../../../shared/application/ports/audit-logger";
 import type { Clock } from "../../../shared/application/ports/clock";
@@ -73,13 +74,46 @@ export async function assertNotificationStore(
   }
 }
 
+/** Evento do público "interessados no evento". */
+export async function assertNotificationEvent(
+  references: MarketingReferences,
+  eventId: string | null,
+): Promise<void> {
+  if (eventId && !(await references.targetExists("event", eventId))) {
+    throw ValidationError.field("eventId", "Evento não encontrado");
+  }
+}
+
+const LINK_NOT_FOUND = {
+  event: "Este evento não existe mais: escolha outro destino",
+  coupon: "Este cupom não existe mais: escolha outro destino",
+  store: "Esta loja não existe mais: escolha outro destino",
+} as const;
+
+/** O toque leva a uma tela que o app abre (e o evento, cupom ou loja existe). */
+export async function assertDeepLink(
+  references: MarketingReferences,
+  deepLink: string | null,
+): Promise<void> {
+  const target = parseDeepLink(deepLink);
+  if (!target) {
+    throw ValidationError.field("deepLink", "Escolha o destino de novo: este link o app não abre");
+  }
+  if (target.kind !== "event" && target.kind !== "coupon" && target.kind !== "store") return;
+  const exists =
+    target.kind === "store"
+      ? await references.storeLinkExists(target.id)
+      : await references.targetExists(target.kind, target.id);
+  if (!exists) throw ValidationError.field("deepLink", LINK_NOT_FOUND[target.kind]);
+}
+
 /** Mensagens de push de uma notificação para os aparelhos do público (uma por token). */
 export async function buildMessages(
   audience: AudienceDirectory,
   notification: PushNotification,
 ): Promise<{ recipients: number; messages: PushMessage[] }> {
-  const { title, body, audience: target, storeId, deepLink } = notification.content;
-  const list = await audience.recipients(target, storeId);
+  const { title, body, deepLink } = notification.content;
+  const list = await audience.recipients(notification.content);
   const data: Record<string, string> = { notificationId: notification.id };
   if (deepLink) data.url = deepLink;
   return {

@@ -5,10 +5,11 @@ import { PATHS } from "@/shared/config/paths";
 import { cn } from "@/shared/lib/cn";
 import { thumbnailProps } from "@/shared/lib/images";
 import { IconTile } from "@/shared/ui";
-import { CouponsBadge, OpenNowBadge, StoreStatusBadge } from "./StoreBadges";
+import { CompletenessBadge, CouponsBadge, OpenNowBadge, StoreStatusBadge } from "./StoreBadges";
 
 /**
- * Capa da loja: foto, ou um degradê na cor da marca com o ícone grande.
+ * Capa da loja: foto, ou um degradê na cor da marca com o ícone no canto
+ * (no meio ele cobria o nome da loja no topo da página).
  * `sizes` (largura exibida) usa as miniaturas; sem ele, a original.
  */
 export function StoreCover({
@@ -41,9 +42,9 @@ export function StoreCover({
     >
       <IconTile
         icon={store.icon}
-        color="rgb(255 255 255 / 0.16)"
+        color="rgb(255 255 255 / 0.14)"
         size="lg"
-        className="absolute top-1/2 left-1/2 size-20 -translate-1/2 rounded-[1.75rem] backdrop-blur [&>svg]:size-9"
+        className="absolute top-4 right-4 size-14 rounded-[1.25rem] opacity-80 backdrop-blur [&>svg]:size-7"
       />
     </div>
   );
@@ -85,11 +86,12 @@ export function StoreCard({ store }: { store: StoreSummary }) {
         </p>
         <div className="mt-auto flex flex-wrap gap-1.5 pt-1">
           {store.status === "active" ? (
-            <OpenNowBadge open={store.isOpenNow} />
+            <OpenNowBadge open={store.isOpenNow} hasHours={store.hasHours} />
           ) : (
             <StoreStatusBadge status={store.status} />
           )}
           <CouponsBadge count={store.activeCouponsCount} />
+          <CompletenessBadge missing={store.missing} />
         </div>
       </div>
     </Link>

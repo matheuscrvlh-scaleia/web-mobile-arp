@@ -46,7 +46,7 @@ export const contentPageListSchema = listOf(contentPageSchema);
 export const contentPageKeyParamsSchema = z.object({ key: contentPageKeySchema });
 
 export const updateContentPageBodySchema = z.object({
-  title: z.string().trim().min(1).max(120).optional(),
+  title: z.string().trim().min(1, "Escreva o título").max(120, "Use até 120 letras").optional(),
   body: z.string().trim().max(20_000).optional(),
   fileUrl: mediaUrlSchema.nullable().optional(),
 });
@@ -86,7 +86,7 @@ const percent = z.number().min(0).max(100);
 
 export const createArtPointBodySchema = z.object({
   number: z.number().int().min(1).max(999),
-  name: z.string().trim().min(1).max(120),
+  name: z.string().trim().min(1, "Dê um nome ao ponto").max(120, "Use até 120 letras"),
   artist: z.string().trim().max(120).default(""),
   place: z.string().trim().max(160).default(""),
   kind: artPointKindSchema,
@@ -121,7 +121,7 @@ export type RecyclingItem = z.infer<typeof recyclingItemSchema>;
 export const recyclingItemListSchema = listOf(recyclingItemSchema);
 
 export const createRecyclingItemBodySchema = z.object({
-  name: z.string().trim().min(1).max(80),
+  name: z.string().trim().min(1, "Dê um nome ao item").max(80, "Use até 80 letras"),
   icon: iconNameSchema,
   accepts: z.string().trim().max(600).default(""),
   rejects: z.string().trim().max(600).default(""),
@@ -133,6 +133,10 @@ export const createRecyclingItemBodySchema = z.object({
 export type CreateRecyclingItemBody = z.infer<typeof createRecyclingItemBodySchema>;
 export const updateRecyclingItemBodySchema = z.object(patchOf(createRecyclingItemBodySchema.shape));
 export type UpdateRecyclingItemBody = z.infer<typeof updateRecyclingItemBodySchema>;
+
+/** Nova ordem do Sustentarp (arrastar): todos os ids, na ordem desejada. */
+export const reorderRecyclingItemsBodySchema = z.object({ ids: z.array(idSchema).min(1).max(500) });
+export type ReorderRecyclingItemsBody = z.infer<typeof reorderRecyclingItemsBodySchema>;
 
 /* Vagas ------------------------------------------------------------------- */
 
@@ -177,14 +181,25 @@ export const jobDaysSchema = z
   .min(1, "Mínimo 1 dia")
   .max(90, "Máximo 90 dias");
 
+/**
+ * WhatsApp como a pessoa digita ("(22) 99999-0000", "+55 22 9…"): fica só
+ * com os dígitos e põe o 55 do Brasil quando vem só com o DDD.
+ */
+export function normalizeWhatsapp(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  return digits.length === 10 || digits.length === 11 ? `55${digits}` : digits;
+}
+
 const jobFields = {
-  title: z.string().trim().min(1).max(120),
+  title: z.string().trim().min(1, "Escreva o cargo").max(120),
   text: z.string().trim().max(1500).default(""),
   imageUrl: mediaUrlSchema.nullable().default(null),
   whatsapp: z
     .string()
     .trim()
-    .regex(/^\d{10,13}$/, "Só números, com DDD"),
+    .min(1, "Informe o WhatsApp para os candidatos")
+    .transform(normalizeWhatsapp)
+    .pipe(z.string().regex(/^\d{12,13}$/, "WhatsApp com DDD, ex.: (22) 99999-0000")),
 };
 const NEEDS_TEXT_OR_IMAGE = {
   message: "Escreva o texto da vaga ou envie uma imagem",
@@ -192,7 +207,11 @@ const NEEDS_TEXT_OR_IMAGE = {
 };
 
 export const createJobBodySchema = z
-  .object({ storeId: idSchema, ...jobFields, days: jobDaysSchema.default(JOB_DEFAULT_DAYS) })
+  .object({
+    storeId: z.uuid({ error: "Escolha a loja" }),
+    ...jobFields,
+    days: jobDaysSchema.default(JOB_DEFAULT_DAYS),
+  })
   .refine((b) => b.text.length > 0 || b.imageUrl !== null, NEEDS_TEXT_OR_IMAGE);
 export type CreateJobBody = z.infer<typeof createJobBodySchema>;
 

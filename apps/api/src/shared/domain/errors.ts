@@ -8,6 +8,8 @@ export type DomainErrorCode =
   | "UNAUTHENTICATED"
   | "INVALID_CREDENTIALS"
   | "TOKEN_EXPIRED"
+  | "ACCOUNT_DISABLED"
+  | "SIGNUP_PENDING"
   | "FORBIDDEN"
   | "NOT_FOUND"
   | "CONFLICT"
@@ -65,7 +67,12 @@ export class UnauthenticatedError extends DomainError {
   override readonly name = "UnauthenticatedError";
   constructor(
     message = "Faça login para continuar",
-    code: "UNAUTHENTICATED" | "INVALID_CREDENTIALS" | "TOKEN_EXPIRED" = "UNAUTHENTICATED",
+    code:
+      | "UNAUTHENTICATED"
+      | "INVALID_CREDENTIALS"
+      | "TOKEN_EXPIRED"
+      | "ACCOUNT_DISABLED"
+      | "SIGNUP_PENDING" = "UNAUTHENTICATED",
   ) {
     super(code, message, 401);
   }

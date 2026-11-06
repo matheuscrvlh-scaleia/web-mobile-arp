@@ -15,12 +15,26 @@ export const authApi = {
   changePassword: (body: ChangePasswordBody) => apiCall(ROUTES.auth.changePassword, { body }),
 };
 
+/*
+ * Senha provisória que a pessoa acabou de digitar no login (só em memória,
+ * nesta aba): a tela de criar a senha não pede de novo. Recarregou, sumiu,
+ * e o campo volta.
+ */
+let provisional: string | null = null;
+export const provisionalPassword = () => provisional;
+export const forgetProvisionalPassword = () => {
+  provisional = null;
+};
+
 /** Entrar: guarda a sessão (token em memória, refresh no cookie). */
 export function useLogin() {
   const { signIn } = useAuth();
   return useMutation({
     mutationFn: authApi.login,
-    onSuccess: (session) => signIn(session),
+    onSuccess: (session, body) => {
+      provisional = session.user.mustChangePassword ? body.password : null;
+      signIn(session);
+    },
   });
 }
 
@@ -32,6 +46,9 @@ export function useChangePassword() {
       await authApi.changePassword(body);
       return authApi.me();
     },
-    onSuccess: (user) => setUser(user),
+    onSuccess: (user) => {
+      forgetProvisionalPassword();
+      setUser(user);
+    },
   });
 }

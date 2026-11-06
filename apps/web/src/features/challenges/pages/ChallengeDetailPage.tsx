@@ -1,35 +1,51 @@
-import { Target, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { FileText, Pause, Play, QrCode, Target } from "lucide-react";
 import { useNavigate, useParams } from "react-router";
+import { useCampaign } from "@/features/campaigns";
 import { SealBadge } from "@/features/seals";
 import { applyApiErrors, errorMessage } from "@/shared/api";
 import { useAuth } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
+import { useSearchParamOption } from "@/shared/hooks";
+import { plural } from "@/shared/lib/format";
 import { pickDirty } from "@/shared/lib/forms";
 import {
+  ActionMenu,
   Button,
-  Can,
-  ConfirmDialog,
   DemoMark,
   LoadError,
   LoadingRegion,
   PageHeader,
   Skeleton,
+  type TabItem,
+  TabPanel,
+  Tabs,
   toast,
 } from "@/shared/ui";
-import { useChallenge, useDeleteChallenge, useUpdateChallenge } from "../api";
+import { useChallenge, useUpdateChallenge } from "../api";
 import { ChallengeInactiveBadge, ValidationPill } from "../components/ChallengeBadges";
 import { CHALLENGE_FORM_FIELDS, ChallengeForm } from "../components/ChallengeForm";
 import { QrCodesSection } from "../components/QrCodesSection";
+import { useChallengeActions } from "../lib/useChallengeActions";
 
+type Tab = "qr" | "dados";
+const TABS: readonly Tab[] = ["qr", "dados"];
+
+/**
+ * Detalhe do desafio. Cabeçalho: Pausar/Retomar (na hora, com Desfazer) e
+ * "⋯" com Duplicar e Excluir. Corpo em abas: QR Codes (o que mais se faz
+ * depois de criar) e Dados (o formulário, sem status nem ordem).
+ */
 export function ChallengeDetailPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const { can } = useAuth();
+  const manage = can("challenges.manage");
   const challenge = useChallenge(id);
+  const campaign = useCampaign(challenge.data?.campaign.id);
   const update = useUpdateChallenge(id);
-  const remove = useDeleteChallenge();
-  const [confirming, setConfirming] = useState(false);
+  const actions = useChallengeActions(campaign.data);
+  const isQr = challenge.data?.validation !== "auto";
+  const [tab, setTab] = useSearchParamOption("aba", TABS, isQr ? "qr" : "dados");
 
   if (challenge.error) {
     return (
@@ -38,7 +54,7 @@ export function ChallengeDetailPage() {
         onRetry={() => void challenge.refetch()}
         icon={Target}
         title="Desafio não encontrado"
-        description="Ele pode ter sido apagado ou o endereço está errado."
+        description="Ele pode ter sido excluído ou o endereço está errado."
         back={{ to: PATHS.challenges, label: "Ver desafios" }}
       />
     );
@@ -55,10 +71,15 @@ export function ChallengeDetailPage() {
   }
 
   const c = challenge.data;
-  const closeConfirm = () => {
-    remove.reset();
-    setConfirming(false);
-  };
+  const inactive = c.status === "inactive";
+  const backTo = PATHS.campaign(c.campaign.id, "desafios");
+  const tabItems: TabItem<Tab>[] = [
+    ...(isQr
+      ? [{ value: "qr" as const, label: "QR Codes", icon: QrCode, count: c.qrCodesCount }]
+      : []),
+    { value: "dados", label: "Dados do desafio", icon: FileText },
+  ];
+  const current: Tab = isQr ? tab : "dados";
 
   return (
     <>
@@ -68,7 +89,7 @@ export function ChallengeDetailPage() {
             {c.title} <DemoMark show={c.isDemo} />
           </>
         }
-        back={{ to: PATHS.challengesOf(c.campaign.id), label: `Desafios · ${c.campaign.name}` }}
+        back={{ to: backTo, label: c.campaign.name }}
         description={
           <span className="flex flex-wrap items-center gap-2">
             <SealBadge seal={c.seal} size={28} />
@@ -80,41 +101,50 @@ export function ChallengeDetailPage() {
                 {c.coupon.storeName})
               </span>
             )}
-            {c.status === "inactive" && <ChallengeInactiveBadge />}
-            <span>
-              · {c.completionsCount} {c.completionsCount === 1 ? "selo dado" : "selos dados"}
-            </span>
+            {inactive && <ChallengeInactiveBadge />}
+            <span>· {plural(c.completionsCount, "selo dado", "selos dados")}</span>
+            {inactive && c.completionsCount > 0 && (
+              <span className="text-neutral-500">· fica guardado no histórico de quem ganhou</span>
+            )}
           </span>
         }
         actions={
-          <Can permission="challenges.manage">
-            {/* Travas para apagar (a API confere as mesmas). */}
-            {c.completionsCount > 0 ? (
-              <span className="max-w-56 text-right text-xs text-neutral-500">
-                Já deu selos: não dá para apagar. Para tirar do app, desative.
-              </span>
-            ) : c.status === "active" ? (
-              <span className="max-w-56 text-right text-xs text-neutral-500">
-                Para apagar, desative o desafio primeiro (em Exibição, abaixo).
-              </span>
-            ) : (
-              <Button variant="ghost" icon={Trash2} onClick={() => setConfirming(true)}>
-                Apagar
+          manage && (
+            <>
+              <Button
+                variant={inactive ? "primary" : "secondary"}
+                icon={inactive ? Play : Pause}
+                loading={actions.pendingId === c.id}
+                onClick={() => (inactive ? actions.resume(c) : actions.pause(c))}
+              >
+                {inactive ? "Retomar desafio" : "Pausar desafio"}
               </Button>
-            )}
-          </Can>
+              <ActionMenu
+                label="Mais"
+                ariaLabel={`Mais ações de ${c.title}`}
+                // Pausar/Retomar já está no botão ao lado.
+                items={actions.menuItems(c, { status: false, onDeleted: () => navigate(backTo) })}
+              />
+            </>
+          )
         }
       />
 
-      <div className="flex flex-col gap-6">
-        <QrCodesSection challenge={c} />
-        <section aria-labelledby="dados-desafio">
-          <h2 id="dados-desafio" className="mb-3 text-lg font-semibold tracking-tight">
-            Dados do desafio
-          </h2>
+      <Tabs
+        idBase="desafio"
+        label="Seções do desafio"
+        items={tabItems}
+        value={current}
+        onChange={setTab}
+        className="mb-5"
+      />
+      <TabPanel idBase="desafio" value={current}>
+        {current === "qr" ? (
+          <QrCodesSection challenge={c} campaign={campaign.data} />
+        ) : (
           <ChallengeForm
             challenge={c}
-            readOnly={!can("challenges.manage")}
+            readOnly={!manage}
             submitLabel="Salvar desafio"
             saving={update.isPending}
             onSubmit={(values, { form }) => {
@@ -135,37 +165,8 @@ export function ChallengeDetailPage() {
               });
             }}
           />
-        </section>
-      </div>
-
-      <ConfirmDialog
-        open={confirming}
-        onClose={closeConfirm}
-        danger
-        title={`Apagar "${c.title}"?`}
-        description={
-          <>
-            O desafio
-            {c.qrCodesCount > 0
-              ? ` e ${c.qrCodesCount === 1 ? "o QR Code" : `os ${c.qrCodesCount} QR Codes`} dele somem`
-              : " some"}
-            {c.coupon ? ` e o cupom "${c.coupon.title}" deixa de dar selo` : ""}. Não dá para
-            desfazer.
-          </>
-        }
-        confirmText={c.title}
-        confirmLabel="Apagar desafio"
-        loading={remove.isPending}
-        error={remove.error}
-        onConfirm={() =>
-          remove.mutate(c.id, {
-            onSuccess: () => {
-              toast.success("Desafio apagado.");
-              navigate(PATHS.challengesOf(c.campaign.id));
-            },
-          })
-        }
-      />
+        )}
+      </TabPanel>
     </>
   );
 }

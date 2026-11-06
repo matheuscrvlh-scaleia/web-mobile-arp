@@ -1,3 +1,4 @@
+import { isMerchantRoleName } from "@arp/contracts";
 import type { AuditLogger } from "../../../shared/application/ports/audit-logger";
 import type { PasswordHasher } from "../../../shared/application/ports/password-hasher";
 import type { SecureRandom } from "../../../shared/application/ports/secure-random";
@@ -30,6 +31,13 @@ export async function requireRole(roles: RoleRepository, roleId: string): Promis
 export async function requireStore(stores: StoreExistence, storeId: string | null | undefined) {
   if (storeId && !(await stores.exists(storeId))) {
     throw ValidationError.field("storeId", "Loja não encontrada");
+  }
+}
+
+/** Lojista sem loja não enxerga nada: o cargo de lojista exige a loja. */
+export function requireStoreForRole(role: Role, storeId: string | null | undefined) {
+  if (isMerchantRoleName(role.name) && !storeId) {
+    throw ValidationError.field("storeId", "Escolha a loja deste lojista");
   }
 }
 

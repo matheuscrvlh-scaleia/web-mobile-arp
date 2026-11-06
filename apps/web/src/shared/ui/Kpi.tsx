@@ -95,14 +95,17 @@ export function KpiCard({
         {delta && (
           <span
             className={cn(
-              "inline-flex items-center gap-1 font-medium",
+              // flex-wrap: rótulo longo desce inteiro para a linha de baixo (não vira coluna).
+              "flex flex-wrap items-center gap-x-1 gap-y-0.5 font-medium",
               sense === "good" && "text-green-700",
               sense === "bad" && "text-red-700",
             )}
           >
-            <DeltaIcon className="size-3.5" aria-hidden />
-            {delta.text}
-            <span className="font-normal text-neutral-500">{deltaLabel}</span>
+            <span className="inline-flex items-center gap-1 whitespace-nowrap">
+              <DeltaIcon className="size-3.5" aria-hidden />
+              {delta.text}
+            </span>
+            <span className="font-normal whitespace-nowrap text-neutral-500">{deltaLabel}</span>
           </span>
         )}
         {hint && <span>{hint}</span>}

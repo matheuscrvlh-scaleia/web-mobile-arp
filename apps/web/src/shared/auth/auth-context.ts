@@ -4,7 +4,7 @@ import { createContext, useContext } from "react";
 export type AuthStatus = "loading" | "authenticated" | "anonymous";
 
 /** Por que a pessoa está sem sessão (muda o aviso da tela de login). */
-export type SignedOutReason = "expired" | "signed-out" | null;
+export type SignedOutReason = "expired" | "disabled" | "signed-out" | null;
 
 export interface AuthContextValue {
   status: AuthStatus;

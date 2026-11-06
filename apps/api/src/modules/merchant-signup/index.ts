@@ -1,6 +1,8 @@
 import {
+  activeMerchantInviteListSchema,
   createMerchantInviteBodySchema,
   idParamsSchema,
+  listMerchantInvitesQuerySchema,
   listMerchantSignupsQuerySchema,
   merchantInvitationSchema,
   merchantInviteSchema,
@@ -40,8 +42,22 @@ export function createMerchantSignupModule(core: CoreDeps) {
       S.invite,
       { body: createMerchantInviteBodySchema, response: { 201: merchantInviteSchema } },
       async (request, reply) =>
-        reply.status(201).send(await service.invite(request.body.storeId, staffOf(request))),
+        reply
+          .status(201)
+          .send(await service.invite(request.body.storeId, staffOf(request), request.body.replace)),
     );
+    r.route(
+      S.invites,
+      {
+        querystring: listMerchantInvitesQuerySchema,
+        response: { 200: activeMerchantInviteListSchema },
+      },
+      async (request) => ({ data: await service.invites(request.query) }),
+    );
+    r.route(S.cancelInvite, { params: idParamsSchema }, async (request, reply) => {
+      await service.cancelInvite(request.params.id, staffOf(request));
+      return reply.status(204).send();
+    });
     r.route(
       S.invitation,
       { params: merchantInviteTokenParamsSchema, response: { 200: merchantInvitationSchema } },

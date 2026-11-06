@@ -5,7 +5,11 @@ import type { PasswordHasher } from "../../../shared/application/ports/password-
 import type { TokenService } from "../../../shared/application/ports/token-service";
 import type { UnitOfWork } from "../../../shared/application/ports/unit-of-work";
 import { UnauthenticatedError } from "../../../shared/domain/errors";
-import type { StaffProfileReader, UserRepository } from "../domain/repositories";
+import type {
+  PendingSignupReader,
+  StaffProfileReader,
+  UserRepository,
+} from "../domain/repositories";
 import type { SessionService } from "./session-service";
 import { signStaffToken } from "./staff-token-issuer";
 
@@ -32,14 +36,21 @@ export interface LoginDeps {
   audit: AuditLogger;
   clock: Clock;
   uow: UnitOfWork;
+  /** Opcional: explica a espera para quem se cadastrou e ainda não foi aprovado. */
+  pendingSignups?: PendingSignupReader;
 }
 
 export const INVALID_CREDENTIALS_MESSAGE = "E-mail ou senha incorretos";
+export const ACCOUNT_DISABLED_MESSAGE =
+  "Seu acesso foi desativado. Fale com o administrador do painel.";
+export const SIGNUP_PENDING_MESSAGE =
+  "Seu cadastro está aguardando aprovação da ARP. Você recebe um e-mail quando for liberado.";
 
 /**
- * Login do painel. Toda falha (e-mail desconhecido, senha errada, usuário
- * desativado) dá a mesma resposta e custa o mesmo tempo — não revela quem
- * tem conta.
+ * Login do painel. E-mail desconhecido e senha errada dão a mesma resposta
+ * e custam o mesmo tempo — não revela quem tem conta. Usuário desativado
+ * só fica sabendo disso depois de acertar a senha (quem não sabe a senha
+ * não descobre nada).
  */
 export class LoginUseCase {
   private dummyHash: Promise<string> | null = null;
@@ -49,11 +60,20 @@ export class LoginUseCase {
   async execute(input: LoginInput): Promise<StaffSessionResult> {
     const { users, profiles, hasher, sessions, tokens, audit, clock, uow } = this.deps;
     const user = await users.findByEmail(input.email);
-    const hash = user?.passwordHash ?? (await this.getDummyHash());
+    // Sem usuário, mas com cadastro de lojista pendente: confere a senha do cadastro.
+    // Mesmo custo (um verify só) e só diz algo a quem acertou a senha.
+    const pendingHash = user
+      ? null
+      : await this.deps.pendingSignups?.pendingPasswordHash(input.email);
+    const hash = user?.passwordHash ?? pendingHash ?? (await this.getDummyHash());
     const valid = await hasher.verify(hash, input.password);
-    if (!user || !valid || !user.isActive) {
+    if (!user && pendingHash && valid)
+      throw new UnauthenticatedError(SIGNUP_PENDING_MESSAGE, "SIGNUP_PENDING");
+    if (!user || !valid) {
       throw new UnauthenticatedError(INVALID_CREDENTIALS_MESSAGE, "INVALID_CREDENTIALS");
     }
+    if (!user.isActive)
+      throw new UnauthenticatedError(ACCOUNT_DISABLED_MESSAGE, "ACCOUNT_DISABLED");
 
     const refresh = await uow.run(async () => {
       await users.recordLogin(user.id, clock.now());

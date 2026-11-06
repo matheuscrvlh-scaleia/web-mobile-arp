@@ -20,9 +20,15 @@ import type {
   DirectoryReferences,
   StoreRefs,
   StoreRepository,
+  StoreUsage,
 } from "../domain/repositories";
 import { type NewStore, Store, type StoreProps } from "../domain/store";
-import { STORE_HOURS_JSON } from "./fragments";
+import {
+  STORE_HOURS_JSON,
+  STORE_USAGE_COLUMNS,
+  type StoreUsageRow,
+  toStoreUsage,
+} from "./fragments";
 
 /* Cadastros simples ------------------------------------------------------ */
 
@@ -35,6 +41,8 @@ interface TableSpec<P extends { id: string }> {
   errors: ConstraintErrors;
   /** Apagar com algo ainda apontando para o registro. */
   inUseMessage: string;
+  /** Move as lojas do registro para outro (apagar em uso com "mover para…"). */
+  reassignStores?: (db: Database, fromId: string, toId: string) => Promise<number>;
 }
 
 /** Repositório de cadastro dirigido por uma tabela (colunas explícitas, sem select *). */
@@ -91,6 +99,21 @@ export class PgCatalogRepository<P extends { id: string }>
     );
   }
 
+  async reorder(ids: readonly string[]): Promise<number> {
+    const result = await this.db.query(sql`
+      update ${sql.raw(this.spec.table)} t
+      set sort_order = o.position - 1
+      from unnest(${ids}::uuid[]) with ordinality as o(id, position)
+      where t.id = o.id
+    `);
+    return result.rowCount;
+  }
+
+  async reassignStores(fromId: string, toId: string): Promise<number> {
+    if (!this.spec.reassignStores) return 0;
+    return this.spec.reassignStores(this.db, fromId, toId);
+  }
+
   private entries(data: Partial<P>): [string, unknown][] {
     const json = new Set<PropertyKey>(this.spec.jsonColumns ?? []);
     return Object.entries<string>(this.spec.columns)
@@ -105,7 +128,13 @@ export class PgCatalogRepository<P extends { id: string }>
 export const floorRepository = (db: Database) =>
   new PgCatalogRepository<FloorProps>(db, {
     table: "directory.floors",
-    columns: { level: "level", label: "label", shortLabel: "short_label", layout: "layout" },
+    columns: {
+      level: "level",
+      label: "label",
+      shortLabel: "short_label",
+      layout: "layout",
+      backgroundImageUrl: "background_url",
+    },
     jsonColumns: ["layout"],
     errors: { floors_level_key: () => new ConflictError("Já existe um andar com esse nível") },
     inUseMessage: "Este andar tem lojas ou eventos. Mova-os antes de apagar.",
@@ -116,7 +145,13 @@ export const blockRepository = (db: Database) =>
     table: "directory.blocks",
     columns: { name: "name", sortOrder: "sort_order" },
     errors: { blocks_name_key: () => new ConflictError("Já existe um bloco com esse nome") },
-    inUseMessage: "Este bloco tem lojas. Mova-as antes de apagar.",
+    inUseMessage: "Este bloco tem lojas. Escolha para qual bloco elas vão antes de apagar.",
+    reassignStores: async (db, fromId, toId) =>
+      (
+        await db.query(
+          sql`update directory.stores set block_id = ${toId} where block_id = ${fromId}`,
+        )
+      ).rowCount,
   });
 
 export const storeCategoryRepository = (db: Database) =>
@@ -127,7 +162,31 @@ export const storeCategoryRepository = (db: Database) =>
       store_categories_name_kind_key: () =>
         new ConflictError("Já existe uma categoria com esse nome"),
     },
-    inUseMessage: "Esta categoria tem lojas. Mude a categoria delas antes de apagar.",
+    inUseMessage: "Esta categoria tem lojas. Escolha para qual categoria elas vão antes de apagar.",
+    reassignStores: async (db, fromId, toId) => {
+      // Como extra: some onde a loja já tem a de destino (principal ou extra); no resto, troca.
+      await db.query(sql`
+        delete from directory.store_extra_categories x
+        where x.category_id = ${fromId}
+          and (exists (select 1 from directory.stores s where s.id = x.store_id and s.category_id = ${toId})
+               or exists (select 1 from directory.store_extra_categories y
+                          where y.store_id = x.store_id and y.category_id = ${toId}))
+      `);
+      const extras = await db.query(sql`
+        update directory.store_extra_categories set category_id = ${toId}
+        where category_id = ${fromId}
+      `);
+      // Principal: se a de destino era extra da loja, deixa de ser extra.
+      await db.query(sql`
+        delete from directory.store_extra_categories x
+        using directory.stores s
+        where s.id = x.store_id and s.category_id = ${fromId} and x.category_id = ${toId}
+      `);
+      const main = await db.query(
+        sql`update directory.stores set category_id = ${toId} where category_id = ${fromId}`,
+      );
+      return main.rowCount + extras.rowCount;
+    },
   });
 
 export const mapPointRepository = (db: Database) =>
@@ -165,7 +224,8 @@ interface StoreRow {
   hours: DailyHours[];
 }
 
-const SLUG_TAKEN = "Já existe uma loja com esse endereço (slug)";
+const SLUG_TAKEN = "Já existe uma loja com esse endereço no app";
+const STORE_IN_USE = "Esta loja já tem histórico no sistema. Desative em vez de excluir.";
 const STORE_ERRORS: ConstraintErrors = {
   stores_slug_key: () => new ConflictError(SLUG_TAKEN, { slug: [SLUG_TAKEN] }),
 };
@@ -259,6 +319,22 @@ export class PgStoreRepository implements StoreRepository {
     );
     await this.replaceHours(s.id, s.hours);
     await this.replaceExtraCategories(s.id, s.extraCategoryIds);
+  }
+
+  async usage(id: string): Promise<StoreUsage> {
+    const row = await this.db.one<StoreUsageRow>(
+      sql`select ${STORE_USAGE_COLUMNS} from directory.stores s where s.id = ${id}`,
+    );
+    return toStoreUsage(row);
+  }
+
+  async delete(id: string): Promise<void> {
+    // Horários, categorias extras, seguidores, favoritos, vagas e convites saem em cascata;
+    // o resto (cupons, lojistas…) a regra de uso já barrou antes.
+    await translateInUseError(
+      () => this.db.query(sql`delete from directory.stores where id = ${id}`),
+      () => new ConflictError(STORE_IN_USE),
+    );
   }
 
   private async replaceExtraCategories(storeId: string, ids: readonly string[]): Promise<void> {

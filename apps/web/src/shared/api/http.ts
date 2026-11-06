@@ -57,7 +57,7 @@ async function send(route: RouteDef, opts: CallOptions, retried = false): Promis
     });
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") throw e;
-    throw networkError();
+    throw networkError(route.method !== "GET");
   }
 
   // Token vencido: um refresh compartilhado e a mesma chamada de novo, uma vez.

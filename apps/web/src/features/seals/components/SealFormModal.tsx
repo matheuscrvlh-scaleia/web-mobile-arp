@@ -6,10 +6,11 @@ import type { z } from "zod";
 import { applyApiErrors, errorMessage } from "@/shared/api";
 import { cn } from "@/shared/lib/cn";
 import { saveInput } from "@/shared/lib/forms";
-import { emptyToNull, slugify } from "@/shared/lib/text";
+import { emptyToNull } from "@/shared/lib/text";
 import {
   Button,
   ColorInput,
+  confirmar,
   DateTimeInput,
   Field,
   FieldRow,
@@ -21,6 +22,7 @@ import {
   toast,
 } from "@/shared/ui";
 import { useSaveSeal } from "../api";
+import { MoreOptions } from "./MoreOptions";
 import { SealBadge } from "./SealBadge";
 
 type SealInput = z.input<typeof createSealBodySchema>;
@@ -65,18 +67,26 @@ export function sealToFormValues(seal: Seal | undefined, nextOrder: number): Sea
   };
 }
 
-/** Criar ou editar selo, com a prévia ao vivo como o app desenha. */
+/**
+ * Criar ou editar selo, com a prévia ao vivo como o app desenha. À vista só
+ * o essencial (nome, ícone, cor, descrição); pontos, validade, repetível,
+ * cores exatas e período ficam em "Mais opções". O identificador interno
+ * (slug) sai sozinho do nome e a posição nova é o fim da coleção.
+ */
 export function SealFormModal({
   seal,
   nextOrder,
   readOnly,
   onClose,
+  onSaved,
 }: {
   seal?: Seal;
   /** Ordem sugerida para um selo novo (vai para o fim da coleção). */
   nextOrder: number;
   readOnly: boolean;
   onClose: () => void;
+  /** Selo salvo (ex.: o formulário do desafio já escolhe o selo criado). */
+  onSaved?: (seal: Seal) => void;
 }) {
   const save = useSaveSeal();
   const form = useForm<SealInput, unknown, SealValues>({
@@ -84,10 +94,42 @@ export function SealFormModal({
     defaultValues: sealToFormValues(seal, nextOrder),
   });
   const { register, control, formState, setValue } = form;
-  const { errors } = formState;
-  const [name, icon, from, to, availableFrom] = useWatch({
+  const { errors, isDirty } = formState;
+  // Fechar com algo digitado pergunta antes (não perde o que a pessoa escreveu).
+  const requestClose = async () => {
+    if (
+      !isDirty ||
+      readOnly ||
+      (await confirmar({
+        title: seal ? "Descartar as alterações do selo?" : "Descartar o selo novo?",
+        description: "O que você preencheu aqui não foi salvo.",
+        confirmLabel: "Descartar",
+        cancelLabel: "Continuar editando",
+        danger: true,
+      }))
+    )
+      onClose();
+  };
+  const advancedErrors = Boolean(
+    errors.points ||
+      errors.validityMonths ||
+      errors.availableFrom ||
+      errors.availableUntil ||
+      errors.gradientFrom ||
+      errors.gradientTo,
+  );
+  const [name, icon, from, to, availableFrom, points, validityMonths, repeatable] = useWatch({
     control,
-    name: ["name", "icon", "gradientFrom", "gradientTo", "availableFrom"],
+    name: [
+      "name",
+      "icon",
+      "gradientFrom",
+      "gradientTo",
+      "availableFrom",
+      "points",
+      "validityMonths",
+      "repeatable",
+    ],
   });
   const preview = {
     icon,
@@ -99,9 +141,10 @@ export function SealFormModal({
     const input = saveInput(seal?.id, values, formState.dirtyFields);
     if (Object.keys(input.body).length === 0) return onClose();
     save.mutate(input, {
-      onSuccess: () => {
-        toast.success(seal ? "Selo salvo." : "Selo criado.");
+      onSuccess: (saved) => {
+        toast.success(seal ? "Selo salvo." : `Selo ${saved.name} criado.`);
         onClose();
+        onSaved?.(saved);
       },
       onError: (e) => {
         if (!applyApiErrors(e, form.setError, FIELDS)) toast.error(errorMessage(e));
@@ -117,7 +160,7 @@ export function SealFormModal({
   return (
     <Modal
       open
-      onClose={onClose}
+      onClose={() => void requestClose()}
       busy={save.isPending}
       size="lg"
       title={seal ? (readOnly ? seal.name : `Editar ${seal.name}`) : "Novo selo"}
@@ -129,7 +172,11 @@ export function SealFormModal({
           </Button>
         ) : (
           <>
-            <Button variant="secondary" onClick={onClose} disabled={save.isPending}>
+            <Button
+              variant="secondary"
+              onClick={() => void requestClose()}
+              disabled={save.isPending}
+            >
               Cancelar
             </Button>
             <Button type="submit" form="form-selo" loading={save.isPending}>
@@ -142,23 +189,47 @@ export function SealFormModal({
       <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_14rem]">
         <form id="form-selo" onSubmit={onSubmit} noValidate>
           <fieldset disabled={readOnly} className="flex min-w-0 flex-col gap-4">
-            <FieldRow>
-              <Field label="Nome" required hint="Ex.: Explorador" error={errors.name?.message}>
-                <Input autoFocus={!readOnly} maxLength={40} {...register("name")} />
-              </Field>
-              <Field
-                label="Identificador (slug)"
-                optional
-                hint={name ? `Sem preencher: ${slugify(name)}` : "Letras minúsculas e hífens."}
-                error={errors.slug?.message}
-              >
-                <Input
-                  className="font-mono"
-                  placeholder={slugify(name ?? "") || "explorador"}
-                  {...register("slug", { setValueAs: (v: unknown) => (v === "" ? undefined : v) })}
-                />
-              </Field>
-            </FieldRow>
+            <Field label="Nome" required hint="Ex.: Explorador" error={errors.name?.message}>
+              <Input autoFocus={!readOnly} maxLength={40} {...register("name")} />
+            </Field>
+            <Field label="Ícone" required error={errors.icon?.message}>
+              <Controller
+                control={control}
+                name="icon"
+                render={({ field }) => (
+                  <IconPicker
+                    value={field.value}
+                    onChange={field.onChange}
+                    color={preview.gradientTo}
+                    disabled={readOnly}
+                  />
+                )}
+              />
+            </Field>
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-2 text-xs font-medium text-neutral-600">Cor do selo</legend>
+              <div className="flex flex-wrap gap-2">
+                {SEAL_GRADIENTS.map((g, i) => {
+                  const on = g[0] === from && g[1] === to;
+                  return (
+                    <button
+                      key={g.join()}
+                      type="button"
+                      onClick={() => pickGradient(g)}
+                      aria-label={`Cor ${i + 1}`}
+                      aria-pressed={on}
+                      className={cn(
+                        "grid size-10 cursor-pointer place-items-center rounded-full text-[#fff] transition hover:scale-110 disabled:cursor-not-allowed",
+                        on && "ring-2 ring-neutral-900 ring-offset-2",
+                      )}
+                      style={{ background: `linear-gradient(145deg, ${g[0]}, ${g[1]})` }}
+                    >
+                      {on && <Check className="size-4" aria-hidden />}
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
             <Field label="Descrição" optional error={errors.description?.message}>
               <Textarea
                 rows={2}
@@ -166,167 +237,126 @@ export function SealFormModal({
                 {...register("description", { setValueAs: emptyToNull })}
               />
             </Field>
-            <FieldRow>
-              <Field label="Ícone" required error={errors.icon?.message}>
-                <Controller
-                  control={control}
-                  name="icon"
-                  render={({ field }) => (
-                    <IconPicker
-                      value={field.value}
-                      onChange={field.onChange}
-                      color={preview.gradientTo}
-                      disabled={readOnly}
-                    />
-                  )}
-                />
-              </Field>
-              <Field label="Ordem" hint="Menor aparece primeiro" error={errors.sortOrder?.message}>
-                <Input
-                  type="number"
-                  min={0}
-                  max={999}
-                  {...register("sortOrder", { valueAsNumber: true })}
-                />
-              </Field>
-            </FieldRow>
-            <FieldRow>
-              <Field
-                label="Pontos"
-                required
-                hint="Pontos no Clube ARP"
-                error={errors.points?.message}
-              >
-                <Input
-                  type="number"
-                  min={1}
-                  max={1000}
-                  {...register("points", { valueAsNumber: true })}
-                />
-              </Field>
-              <Field
-                label="Validade (meses)"
-                required
-                hint="Vencido, os pontos saem do total (máx. 12)"
-                error={errors.validityMonths?.message}
-              >
-                <Input
-                  type="number"
-                  min={1}
-                  max={12}
-                  {...register("validityMonths", { valueAsNumber: true })}
-                />
-              </Field>
-            </FieldRow>
-            <Controller
-              control={control}
-              name="repeatable"
-              render={({ field }) => (
-                <Switch
-                  checked={field.value ?? false}
-                  onCheckedChange={field.onChange}
-                  label="Repetível"
-                  description="Pode ser ganho de novo (um por QR Code). Desligado = uso único."
-                />
-              )}
-            />
-            <FieldRow>
-              <Field
-                label="Começa em"
-                optional
-                hint="Antes disso, os desafios dele não aparecem no app."
-                error={errors.availableFrom?.message}
-              >
-                <Controller
-                  control={control}
-                  name="availableFrom"
-                  render={({ field }) => (
-                    <DateTimeInput
-                      value={field.value}
-                      onChange={field.onChange}
-                      onBlur={field.onBlur}
-                    />
-                  )}
-                />
-              </Field>
-              <Field
-                label="Termina em"
-                optional
-                hint="Depois disso, ninguém ganha mais. Quem já ganhou mantém."
-                error={errors.availableUntil?.message}
-              >
-                <Controller
-                  control={control}
-                  name="availableUntil"
-                  render={({ field }) => (
-                    <DateTimeInput
-                      value={field.value}
-                      onChange={field.onChange}
-                      onBlur={field.onBlur}
-                      min={availableFrom ?? undefined}
-                    />
-                  )}
-                />
-              </Field>
-            </FieldRow>
-            <fieldset className="flex flex-col gap-2">
-              <legend className="mb-2 text-xs font-medium text-neutral-600">
-                Degradês prontos
-              </legend>
-              <div className="flex flex-wrap gap-2">
-                {SEAL_GRADIENTS.map((g) => {
-                  const on = g[0] === from && g[1] === to;
-                  return (
-                    <button
-                      key={g.join()}
-                      type="button"
-                      onClick={() => pickGradient(g)}
-                      aria-label={`Degradê ${g[0]} para ${g[1]}`}
-                      aria-pressed={on}
-                      className={cn(
-                        "grid size-8 cursor-pointer place-items-center rounded-full text-[#fff] transition hover:scale-110 disabled:cursor-not-allowed",
-                        on && "ring-2 ring-neutral-900 ring-offset-2",
-                      )}
-                      style={{ background: `linear-gradient(145deg, ${g[0]}, ${g[1]})` }}
-                    >
-                      {on && <Check className="size-3.5" aria-hidden />}
-                    </button>
-                  );
-                })}
-              </div>
-            </fieldset>
-            <FieldRow>
-              <Field label="Cor clara (início)" required error={errors.gradientFrom?.message}>
-                <Controller
-                  control={control}
-                  name="gradientFrom"
-                  render={({ field }) => (
-                    <ColorInput
-                      value={field.value}
-                      onChange={field.onChange}
-                      onBlur={field.onBlur}
-                      swatches={FROM_SWATCHES}
-                      disabled={readOnly}
-                    />
-                  )}
-                />
-              </Field>
-              <Field label="Cor escura (fim)" required error={errors.gradientTo?.message}>
-                <Controller
-                  control={control}
-                  name="gradientTo"
-                  render={({ field }) => (
-                    <ColorInput
-                      value={field.value}
-                      onChange={field.onChange}
-                      onBlur={field.onBlur}
-                      swatches={TO_SWATCHES}
-                      disabled={readOnly}
-                    />
-                  )}
-                />
-              </Field>
-            </FieldRow>
+            <MoreOptions
+              summary={`${points ?? 10} pontos no Clube · vale ${validityMonths ?? 6} meses · ${repeatable ? "repetível" : "uma vez por pessoa"}`}
+              defaultOpen={Boolean(seal?.availableFrom || seal?.availableUntil)}
+              forceOpen={advancedErrors}
+            >
+              <FieldRow>
+                <Field
+                  label="Pontos"
+                  required
+                  hint="Pontos no Clube ARP"
+                  error={errors.points?.message}
+                >
+                  <Input
+                    type="number"
+                    min={1}
+                    max={1000}
+                    {...register("points", { valueAsNumber: true })}
+                  />
+                </Field>
+                <Field
+                  label="Validade (meses)"
+                  required
+                  hint="Vencido, os pontos saem do total (máx. 12)"
+                  error={errors.validityMonths?.message}
+                >
+                  <Input
+                    type="number"
+                    min={1}
+                    max={12}
+                    {...register("validityMonths", { valueAsNumber: true })}
+                  />
+                </Field>
+              </FieldRow>
+              <Controller
+                control={control}
+                name="repeatable"
+                render={({ field }) => (
+                  <Switch
+                    checked={field.value ?? false}
+                    onCheckedChange={field.onChange}
+                    label="Repetível"
+                    description="Pode ser ganho de novo (um por QR Code). Desligado = uma vez por pessoa."
+                  />
+                )}
+              />
+              <FieldRow>
+                <Field label="Cor clara (início)" required error={errors.gradientFrom?.message}>
+                  <Controller
+                    control={control}
+                    name="gradientFrom"
+                    render={({ field }) => (
+                      <ColorInput
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        swatches={FROM_SWATCHES}
+                        disabled={readOnly}
+                      />
+                    )}
+                  />
+                </Field>
+                <Field label="Cor escura (fim)" required error={errors.gradientTo?.message}>
+                  <Controller
+                    control={control}
+                    name="gradientTo"
+                    render={({ field }) => (
+                      <ColorInput
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        swatches={TO_SWATCHES}
+                        disabled={readOnly}
+                      />
+                    )}
+                  />
+                </Field>
+              </FieldRow>
+              <p className="text-xs text-neutral-500">
+                Período do selo: quase sempre fica vazio, porque cada desafio já vale no período da
+                campanha. Use só se este selo tiver data própria em qualquer campanha.
+              </p>
+              <FieldRow>
+                <Field
+                  label="Pode ser ganho a partir de"
+                  optional
+                  error={errors.availableFrom?.message}
+                >
+                  <Controller
+                    control={control}
+                    name="availableFrom"
+                    render={({ field }) => (
+                      <DateTimeInput
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                      />
+                    )}
+                  />
+                </Field>
+                <Field
+                  label="Pode ser ganho até"
+                  optional
+                  hint="Quem já ganhou mantém."
+                  error={errors.availableUntil?.message}
+                >
+                  <Controller
+                    control={control}
+                    name="availableUntil"
+                    render={({ field }) => (
+                      <DateTimeInput
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        min={availableFrom ?? undefined}
+                      />
+                    )}
+                  />
+                </Field>
+              </FieldRow>
+            </MoreOptions>
           </fieldset>
         </form>
         <SealPreview name={name} seal={preview} />

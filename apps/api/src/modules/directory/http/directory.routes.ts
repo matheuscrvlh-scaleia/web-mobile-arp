@@ -1,6 +1,10 @@
 import {
   blockListSchema,
   blockSchema,
+  bulkUpdateStoresBodySchema,
+  bulkUpdateStoresResponseSchema,
+  catalogOrderBodySchema,
+  catalogRemoveQuerySchema,
   createBlockBodySchema,
   createFloorBodySchema,
   createMapPointBodySchema,
@@ -35,6 +39,7 @@ import { assertStoreAccess, scopedStoreId } from "../../../shared/application/st
 import { orNotFound } from "../../../shared/domain/errors";
 import { staffOf } from "../../../shared/infra/http/auth";
 import { createRouter } from "../../../shared/infra/http/router";
+import type { BulkUpdateStoresUseCase } from "../application/bulk-update-stores.use-case";
 import {
   BLOCK_NOT_FOUND,
   FLOOR_NOT_FOUND,
@@ -45,7 +50,9 @@ import type { CreateCatalogItemUseCase } from "../application/create-catalog-ite
 import type { CreateStoreUseCase } from "../application/create-store.use-case";
 import type { DeactivateStoreUseCase } from "../application/deactivate-store.use-case";
 import type { DeleteCatalogItemUseCase } from "../application/delete-catalog-item.use-case";
+import type { DeleteStoreUseCase } from "../application/delete-store.use-case";
 import type { LocateStoreUseCase } from "../application/locate-store.use-case";
+import type { ReorderCatalogUseCase } from "../application/reorder-catalog.use-case";
 import { STORE_NOT_FOUND } from "../application/store-deps";
 import type { UpdateCatalogItemUseCase } from "../application/update-catalog-item.use-case";
 import type { UpdateStoreUseCase } from "../application/update-store.use-case";
@@ -56,6 +63,7 @@ interface CatalogCommands<P extends { id: string }> {
   create: CreateCatalogItemUseCase<P>;
   update: UpdateCatalogItemUseCase<P>;
   remove: DeleteCatalogItemUseCase<P>;
+  reorder: ReorderCatalogUseCase<P>;
 }
 
 export interface DirectoryRoutesDeps {
@@ -66,7 +74,9 @@ export interface DirectoryRoutesDeps {
   mapPoints: CatalogCommands<MapPointProps>;
   createStore: CreateStoreUseCase;
   updateStore: UpdateStoreUseCase;
+  bulkUpdateStores: BulkUpdateStoresUseCase;
   deactivateStore: DeactivateStoreUseCase;
+  deleteStore: DeleteStoreUseCase;
   locateStore: LocateStoreUseCase;
 }
 
@@ -107,7 +117,10 @@ export function directoryRoutes(deps: DirectoryRoutesDeps): FastifyPluginAsyncZo
       ROUTES.floors.create,
       { body: createFloorBodySchema, response: { 201: floorSchema } },
       async (request, reply) => {
-        const id = await deps.floors.create.execute(request.body, staffOf(request));
+        const id = await deps.floors.create.execute(
+          { ...request.body, backgroundImageUrl: request.body.backgroundImageUrl ?? null },
+          staffOf(request),
+        );
         return reply.status(201).send(await floor(id));
       },
     );
@@ -150,10 +163,21 @@ export function directoryRoutes(deps: DirectoryRoutesDeps): FastifyPluginAsyncZo
         return block(request.params.id);
       },
     );
-    r.route(ROUTES.blocks.remove, { params: idParamsSchema }, async (request, reply) => {
-      await deps.blocks.remove.execute(request.params, staffOf(request));
+    r.route(ROUTES.blocks.reorder, { body: catalogOrderBodySchema }, async (request, reply) => {
+      await deps.blocks.reorder.execute(request.body, staffOf(request));
       return reply.status(204).send();
     });
+    r.route(
+      ROUTES.blocks.remove,
+      { params: idParamsSchema, querystring: catalogRemoveQuerySchema },
+      async (request, reply) => {
+        await deps.blocks.remove.execute(
+          { id: request.params.id, moveTo: request.query.moveTo },
+          staffOf(request),
+        );
+        return reply.status(204).send();
+      },
+    );
 
     /* Pontos do mapa */
     r.route(
@@ -216,10 +240,25 @@ export function directoryRoutes(deps: DirectoryRoutesDeps): FastifyPluginAsyncZo
         return category(request.params.id);
       },
     );
-    r.route(ROUTES.storeCategories.remove, { params: idParamsSchema }, async (request, reply) => {
-      await deps.categories.remove.execute(request.params, staffOf(request));
-      return reply.status(204).send();
-    });
+    r.route(
+      ROUTES.storeCategories.reorder,
+      { body: catalogOrderBodySchema },
+      async (request, reply) => {
+        await deps.categories.reorder.execute(request.body, staffOf(request));
+        return reply.status(204).send();
+      },
+    );
+    r.route(
+      ROUTES.storeCategories.remove,
+      { params: idParamsSchema, querystring: catalogRemoveQuerySchema },
+      async (request, reply) => {
+        await deps.categories.remove.execute(
+          { id: request.params.id, moveTo: request.query.moveTo },
+          staffOf(request),
+        );
+        return reply.status(204).send();
+      },
+    );
 
     /* Lojas */
     r.route(
@@ -278,8 +317,23 @@ export function directoryRoutes(deps: DirectoryRoutesDeps): FastifyPluginAsyncZo
         return store(request.params.id);
       },
     );
+    r.route(
+      ROUTES.stores.bulkUpdate,
+      { body: bulkUpdateStoresBodySchema, response: { 200: bulkUpdateStoresResponseSchema } },
+      async (request) => ({
+        updated: await deps.bulkUpdateStores.execute(request.body, staffOf(request)),
+      }),
+    );
+    r.route(
+      ROUTES.stores.deactivate,
+      { params: idParamsSchema, response: { 200: storeDetailSchema } },
+      async (request) => {
+        await deps.deactivateStore.execute(request.params, staffOf(request));
+        return store(request.params.id);
+      },
+    );
     r.route(ROUTES.stores.remove, { params: idParamsSchema }, async (request, reply) => {
-      await deps.deactivateStore.execute(request.params, staffOf(request));
+      await deps.deleteStore.execute(request.params, staffOf(request));
       return reply.status(204).send();
     });
     r.route(

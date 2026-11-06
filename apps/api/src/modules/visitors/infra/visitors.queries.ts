@@ -2,12 +2,14 @@ import type {
   AuthProvider,
   CouponClaim,
   ListVisitorsQuery,
+  PrizeRedemptionStatus,
   SealRef,
   VisitorDetail,
   VisitorStatus,
   VisitorSummary,
 } from "@arp/contracts";
 import { offsetOf, type Page, toCountedPage } from "../../../shared/application/pagination";
+import { POINTS_VALIDITY_SQL, visitorPointsSql } from "../../../shared/infra/database/club-points";
 import type { Database } from "../../../shared/infra/database/database";
 import { sql } from "../../../shared/infra/database/sql";
 import { iso, isoOrNull } from "../../../shared/infra/presenters";
@@ -25,6 +27,7 @@ interface SummaryRow {
   active_claims_count: number;
   redeemed_claims_count: number;
   last_seen_at: Date | null;
+  anonymized_at: Date | null;
   is_demo: boolean;
   created_at: Date;
 }
@@ -55,17 +58,46 @@ interface DetailRow extends SummaryRow {
     redeemedAt: string | null;
   })[];
   interests: { event: { id: string; title: string }; createdAt: string }[];
+  club_points: number;
+  club_expiring_points: number;
+  club_next_expiry_at: Date | null;
+  club_redemptions: {
+    id: string;
+    prize: { id: string; name: string };
+    points: number;
+    status: PrizeRedemptionStatus;
+    createdAt: string;
+    deliveredAt: string | null;
+  }[];
 }
 
 /** Contagens por subquery correlacionada (índices por visitor_id cobrem cada uma). */
 const SUMMARY_COLUMNS = sql`
   v.id, v.name, v.email, v.phone, v.avatar_url, v.auth_provider, v.status, v.marketing_opt_in,
-  v.last_seen_at, v.created_at, v.is_demo,
+  v.last_seen_at, v.created_at, v.is_demo, v.anonymized_at,
   (select count(*) from gamification.earned_seals es where es.visitor_id = v.id) as seals_count,
   (select count(*) from promotions.coupon_claims c
     where c.visitor_id = v.id and c.status = 'active' and c.expires_at > now()) as active_claims_count,
   (select count(*) from promotions.coupon_claims c
     where c.visitor_id = v.id and c.status = 'redeemed') as redeemed_claims_count
+`;
+
+/**
+ * Selos que ainda valem e quando cada um vence: o que vier primeiro entre o
+ * vencimento do selo e o fim da validade dos pontos (configuração).
+ */
+const CLUB_EXPIRY_COLUMNS = (now: Date) => sql`
+  (select coalesce(sum(x.points), 0) from (${validSeals(now)}) x
+    where x.ends_at <= ${now}::timestamptz + interval '30 days') as club_expiring_points,
+  (select min(x.ends_at) from (${validSeals(now)}) x) as club_next_expiry_at
+`;
+
+const validSeals = (now: Date) => sql`
+  select es.points,
+         least(es.expires_at, es.earned_at + make_interval(months => ${POINTS_VALIDITY_SQL})) as ends_at
+  from gamification.earned_seals es
+  where es.visitor_id = v.id and es.expires_at > ${now}
+    and es.earned_at + make_interval(months => ${POINTS_VALIDITY_SQL}) > ${now}
 `;
 
 const storeMini = (alias: string) =>
@@ -86,6 +118,7 @@ function toSummary(r: SummaryRow): VisitorSummary {
     activeClaimsCount: r.active_claims_count,
     redeemedClaimsCount: r.redeemed_claims_count,
     lastSeenAt: isoOrNull(r.last_seen_at),
+    anonymizedAt: isoOrNull(r.anonymized_at),
     createdAt: iso(r.created_at),
     isDemo: r.is_demo,
   };
@@ -124,6 +157,7 @@ export class VisitorsQueries {
 
   /** Detalhe com favoritos, lojas seguidas, selos, últimos 20 cupons e interesses — numa consulta. */
   async getVisitor(id: string): Promise<VisitorDetail | null> {
+    const now = new Date();
     const row = await this.db.maybeOne<DetailRow>(sql`
       select ${SUMMARY_COLUMNS}, v.blocked_reason, v.terms_accepted_at,
         (select coalesce(sum(cp.savings_cents), 0)
@@ -173,7 +207,19 @@ export class VisitorsQueries {
                   'event', jsonb_build_object('id', e.id, 'title', e.title),
                   'createdAt', i.created_at) order by i.created_at desc), '[]'::jsonb)
            from agenda.event_interests i join agenda.events e on e.id = i.event_id
-          where i.visitor_id = v.id) as interests
+          where i.visitor_id = v.id) as interests,
+        ${visitorPointsSql(sql`v.id`, now)} as club_points,
+        ${CLUB_EXPIRY_COLUMNS(now)},
+        (select coalesce(jsonb_agg(jsonb_build_object(
+                  'id', pr.id,
+                  'prize', jsonb_build_object('id', p.id, 'name', p.name),
+                  'points', pr.points,
+                  'status', pr.status,
+                  'createdAt', pr.created_at,
+                  'deliveredAt', pr.delivered_at) order by pr.created_at desc), '[]'::jsonb)
+           from (select * from gamification.prize_redemptions pr0
+                  where pr0.visitor_id = v.id order by pr0.created_at desc limit 10) pr
+           join gamification.prizes p on p.id = pr.prize_id) as club_redemptions
       from visitors.visitors v
       where v.id = ${id}
     `);
@@ -193,6 +239,16 @@ export class VisitorsQueries {
         redeemedAt: c.redeemedAt ? isoText(c.redeemedAt) : null,
       })),
       interests: row.interests.map((i) => ({ ...i, createdAt: isoText(i.createdAt) })),
+      club: {
+        points: row.club_points,
+        expiringPoints: Math.min(row.club_expiring_points, row.club_points),
+        nextExpiryAt: isoOrNull(row.club_next_expiry_at),
+        redemptions: row.club_redemptions.map((r) => ({
+          ...r,
+          createdAt: isoText(r.createdAt),
+          deliveredAt: r.deliveredAt ? isoText(r.deliveredAt) : null,
+        })),
+      },
     };
   }
 }

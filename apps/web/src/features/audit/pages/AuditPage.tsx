@@ -5,6 +5,7 @@ import { useSearchText, useUrlState } from "@/shared/hooks";
 import {
   Button,
   Card,
+  Checkbox,
   EmptyState,
   ErrorState,
   Field,
@@ -16,22 +17,38 @@ import {
   Select,
   Skeleton,
 } from "@/shared/ui";
-import { useAuditLogs } from "../api";
+import { useAuditActors, useAuditLogs } from "../api";
 import { AuditEntry } from "../components/AuditEntry";
 import { ENTITY_LABEL } from "../lib/describe";
 
 // Um rótulo por tipo (o mapa tem sinônimos snake/camel para o mesmo tipo).
-const ENTITY_OPTIONS = Object.entries(ENTITY_LABEL).filter(
-  ([key, label], i, all) => !/[A-Z]/.test(key) && all.findIndex(([, l]) => l === label) === i,
-);
+const ENTITY_OPTIONS = Object.entries(ENTITY_LABEL)
+  .filter(
+    ([key, label], i, all) =>
+      !/[A-Z]/.test(key) &&
+      !["session", "auth", "upload"].includes(key) &&
+      all.findIndex(([, l]) => l === label) === i,
+  )
+  .sort(([, a], [, b]) => a.localeCompare(b, "pt-BR"));
+
+const VERB_OPTIONS = [
+  { value: "create", label: "Criou" },
+  { value: "update", label: "Editou" },
+  { value: "status", label: "Mudou a situação" },
+  { value: "delete", label: "Excluiu" },
+] as const;
 
 export function AuditPage() {
   const [query, setQuery] = useUrlState(listAuditLogsQuerySchema);
   const commit = useCallback((q: string) => setQuery({ q }, { replace: true }), [setQuery]);
   const [search, setSearch] = useSearchText(query.q, commit);
-  const logs = useAuditLogs(query);
+  // Entradas no painel e envios de imagem são barulho: escondidos, salvo se pedir.
+  const showAccess = query.hideAccess === "false";
+  const logs = useAuditLogs({ ...query, hideAccess: showAccess ? undefined : "true" });
+  const actors = useAuditActors();
   const filtered = Boolean(
     query.q ||
+      query.verb ||
       query.entityType ||
       query.from ||
       query.to ||
@@ -50,23 +67,49 @@ export function AuditPage() {
         <SearchInput
           value={search}
           onChange={setSearch}
-          placeholder="Buscar por pessoa ou item"
+          placeholder="Buscar por nome ou ação"
           label="Buscar no histórico"
           className="w-full sm:w-72"
         />
-        <Select
-          aria-label="Tipo de item"
-          placeholder="Todos os itens"
-          value={query.entityType ?? ""}
-          onChange={(e) => setQuery({ entityType: e.target.value })}
-          className="w-full sm:w-52"
-        >
-          {ENTITY_OPTIONS.map(([key, label]) => (
-            <option key={key} value={key}>
-              {label}
-            </option>
-          ))}
-        </Select>
+        <Field label="Tipo de item" className="w-full sm:w-52">
+          <Select
+            placeholder="Todos os itens"
+            value={query.entityType ?? ""}
+            onChange={(e) => setQuery({ entityType: e.target.value })}
+          >
+            {ENTITY_OPTIONS.map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Quem" className="w-full sm:w-52">
+          <Select
+            placeholder="Qualquer pessoa"
+            value={query.actorId ?? ""}
+            onChange={(e) => setQuery({ actorId: e.target.value })}
+          >
+            {(actors.data?.data ?? []).map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Ação" className="w-full sm:w-44">
+          <Select
+            placeholder="Qualquer ação"
+            value={query.verb ?? ""}
+            onChange={(e) => setQuery({ verb: e.target.value })}
+          >
+            {VERB_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
         <Field label="De" className="w-full sm:w-40">
           <Input
             type="date"
@@ -92,6 +135,7 @@ export function AuditPage() {
               setSearch("");
               setQuery({
                 q: undefined,
+                verb: undefined,
                 entityType: undefined,
                 from: undefined,
                 to: undefined,
@@ -104,6 +148,12 @@ export function AuditPage() {
             Limpar filtros
           </Button>
         )}
+        <Checkbox
+          checked={showAccess}
+          onChange={(e) => setQuery({ hideAccess: e.target.checked ? "false" : undefined })}
+          className="min-h-11 items-center self-center"
+          label="Mostrar entradas no painel"
+        />
       </FilterBar>
       <Card>
         {logs.error ? (

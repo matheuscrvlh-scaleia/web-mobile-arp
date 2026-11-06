@@ -19,6 +19,7 @@ export function RequireAuth() {
     // Saiu de propósito: o próximo login começa do início.
     if (next !== "/" && signedOutReason !== "signed-out") params.set("next", next);
     if (signedOutReason === "expired") params.set("motivo", "expirou");
+    if (signedOutReason === "disabled") params.set("motivo", "desativado");
     const qs = params.toString();
     return <Navigate to={`${PATHS.login}${qs ? `?${qs}` : ""}`} replace />;
   }
@@ -45,7 +46,7 @@ export function GuestOnly() {
 /** Rota que exige uma permissão (a da rota da API que a tela usa). */
 export function RequirePermission({ permission }: { permission: Permission }) {
   const { can } = useAuth();
-  return can(permission) ? <Outlet /> : <ForbiddenPage />;
+  return can(permission) ? <Outlet /> : <ForbiddenPage permission={permission} />;
 }
 
 /** "/" leva à primeira tela do menu da pessoa. */

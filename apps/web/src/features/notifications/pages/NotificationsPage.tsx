@@ -4,14 +4,14 @@ import {
   notificationStatusSchema,
   type PushNotification,
 } from "@arp/contracts";
-import { Bell, CalendarX, ChevronRight, type LucideIcon, Plus, SearchX } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
-import { Link } from "react-router";
+import { Bell, type LucideIcon, Plus, SearchX } from "lucide-react";
+import { useCallback, useMemo } from "react";
 import { useAuth } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
 import { useSearchText, useUrlState } from "@/shared/hooks";
 import { formatNumber } from "@/shared/lib/format";
 import {
+  ActionMenu,
   ButtonLink,
   Can,
   Card,
@@ -20,7 +20,6 @@ import {
   EmptyState,
   ErrorState,
   FilterBar,
-  IconButton,
   PageHeader,
   Pagination,
   SearchInput,
@@ -28,13 +27,13 @@ import {
   Table,
 } from "@/shared/ui";
 import { useNotifications } from "../api";
-import { CancelNotificationDialog } from "../components/CancelNotificationDialog";
 import {
   audienceText,
   NOTIFICATION_STATUS,
   NotificationStatusBadge,
   notificationWhen,
 } from "../components/NotificationBadges";
+import { useNotificationActions } from "../components/useNotificationActions";
 
 type StatusFilter = NotificationStatus | "all";
 const STATUS_PLURAL: Record<NotificationStatus, string> = {
@@ -57,14 +56,15 @@ function baseColumns(): Column<PushNotification>[] {
     {
       key: "message",
       header: "Notificação",
+      primary: true,
       cell: (n) => (
-        <Link to={PATHS.notification(n.id)} className="block max-w-md min-w-56 hover:underline">
+        <span className="block max-w-md min-w-0 md:min-w-56">
           <span className="flex items-center gap-1.5 font-medium text-neutral-900">
             <span className="truncate">{n.title}</span>
             <DemoMark show={n.isDemo} />
           </span>
           <span className="block truncate text-xs text-neutral-500">{n.body}</span>
-        </Link>
+        </span>
       ),
     },
     {
@@ -76,9 +76,10 @@ function baseColumns(): Column<PushNotification>[] {
     {
       key: "status",
       header: "Situação",
+      status: true,
       cell: (n) => (
         <span className="flex flex-col items-start gap-1">
-          <NotificationStatusBadge status={n.status} />
+          <NotificationStatusBadge status={n.status} scheduledAt={n.scheduledAt} />
           {notificationWhen(n) && (
             <span className="text-xs text-neutral-500">{notificationWhen(n)}</span>
           )}
@@ -115,38 +116,23 @@ export function NotificationsPage() {
   const commit = useCallback((q: string) => setQuery({ q }, { replace: true }), [setQuery]);
   const [search, setSearch] = useSearchText(query.q, commit);
   const list = useNotifications(query);
-  const [cancelling, setCancelling] = useState<PushNotification | null>(null);
   const canManage = can("notifications.manage");
   const filtered = Boolean(query.q || query.status);
 
   const columns = useMemo<Column<PushNotification>[]>(
     () => [
       ...baseColumns(),
-      {
-        key: "actions",
-        header: <span className="sr-only">Ações</span>,
-        numeric: true,
-        cell: (n) => (
-          <span className="inline-flex items-center gap-1">
-            {canManage && n.status === "scheduled" && (
-              <IconButton
-                icon={CalendarX}
-                label={`Cancelar o envio de ${n.title}`}
-                variant="danger"
-                size="sm"
-                onClick={() => setCancelling(n)}
-              />
-            )}
-            <Link
-              to={PATHS.notification(n.id)}
-              aria-label={`Abrir ${n.title}`}
-              className="inline-grid size-8 place-items-center rounded-full text-neutral-400 hover:bg-neutral-900/[0.06] hover:text-neutral-900"
-            >
-              <ChevronRight className="size-4" aria-hidden />
-            </Link>
-          </span>
-        ),
-      },
+      ...(canManage
+        ? [
+            {
+              key: "actions",
+              header: <span className="sr-only">Ações</span>,
+              numeric: true,
+              actions: true,
+              cell: (n: PushNotification) => <RowMenu notification={n} />,
+            },
+          ]
+        : []),
     ],
     [canManage],
   );
@@ -190,6 +176,8 @@ export function NotificationsPage() {
               columns={columns}
               rows={list.data?.data}
               rowKey={(n) => n.id}
+              rowHref={(n) => PATHS.notification(n.id)}
+              mobile="cards"
               loading={list.isLoading}
               empty={
                 filtered ? (
@@ -221,7 +209,28 @@ export function NotificationsPage() {
           </>
         )}
       </Card>
-      <CancelNotificationDialog notification={cancelling} onClose={() => setCancelling(null)} />
+    </>
+  );
+}
+
+/** "⋯" da linha: a ação da situação (cancelar, voltar para rascunho, usar como base) e o resto. */
+function RowMenu({ notification: n }: { notification: PushNotification }) {
+  const { primary, menu, dialogs } = useNotificationActions(n);
+  return (
+    <>
+      <ActionMenu
+        size="sm"
+        ariaLabel={`Mais ações de ${n.title}`}
+        items={[
+          primary && {
+            label: primary.label,
+            icon: primary.icon,
+            onSelect: primary.run,
+          },
+          ...menu,
+        ]}
+      />
+      {dialogs}
     </>
   );
 }

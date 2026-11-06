@@ -1,5 +1,5 @@
 import type { AuthProvider, VisitorStatus } from "@arp/contracts";
-import { Ban, BellOff, BellRing } from "lucide-react";
+import { Ban, BellOff, BellRing, EyeOff } from "lucide-react";
 import { cn } from "@/shared/lib/cn";
 import { initials } from "@/shared/lib/format";
 import { thumbnailProps } from "@/shared/lib/images";
@@ -11,7 +11,20 @@ export const PROVIDER_LABEL: Record<AuthProvider, string> = {
   apple: "Apple",
 };
 
-export function VisitorStatusBadge({ status }: { status: VisitorStatus }) {
+export function VisitorStatusBadge({
+  status,
+  anonymized = false,
+}: {
+  status: VisitorStatus;
+  /** LGPD: a conta não volta; mostra isso no lugar de "Bloqueado". */
+  anonymized?: boolean;
+}) {
+  if (anonymized)
+    return (
+      <StatusBadge tone="dark" icon={EyeOff}>
+        Anonimizado
+      </StatusBadge>
+    );
   return status === "active" ? (
     <StatusBadge tone="success">Ativo</StatusBadge>
   ) : (

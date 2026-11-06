@@ -23,7 +23,7 @@ export function CampaignSummary({ campaign }: { campaign: Campaign }) {
           icon={Target}
           hint={
             <ButtonLink
-              to={PATHS.challengesOf(campaign.id)}
+              to={PATHS.campaign(campaign.id, "desafios")}
               variant="ghost"
               size="sm"
               className="-ml-3"
@@ -80,7 +80,7 @@ export function CampaignSummary({ campaign }: { campaign: Campaign }) {
             title="Período"
             description={formatPeriod(campaign.startsAt, campaign.endsAt)}
           />
-          <PeriodBar progress={progress} />
+          <PeriodBar progress={progress} draft={campaign.status === "draft"} />
           <ButtonLink
             to={PATHS.earnedSeals({ campaignId: campaign.id })}
             variant="secondary"

@@ -3,6 +3,7 @@ import {
   type DashboardQuery,
   dashboardDetailSchema,
   dashboardOverviewSchema,
+  pendingSchema,
   ROUTES,
 } from "@arp/contracts";
 import { keepPreviousData, type QueryClient, useQuery } from "@tanstack/react-query";
@@ -13,6 +14,7 @@ export const dashboardApi = {
     apiRequest(ROUTES.dashboard, dashboardOverviewSchema, { query, signal }),
   detail: (query: DashboardDetailQuery, signal?: AbortSignal) =>
     apiRequest(ROUTES.dashboardDetail, dashboardDetailSchema, { query, signal }),
+  pending: (signal?: AbortSignal) => apiRequest(ROUTES.dashboardPending, pendingSchema, { signal }),
 };
 
 export const dashboardKeys = {
@@ -20,6 +22,24 @@ export const dashboardKeys = {
   overview: (query: DashboardQuery) => [...dashboardKeys.all, "overview", query] as const,
   detail: (query: DashboardDetailQuery) => [...dashboardKeys.all, "detail", query] as const,
 };
+
+/** Chave das pendências (fora de "dashboard": o menu e o sino também usam). */
+export const PENDING_KEY = ["pending"] as const;
+
+/**
+ * Pendências da pessoa: Dashboard, contadores do menu e o sino. Uma consulta
+ * só, compartilhada; atualiza a cada minuto e depois de qualquer gravação
+ * (ver query-client).
+ */
+export function usePending(enabled = true) {
+  return useQuery({
+    queryKey: PENDING_KEY,
+    queryFn: ({ signal }) => dashboardApi.pending(signal),
+    enabled,
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+}
 
 /** Indicadores do período (o período anterior vem junto, para a variação). */
 export function useDashboardOverview(query: DashboardQuery) {

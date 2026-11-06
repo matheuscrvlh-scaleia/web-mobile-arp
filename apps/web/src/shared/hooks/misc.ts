@@ -81,6 +81,7 @@ export function useUnsavedChangesGuard(dirty: boolean): { allowLeave: () => void
       title: "Sair sem salvar?",
       description: "Há alterações não salvas nesta tela. Se sair agora, elas se perdem.",
       confirmLabel: "Sair sem salvar",
+      cancelLabel: "Continuar editando",
       danger: true,
     }).then((ok) => {
       asking.current = false;

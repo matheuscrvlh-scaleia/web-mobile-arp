@@ -1,10 +1,11 @@
 import type { CouponClaim } from "@arp/contracts";
+import { ClipboardCheck } from "lucide-react";
 import { type ReactNode, useMemo } from "react";
 import { Link } from "react-router";
 import { useAuth } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
 import { formatDateTime, formatRelative } from "@/shared/lib/format";
-import { type Column, DemoMark, Table } from "@/shared/ui";
+import { ButtonLink, type Column, DemoMark, Table } from "@/shared/ui";
 import { ClaimStatusBadge } from "./ClaimStatusBadge";
 
 export type HideableColumn = "coupon" | "store" | "visitor";
@@ -33,10 +34,18 @@ function When({ iso, prefix }: { iso: string; prefix?: string }) {
 function Outcome({ claim }: { claim: CouponClaim }) {
   switch (claim.status) {
     case "redeemed":
+      // Quem validou vai embaixo, curto: a coluna não empurra o "Validar" para fora.
       return claim.redeemedAt ? (
-        <span className="text-neutral-600">
+        <span className="block text-neutral-600">
           <When iso={claim.redeemedAt} prefix="Usado " />
-          {claim.redeemedBy && <span className="text-neutral-400"> · {claim.redeemedBy.name}</span>}
+          {claim.redeemedBy && (
+            <span
+              className="block max-w-40 truncate text-xs text-neutral-400"
+              title={claim.redeemedBy.name}
+            >
+              por {claim.redeemedBy.name}
+            </span>
+          )}
         </span>
       ) : (
         "Usado"
@@ -74,9 +83,24 @@ export function ClaimsTable({
 }) {
   const { can } = useAuth();
   const canVisitors = can("visitors.view");
+  const canRedeem = can("coupons.redeem");
+  const showStore = !hide.includes("store");
   const columns = useMemo(() => {
     const all: (Column<CouponClaim> & { id?: HideableColumn })[] = [
-      { key: "code", header: "Código", cell: (c) => <ClaimCode code={c.code} /> },
+      {
+        key: "code",
+        header: "Código",
+        primary: true,
+        // No desktop, "pegou há…" fica sob o código (uma coluna a menos).
+        cell: (c) => (
+          <span className="inline-flex flex-col items-start gap-1">
+            <ClaimCode code={c.code} />
+            <span className="hidden text-xs font-normal whitespace-nowrap text-neutral-500 md:block">
+              <When iso={c.claimedAt} prefix="pegou " />
+            </span>
+          </span>
+        ),
+      },
       {
         key: "visitor",
         id: "visitor",
@@ -87,12 +111,12 @@ export function ClaimsTable({
               to={PATHS.visitor(c.visitor.id)}
               className="inline-flex items-center gap-1.5 font-medium hover:underline"
             >
-              {c.visitor.name}
+              <span className="max-w-40 truncate">{c.visitor.name}</span>
               <DemoMark show={c.isDemo} />
             </Link>
           ) : (
             <span className="inline-flex items-center gap-1.5 font-medium">
-              {c.visitor.name}
+              <span className="max-w-40 truncate">{c.visitor.name}</span>
               <DemoMark show={c.isDemo} />
             </span>
           ),
@@ -102,20 +126,27 @@ export function ClaimsTable({
         id: "coupon",
         header: "Promoção",
         cell: (c) => (
-          <Link to={PATHS.coupon(c.coupon.id)} className="block max-w-64 hover:underline">
-            <span className="block truncate">{c.coupon.title}</span>
-            <span className="block text-xs text-neutral-500">{c.coupon.headline}</span>
+          <Link
+            to={PATHS.coupon(c.coupon.id)}
+            className="block max-w-full hover:underline md:max-w-48"
+          >
+            <span className="block truncate" title={c.coupon.title}>
+              {c.coupon.title}
+            </span>
+            {/* A loja vai no subtítulo, junto do destaque (uma coluna a menos). */}
+            <span className="block truncate text-xs text-neutral-500">
+              {c.coupon.headline}
+              {showStore && ` · ${c.store.name}`}
+            </span>
           </Link>
         ),
       },
       {
-        key: "store",
-        id: "store",
-        header: "Loja",
-        cell: (c) => c.store.name,
-        className: "hidden lg:table-cell",
+        key: "status",
+        header: "Situação",
+        status: true,
+        cell: (c) => <ClaimStatusBadge status={c.status} />,
       },
-      { key: "status", header: "Situação", cell: (c) => <ClaimStatusBadge status={c.status} /> },
       {
         key: "claimedAt",
         header: "Pegou",
@@ -124,12 +155,36 @@ export function ClaimsTable({
             <When iso={c.claimedAt} />
           </span>
         ),
-        className: "hidden md:table-cell",
+        // Só no cartão do celular: no desktop está sob o código.
+        className: "md:hidden",
       },
       { key: "outcome", header: "Uso / prazo", cell: (c) => <Outcome claim={c} /> },
+      ...(canRedeem
+        ? [
+            {
+              key: "actions",
+              header: <span className="sr-only">Ações</span>,
+              numeric: true,
+              actions: true,
+              // Aguardando uso: atalho para validar no caixa já com o código.
+              cell: (c: CouponClaim) =>
+                c.status === "active" ? (
+                  <ButtonLink
+                    to={PATHS.redeemCode(c.code)}
+                    size="sm"
+                    variant="secondary"
+                    icon={ClipboardCheck}
+                    aria-label={`Validar ${c.code}`}
+                  >
+                    Validar
+                  </ButtonLink>
+                ) : null,
+            },
+          ]
+        : []),
     ];
     return all.filter((c) => !c.id || !hide.includes(c.id));
-  }, [canVisitors, hide]);
+  }, [canVisitors, canRedeem, hide, showStore]);
 
   return (
     <Table
@@ -139,6 +194,7 @@ export function ClaimsTable({
       rowKey={(c) => c.id}
       loading={loading}
       empty={empty}
+      mobile="cards"
     />
   );
 }

@@ -1,32 +1,48 @@
 import type { Campaign } from "@arp/contracts";
 import { Award, CalendarDays, Target, Users } from "lucide-react";
 import { Link } from "react-router";
+import { useAuth } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
 import { cn } from "@/shared/lib/cn";
 import { formatNumber } from "@/shared/lib/format";
 import { iconFor } from "@/shared/lib/icons";
-import { DemoMark } from "@/shared/ui";
+import { DemoMark, LifecycleBadge } from "@/shared/ui";
+import {
+  CAMPAIGN_LIFECYCLE_LABEL,
+  campaignLifecycle,
+  campaignLifecycleHint,
+} from "../lib/lifecycle";
 import { formatPeriod, periodProgress } from "../lib/period";
-import { CampaignStatusBadge } from "./CampaignBadges";
+import { CampaignCardMenu } from "./CampaignActions";
 import { PeriodBar } from "./PeriodBar";
 
-/** Cartão da campanha na lista: situação, período, números e faixas. */
+/**
+ * Cartão da campanha na lista: situação, período, números e faixas. O
+ * cartão inteiro abre a campanha; o "⋯" (Duplicar, Arquivar, Excluir…)
+ * fica por cima, no canto.
+ */
 export function CampaignCard({ campaign }: { campaign: Campaign }) {
+  const { can } = useAuth();
   const live = campaign.status === "published" && campaign.phase === "live";
+  const status = campaignLifecycle(campaign);
   const tiers = [...campaign.tiers].sort((a, b) => a.threshold - b.threshold);
   return (
-    <Link
-      to={PATHS.campaign(campaign.id)}
+    <div
       className={cn(
-        "flutua flex h-full flex-col gap-4 rounded-[1.75rem] p-5",
+        "flutua relative flex h-full flex-col gap-4 rounded-[1.75rem] p-5",
         live ? "tom-escuro" : "vidro",
         campaign.status === "archived" && "opacity-70",
       )}
     >
-      <div className="flex flex-wrap items-start justify-between gap-2">
+      <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="flex items-center gap-2 truncate text-lg font-semibold tracking-tight text-neutral-900">
-            {campaign.name}
+          <p className="flex items-center gap-2 text-lg font-semibold tracking-tight text-neutral-900">
+            <Link
+              to={PATHS.campaign(campaign.id)}
+              className="truncate after:absolute after:inset-0 after:rounded-[1.75rem] hover:underline focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-neutral-900"
+            >
+              {campaign.name}
+            </Link>
             <DemoMark show={campaign.isDemo} />
           </p>
           <p className="mt-0.5 flex items-center gap-1.5 text-xs text-neutral-500">
@@ -34,8 +50,17 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
             {formatPeriod(campaign.startsAt, campaign.endsAt)}
           </p>
         </div>
-        <CampaignStatusBadge campaign={campaign} />
+        {can("challenges.manage") && (
+          <span className="relative z-10 -mt-1 -mr-1 shrink-0">
+            <CampaignCardMenu campaign={campaign} />
+          </span>
+        )}
       </div>
+      <LifecycleBadge
+        status={status}
+        label={CAMPAIGN_LIFECYCLE_LABEL[status]}
+        hint={campaignLifecycleHint(campaign)}
+      />
       {campaign.status === "published" && (
         <PeriodBar progress={periodProgress(campaign.startsAt, campaign.endsAt)} />
       )}
@@ -61,7 +86,7 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
           })}
         </ul>
       )}
-    </Link>
+    </div>
   );
 }
 

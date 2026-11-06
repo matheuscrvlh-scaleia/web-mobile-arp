@@ -16,6 +16,8 @@ export interface AgendaEventRepository {
   save(event: AgendaEvent): Promise<void>;
   /** ConflictError se algo ainda aponta para o evento (ex.: desafio). */
   delete(id: string): Promise<void>;
+  /** Quantas pessoas marcaram interesse (excluir só sem nenhuma). */
+  countInterests(id: string): Promise<number>;
 }
 
 /** Existência das referências do evento (categoria, andar, loja). */

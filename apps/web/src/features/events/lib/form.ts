@@ -5,6 +5,7 @@ import {
   type UpdateEventBody,
 } from "@arp/contracts";
 import type { z } from "zod";
+import { copyName } from "@/shared/hooks";
 import { todayIso } from "@/shared/lib/dates";
 import { pickDirty } from "@/shared/lib/forms";
 
@@ -26,7 +27,7 @@ export const EVENT_FORM_FIELDS = [
   "recurrence",
   "startsOn",
   "endsOn",
-  "weekday",
+  "weekdays",
   "startTime",
   "endTime",
   "isLongRunning",
@@ -35,11 +36,21 @@ export const EVENT_FORM_FIELDS = [
 ] as const;
 
 /** Campos que, juntos, definem quando o evento acontece. */
-const RECURRENCE_FIELDS = ["recurrence", "startsOn", "endsOn", "weekday", "isLongRunning"] as const;
+const RECURRENCE_FIELDS = [
+  "recurrence",
+  "startsOn",
+  "endsOn",
+  "weekdays",
+  "isLongRunning",
+] as const;
 
-export function eventToFormValues(event?: Event): EventFormInput {
+/**
+ * Valores do formulário. `copy` = "Duplicar": nome com "(cópia)" e rascunho;
+ * o resto vem igual (as datas ficam para revisar).
+ */
+export function eventToFormValues(event?: Event, { copy = false } = {}): EventFormInput {
   return {
-    title: event?.title ?? "",
+    title: event ? (copy ? copyName(event.title) : event.title) : "",
     categoryId: event?.category.id ?? "",
     description: event?.description ?? "",
     imageUrl: event?.imageUrl ?? null,
@@ -51,21 +62,23 @@ export function eventToFormValues(event?: Event): EventFormInput {
     recurrence: event?.recurrence ?? "single",
     startsOn: event?.startsOn ?? todayIso(),
     endsOn: event?.endsOn ?? null,
-    weekday: event?.weekday ?? null,
+    weekdays: event?.weekdays ?? (event?.weekday == null ? null : [event.weekday]),
     startTime: event?.startTime ?? null,
     endTime: event?.endTime ?? null,
     isLongRunning: event?.isLongRunning ?? false,
     awardsSeal: event?.awardsSeal ?? false,
-    status: event?.status ?? "draft",
+    status: copy ? "draft" : (event?.status ?? "draft"),
   };
 }
 
 /** Zera o que não vale para a recorrência escolhida (ex.: dia da semana num período). */
-export function cleanRecurrence(v: EventFormValues): CreateEventBody {
+export function cleanRecurrence(values: EventFormValues): CreateEventBody {
+  // O formulário só usa `weekdays`; o campo legado não vai.
+  const { weekday: _legacy, ...v } = values;
   if (v.recurrence === "single") {
-    return { ...v, endsOn: null, weekday: null, isLongRunning: false };
+    return { ...v, endsOn: null, weekdays: null, isLongRunning: false };
   }
-  if (v.recurrence === "range") return { ...v, weekday: null };
+  if (v.recurrence === "range") return { ...v, weekdays: null };
   return { ...v, isLongRunning: false };
 }
 

@@ -9,6 +9,7 @@ import { useVisitor } from "../api";
 import { VisitorHero } from "../components/VisitorHero";
 import {
   VisitorClaims,
+  VisitorClub,
   VisitorInterests,
   VisitorSeals,
   VisitorStores,
@@ -61,6 +62,7 @@ export function VisitorDetailPage() {
             <VisitorClaims visitor={v} />
           </div>
           <div className="flex min-w-0 flex-col gap-5">
+            <VisitorClub visitor={v} />
             <VisitorStores visitor={v} />
             <VisitorInterests visitor={v} />
           </div>

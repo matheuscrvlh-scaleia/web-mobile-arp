@@ -7,6 +7,7 @@ import {
   createChallengeBodySchema,
   createQrCodeBodySchema,
   createSealBodySchema,
+  duplicateCampaignBodySchema,
   earnedSealPageSchema,
   idParamsSchema,
   listChallengesQuerySchema,
@@ -15,6 +16,7 @@ import {
   qrCodeSchema,
   qrCurrentSchema,
   ROUTES,
+  reorderChallengesBodySchema,
   replaceTiersBodySchema,
   sealListSchema,
   sealSchema,
@@ -34,13 +36,17 @@ import type { CreateCampaignUseCase } from "../application/create-campaign.use-c
 import type { CreateChallengeUseCase } from "../application/create-challenge.use-case";
 import type { CreateQrCodeUseCase } from "../application/create-qr-code.use-case";
 import type { CreateSealUseCase } from "../application/create-seal.use-case";
+import type { DeleteCampaignUseCase } from "../application/delete-campaign.use-case";
 import type { DeleteChallengeUseCase } from "../application/delete-challenge.use-case";
+import type { DeleteSealUseCase } from "../application/delete-seal.use-case";
+import type { DuplicateCampaignUseCase } from "../application/duplicate-campaign.use-case";
 import {
   CAMPAIGN_NOT_FOUND,
   CHALLENGE_NOT_FOUND,
   QR_CODE_NOT_FOUND,
   SEAL_NOT_FOUND,
 } from "../application/gamification-deps";
+import type { ReorderChallengesUseCase } from "../application/reorder-challenges.use-case";
 import type { ReplaceCampaignTiersUseCase } from "../application/replace-campaign-tiers.use-case";
 import type { UpdateCampaignUseCase } from "../application/update-campaign.use-case";
 import type { UpdateChallengeUseCase } from "../application/update-challenge.use-case";
@@ -56,9 +62,13 @@ export interface GamificationRoutesDeps {
   clock: Clock;
   createSeal: CreateSealUseCase;
   updateSeal: UpdateSealUseCase;
+  deleteSeal: DeleteSealUseCase;
   createCampaign: CreateCampaignUseCase;
   updateCampaign: UpdateCampaignUseCase;
   replaceTiers: ReplaceCampaignTiersUseCase;
+  deleteCampaign: DeleteCampaignUseCase;
+  duplicateCampaign: DuplicateCampaignUseCase;
+  reorderChallenges: ReorderChallengesUseCase;
   createChallenge: CreateChallengeUseCase;
   updateChallenge: UpdateChallengeUseCase;
   deleteChallenge: DeleteChallengeUseCase;
@@ -109,6 +119,11 @@ export function gamificationRoutes(deps: GamificationRoutesDeps): FastifyPluginA
         return seal(request.params.id);
       },
     );
+
+    r.route(ROUTES.seals.remove, { params: idParamsSchema }, async (request, reply) => {
+      await deps.deleteSeal.execute({ id: request.params.id }, staffOf(request));
+      return reply.status(204).send();
+    });
 
     /* Campanhas */
 
@@ -164,6 +179,40 @@ export function gamificationRoutes(deps: GamificationRoutesDeps): FastifyPluginA
           staffOf(request),
         );
         return campaign(request.params.id);
+      },
+    );
+
+    r.route(ROUTES.campaigns.remove, { params: idParamsSchema }, async (request, reply) => {
+      await deps.deleteCampaign.execute({ id: request.params.id }, staffOf(request));
+      return reply.status(204).send();
+    });
+
+    r.route(
+      ROUTES.campaigns.duplicate,
+      {
+        params: idParamsSchema,
+        body: duplicateCampaignBodySchema,
+        response: { 201: campaignSchema },
+      },
+      async (request, reply) => {
+        const { name, startsAt, endsAt } = request.body;
+        const id = await deps.duplicateCampaign.execute(
+          { id: request.params.id, name, startsAt: new Date(startsAt), endsAt: new Date(endsAt) },
+          staffOf(request),
+        );
+        return reply.status(201).send(await campaign(id));
+      },
+    );
+
+    r.route(
+      ROUTES.campaigns.reorderChallenges,
+      { params: idParamsSchema, body: reorderChallengesBodySchema },
+      async (request, reply) => {
+        await deps.reorderChallenges.execute(
+          { campaignId: request.params.id, ids: request.body.ids },
+          staffOf(request),
+        );
+        return reply.status(204).send();
       },
     );
 
@@ -250,11 +299,14 @@ export function gamificationRoutes(deps: GamificationRoutesDeps): FastifyPluginA
         );
         const { payload, expiresAt } = qr.current(deps.clock.now());
         const s = qr.toState();
+        const info = orNotFound(await queries.qrScreenInfo(qr.id), QR_CODE_NOT_FOUND);
         return {
           payload,
           expiresAt: expiresAt.toISOString(),
           ttlSeconds: s.ttlSeconds,
           rotating: s.rotating,
+          status: s.status,
+          ...info,
         };
       },
     );

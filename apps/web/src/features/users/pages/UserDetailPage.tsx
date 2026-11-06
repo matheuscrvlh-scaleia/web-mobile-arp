@@ -204,7 +204,7 @@ function UserDetail({ user }: { user: User }) {
           {isMe && (
             <Card>
               <CardHeader title="Sua senha" />
-              <Link to={PATHS.changePassword} className="text-sm font-medium hover:underline">
+              <Link to={PATHS.account} className="text-sm font-medium hover:underline">
                 Trocar a minha senha →
               </Link>
             </Card>

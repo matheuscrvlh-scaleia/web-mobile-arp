@@ -9,6 +9,7 @@ import { sql } from "../database/sql";
 export const IMAGE_URL_COLUMNS = [
   { table: "directory.stores", column: "cover_image_url" },
   { table: "directory.stores", column: "logo_url" },
+  { table: "directory.floors", column: "background_url" },
   { table: "promotions.coupons", column: "image_url" },
   { table: "agenda.events", column: "image_url" },
   { table: "marketing.highlights", column: "image_url" },

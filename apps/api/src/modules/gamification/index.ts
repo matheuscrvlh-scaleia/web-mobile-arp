@@ -5,8 +5,12 @@ import { CreateCampaignUseCase } from "./application/create-campaign.use-case";
 import { CreateChallengeUseCase } from "./application/create-challenge.use-case";
 import { CreateQrCodeUseCase } from "./application/create-qr-code.use-case";
 import { CreateSealUseCase } from "./application/create-seal.use-case";
+import { DeleteCampaignUseCase } from "./application/delete-campaign.use-case";
 import { DeleteChallengeUseCase } from "./application/delete-challenge.use-case";
+import { DeleteSealUseCase } from "./application/delete-seal.use-case";
+import { DuplicateCampaignUseCase } from "./application/duplicate-campaign.use-case";
 import type { GamificationDeps } from "./application/gamification-deps";
+import { ReorderChallengesUseCase } from "./application/reorder-challenges.use-case";
 import { ReplaceCampaignTiersUseCase } from "./application/replace-campaign-tiers.use-case";
 import { ScanQrCodeUseCase } from "./application/scan-qr-code.use-case";
 import { UpdateCampaignUseCase } from "./application/update-campaign.use-case";
@@ -52,9 +56,13 @@ export function createGamificationModule(core: CoreDeps) {
     clock,
     createSeal: new CreateSealUseCase(deps),
     updateSeal: new UpdateSealUseCase(deps),
+    deleteSeal: new DeleteSealUseCase(deps),
     createCampaign: new CreateCampaignUseCase(deps),
     updateCampaign: new UpdateCampaignUseCase(deps),
     replaceTiers: new ReplaceCampaignTiersUseCase(deps),
+    deleteCampaign: new DeleteCampaignUseCase(deps),
+    duplicateCampaign: new DuplicateCampaignUseCase(deps),
+    reorderChallenges: new ReorderChallengesUseCase(deps),
     createChallenge: new CreateChallengeUseCase(deps),
     updateChallenge: new UpdateChallengeUseCase(deps),
     deleteChallenge: new DeleteChallengeUseCase(deps),

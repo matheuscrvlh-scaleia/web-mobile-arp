@@ -106,7 +106,7 @@ export function siteEventFromPost(post: WpEvento, imageUrl: string | null): Site
       recurrence: multiDay ? "range" : "single",
       startsOn,
       endsOn: multiDay ? (end?.[0] ?? null) : null,
-      weekday: null,
+      weekdays: null,
       startTime: timeOrNull(startClock),
       endTime: timeOrNull(startClock) ? timeOrNull(end?.[1]) : null,
       isLongRunning: false,

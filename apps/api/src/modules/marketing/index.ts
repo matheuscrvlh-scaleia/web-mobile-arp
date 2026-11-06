@@ -5,6 +5,10 @@ import { CancelNotificationUseCase } from "./application/cancel-notification.use
 import { CreateHighlightUseCase } from "./application/create-highlight.use-case";
 import { CreateNotificationUseCase } from "./application/create-notification.use-case";
 import { DeleteHighlightUseCase } from "./application/delete-highlight.use-case";
+import {
+  DeleteNotificationUseCase,
+  NotificationBackToDraftUseCase,
+} from "./application/notification-draft.use-case";
 import { ReorderHighlightsUseCase } from "./application/reorder-highlights.use-case";
 import { ScheduleNotificationUseCase } from "./application/schedule-notification.use-case";
 import { SendDueNotificationsUseCase } from "./application/send-due-notifications.use-case";
@@ -53,6 +57,8 @@ export function createMarketingModule(core: CoreDeps) {
     updateNotification: new UpdateNotificationUseCase(notificationDeps),
     scheduleNotification: new ScheduleNotificationUseCase(notificationDeps),
     cancelNotification: new CancelNotificationUseCase(notificationDeps),
+    notificationToDraft: new NotificationBackToDraftUseCase(notificationDeps),
+    deleteNotification: new DeleteNotificationUseCase(notificationDeps),
   });
 
   const sendScheduledJob: Job = {

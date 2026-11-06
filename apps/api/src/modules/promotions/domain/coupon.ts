@@ -33,11 +33,16 @@ export interface CouponProps {
   review: CouponReview;
   reviewNote: string | null;
   createdBy: string | null;
+  /** Arquivada em (fora das listas padrão); null = não arquivada. */
+  archivedAt: Date | null;
 }
 
-export type NewCoupon = Omit<CouponProps, "id">;
+export type NewCoupon = Omit<CouponProps, "id" | "archivedAt">;
 export type CouponChanges = Partial<
-  Omit<CouponProps, "id" | "storeId" | "status" | "createdBy" | "review" | "reviewNote">
+  Omit<
+    CouponProps,
+    "id" | "storeId" | "status" | "createdBy" | "review" | "reviewNote" | "archivedAt"
+  >
 >;
 
 const HOUR_MS = 3_600_000;
@@ -99,11 +104,16 @@ export class Coupon {
     return this.props.review;
   }
 
+  get archived(): boolean {
+    return this.props.archivedAt !== null;
+  }
+
   /** Dá para pegar agora: ativa, aprovada pela ARP, dentro de [startsAt, endsAt) e antes do useUntil. */
   isClaimableAt(now: Date): boolean {
-    const { status, review, startsAt, endsAt, useUntil } = this.props;
+    const { status, review, startsAt, endsAt, useUntil, archivedAt } = this.props;
     return (
       status === "active" &&
+      archivedAt === null &&
       review === "approved" &&
       startsAt <= now &&
       (endsAt === null || now < endsAt) &&
@@ -146,8 +156,11 @@ export class Coupon {
   /** Edição (só campos presentes). `taken` = unidades ocupadas agora. */
   update(changes: CouponChanges, taken: number): void {
     if (this.props.status === "ended") {
-      throw new BusinessRuleError("Promoção encerrada não pode ser editada");
+      throw new BusinessRuleError(
+        "Promoção encerrada não volta ao ar nem muda. Duplique para criar uma nova.",
+      );
     }
+    this.assertNotArchived();
     if (changes.totalQuantity !== undefined) {
       this.assertCanReduceTotalTo(changes.totalQuantity, taken);
     }
@@ -159,6 +172,7 @@ export class Coupon {
 
   changeStatus(status: CouponStatus, now: Date): void {
     if (status === this.props.status) return;
+    this.assertNotArchived();
     if (!TRANSITIONS[this.props.status].includes(status)) {
       throw new BusinessRuleError(
         `Não é possível mudar de ${STATUS_LABEL[this.props.status]} para ${STATUS_LABEL[status]}`,
@@ -166,6 +180,39 @@ export class Coupon {
     }
     if (status === "active") assertNotOver(this.props.endsAt, now);
     this.props = { ...this.props, status };
+  }
+
+  /**
+   * Arquiva o que já não está no ar: rascunho, pausada ou encerrada (inclusive
+   * a ativa cujo fim já passou, que fica encerrada de vez). Agendada (ainda não
+   * entrou no app) arquiva direto e fica pausada. No ar: pause ou encerre antes.
+   * Repetir não é erro.
+   */
+  archive(now: Date): void {
+    if (this.props.archivedAt) return;
+    const { status, startsAt, endsAt } = this.props;
+    if (status === "active" && startsAt > now) {
+      this.props = { ...this.props, status: "paused" };
+    } else if (status === "active") {
+      if (endsAt === null || endsAt > now) {
+        throw new BusinessRuleError(
+          "Esta promoção está no ar. Pause ou encerre antes de arquivar.",
+        );
+      }
+      this.props = { ...this.props, status: "ended" };
+    }
+    this.props = { ...this.props, archivedAt: now };
+  }
+
+  /** Volta às listas com o status que tinha (rascunho, pausada ou encerrada). */
+  unarchive(): void {
+    this.props = { ...this.props, archivedAt: null };
+  }
+
+  private assertNotArchived(): void {
+    if (this.props.archivedAt) {
+      throw new BusinessRuleError("Esta promoção está arquivada. Desarquive antes de mudar.");
+    }
   }
 
   toState(): CouponProps {

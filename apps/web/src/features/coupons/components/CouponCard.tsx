@@ -105,7 +105,7 @@ export function CouponCard({
         <p className="mt-1 truncate text-sm opacity-85">{data.title || "Título da promoção"}</p>
         <div className="mt-auto flex items-center gap-2.5 pt-3.5 text-xs font-semibold">
           {soldOut ? (
-            <span>Pode voltar se alguém não usar</span>
+            <span>{data.useUntil ? "Esgotado" : "Pode voltar se alguém não usar"}</span>
           ) : (
             <>
               <span

@@ -1,6 +1,7 @@
-import { RotateCw, TriangleAlert } from "lucide-react";
-import { useEffect } from "react";
+import { RotateCw, TriangleAlert, WifiOff } from "lucide-react";
+import { useEffect, useState } from "react";
 import { isRouteErrorResponse, useRouteError } from "react-router";
+import { onceOnline, reloadPage, useOnline } from "@/shared/hooks";
 import { avisarVersaoNova, Button } from "@/shared/ui";
 import { NotFoundPage } from "./NotFoundPage";
 
@@ -18,12 +19,34 @@ function isChunkError(error: unknown): boolean {
 export function RouteErrorPage() {
   const error = useRouteError();
   const chunk = isChunkError(error);
-  // Versão nova no ar: quem pede para atualizar é o aviso do canto.
+  const online = useOnline();
+  // A tela não baixou. Sem rede: tenta de novo sozinha quando a internet
+  // voltar. Com rede: é versão nova, e quem pede para atualizar é o aviso do canto.
+  const [offlineAtError] = useState(() => !navigator.onLine);
+  const offlineChunk = chunk && (!online || offlineAtError);
   useEffect(() => {
-    if (chunk) avisarVersaoNova();
+    if (!chunk) return;
+    if (!navigator.onLine) return onceOnline(reloadPage);
+    avisarVersaoNova();
   }, [chunk]);
   if (isRouteErrorResponse(error) && error.status === 404) return <NotFoundPage />;
   if (import.meta.env.DEV) console.error(error);
+  if (offlineChunk) {
+    return (
+      <div role="alert" className="vidro mx-auto my-10 max-w-lg rounded-[2rem] p-8 text-center">
+        <span className="mx-auto grid size-12 place-items-center rounded-full bg-amber-50 text-amber-900">
+          <WifiOff className="size-5" aria-hidden />
+        </span>
+        <h1 className="mt-4 text-xl font-semibold tracking-tight">Sem conexão</h1>
+        <p className="mt-2 text-sm text-neutral-500">
+          Esta tela não abriu porque a internet caiu. Ela abre sozinha quando a conexão voltar.
+        </p>
+        <Button className="mt-6" variant="secondary" icon={RotateCw} onClick={reloadPage}>
+          Tentar de novo
+        </Button>
+      </div>
+    );
+  }
   if (chunk) {
     return (
       <p className="mx-auto my-10 max-w-lg text-center text-sm text-neutral-500">

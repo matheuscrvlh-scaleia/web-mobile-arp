@@ -18,6 +18,15 @@ const TONES = {
   info: { icon: Info, className: "bg-sky-50 text-sky-700" },
   brand: { icon: Sparkles, className: "bg-marca/20 text-green-800" },
   dark: { icon: CircleCheck, className: "bg-neutral-900 text-white" },
+  /** Laranja (Esgotado). */
+  orange: { icon: CircleAlert, className: "bg-orange-50 text-orange-700" },
+  /** Cinza-escuro discreto (Encerrado). */
+  ended: { icon: CircleCheck, className: "bg-neutral-900/[0.12] text-neutral-800" },
+  /** Só contorno (Arquivado). */
+  outline: {
+    icon: CircleDashed,
+    className: "border border-neutral-300 bg-transparent text-neutral-500",
+  },
 } as const;
 export type StatusTone = keyof typeof TONES;
 

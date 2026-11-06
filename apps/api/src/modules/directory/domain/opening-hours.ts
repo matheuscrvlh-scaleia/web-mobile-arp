@@ -1,10 +1,29 @@
 import { minutesOfDay, toLocal } from "../../../shared/domain/time";
 
-/** Horário de um dia da semana (0 = domingo), "HH:mm". */
+/** Um intervalo de um dia da semana (0 = domingo), "HH:mm". O dia pode ter vários. */
 export interface DailyHours {
   weekday: number;
   opensAt: string;
   closesAt: string;
+}
+
+/** Intervalos por dia (ex.: almoço e jantar). */
+export const HOURS_PER_DAY_MAX = 3;
+
+/** Dois intervalos do mesmo dia se cruzam (o que passa da meia-noite vai até o fim do dia). */
+export function hasOverlap(hours: readonly DailyHours[]): boolean {
+  for (let day = 0; day < 7; day++) {
+    const spans = hours
+      .filter((h) => h.weekday === day)
+      .map((h) => {
+        const start = minutesOfDay(h.opensAt);
+        const end = minutesOfDay(h.closesAt);
+        return { start, end: end > start ? end : 24 * 60 };
+      })
+      .sort((a, b) => a.start - b.start);
+    if (spans.some((s, i) => i > 0 && s.start < (spans[i - 1]?.end ?? 0))) return true;
+  }
+  return false;
 }
 
 /**

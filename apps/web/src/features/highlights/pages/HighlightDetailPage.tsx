@@ -1,14 +1,13 @@
 import type { Highlight } from "@arp/contracts";
-import { Eye, MousePointerClick, Percent, SearchX, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Eye, MousePointerClick, Pause, Percent, Play, SearchX } from "lucide-react";
 import { useNavigate, useParams } from "react-router";
 import { applyApiErrors, errorMessage } from "@/shared/api";
 import { useAuth } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
 import { formatNumber } from "@/shared/lib/format";
 import {
+  ActionMenu,
   Button,
-  ConfirmDialog,
   KpiCard,
   LoadError,
   LoadingRegion,
@@ -17,10 +16,11 @@ import {
   SkeletonGrid,
   toast,
 } from "@/shared/ui";
-import { useDeleteHighlight, useHighlight, useHighlights, useUpdateHighlight } from "../api";
+import { useHighlight, useHighlights, useUpdateHighlight } from "../api";
 import { HighlightForm } from "../components/form/HighlightForm";
 import { HighlightStateBadge, KindBadge } from "../components/HighlightBadges";
 import { ctr } from "../components/HighlightItem";
+import { useHighlightActions } from "../components/useHighlightActions";
 import { carouselContext } from "../lib/carousel";
 import { HIGHLIGHT_FORM_FIELDS, highlightPatch } from "../lib/form";
 
@@ -35,7 +35,7 @@ export function HighlightDetailPage() {
         onRetry={() => void highlight.refetch()}
         icon={SearchX}
         title="Destaque não encontrado"
-        description="Ele pode ter sido apagado ou o endereço está errado."
+        description="Ele pode ter sido excluído ou o endereço está errado."
         back={{ to: PATHS.highlights, label: "Ver destaques" }}
       />
     );
@@ -58,10 +58,15 @@ function HighlightEditor({ highlight }: { highlight: Highlight }) {
   const { can } = useAuth();
   const navigate = useNavigate();
   const update = useUpdateHighlight(highlight.id);
-  const remove = useDeleteHighlight();
   const all = useHighlights();
-  const [deleting, setDeleting] = useState(false);
   const canEdit = can("highlights.manage");
+  const actions = useHighlightActions(highlight, { onDeleted: () => navigate(PATHS.highlights) });
+  // Botão principal do status: Publicar / Pausar / Retomar / Desarquivar.
+  const primary =
+    actions.primary ??
+    (actions.live
+      ? { label: "Pausar", icon: Pause, run: actions.toggleLive }
+      : { label: "Retomar", icon: Play, run: actions.toggleLive });
   const { next, total } = carouselContext(all.data, highlight.id);
 
   return (
@@ -78,9 +83,21 @@ function HighlightEditor({ highlight }: { highlight: Highlight }) {
         }
         actions={
           canEdit && (
-            <Button variant="ghost" icon={Trash2} onClick={() => setDeleting(true)}>
-              Apagar
-            </Button>
+            <>
+              <Button
+                variant="brand"
+                icon={primary.icon}
+                loading={actions.busy}
+                onClick={primary.run}
+              >
+                {primary.label}
+              </Button>
+              <ActionMenu
+                items={actions.menu}
+                label="Mais"
+                ariaLabel={`Mais ações de ${highlight.title}`}
+              />
+            </>
           )
         }
       />
@@ -117,28 +134,7 @@ function HighlightEditor({ highlight }: { highlight: Highlight }) {
           });
         }}
       />
-      <ConfirmDialog
-        open={deleting}
-        onClose={() => {
-          setDeleting(false);
-          remove.reset();
-        }}
-        danger
-        title="Apagar o destaque?"
-        description="Ele sai do carrossel e os números dele somem. Para só tirar do ar, arquive."
-        confirmLabel="Apagar"
-        loading={remove.isPending}
-        error={remove.error}
-        onConfirm={() =>
-          remove.mutate(highlight.id, {
-            onSuccess: () => {
-              toast.success("Destaque apagado.");
-              setDeleting(false);
-              navigate(PATHS.highlights);
-            },
-          })
-        }
-      />
+      {actions.dialogs}
     </>
   );
 }

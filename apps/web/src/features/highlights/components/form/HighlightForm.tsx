@@ -1,9 +1,10 @@
-import { type Highlight, highlightStatusSchema } from "@arp/contracts";
+import type { Highlight } from "@arp/contracts";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Megaphone, Sparkles } from "lucide-react";
-import { useMemo } from "react";
+import { CalendarClock, Megaphone, Radio, Save, Sparkles } from "lucide-react";
+import { type FormEvent, useMemo } from "react";
 import { Controller, type UseFormReturn, useForm, useWatch } from "react-hook-form";
-import { useStoreOptions } from "@/features/stores";
+import { PreviewButton } from "@/features/events";
+import { StoreSelect } from "@/features/stores";
 import { useUnsavedChangesGuard } from "@/shared/hooks";
 import { formatNumber } from "@/shared/lib/format";
 import { emptyToNull } from "@/shared/lib/text";
@@ -17,7 +18,6 @@ import {
   Input,
   SaveBar,
   Segmented,
-  Select,
   Textarea,
 } from "@/shared/ui";
 import {
@@ -26,7 +26,7 @@ import {
   highlightFormSchema,
   highlightToFormValues,
 } from "../../lib/form";
-import { BADGE_LABEL, DEFAULT_CTA, HIGHLIGHT_STATUS_LABEL } from "../HighlightBadges";
+import { BADGE_LABEL, DEFAULT_CTA } from "../HighlightBadges";
 import { HighlightPhonePreview } from "../HighlightPhonePreview";
 import type { SlideContent } from "../HighlightSlide";
 import { TargetFields } from "./TargetFields";
@@ -43,6 +43,7 @@ const SUBTITLE_MAX = 160;
 /** Formulário do destaque (criar e editar) com a prévia no celular ao lado. */
 export function HighlightForm({
   highlight,
+  copyOf,
   next,
   total,
   onSubmit,
@@ -51,6 +52,8 @@ export function HighlightForm({
   submitLabel,
 }: {
   highlight?: Highlight;
+  /** "Duplicar": abre preenchido com o destaque de origem (rascunho, período novo). */
+  copyOf?: Highlight;
   /** Próximo slide do carrossel (para a prévia). */
   next?: SlideContent;
   total: number;
@@ -62,18 +65,45 @@ export function HighlightForm({
   const creating = !highlight;
   const form: HighlightForm = useForm<HighlightFormInput, unknown, HighlightFormValues>({
     resolver: zodResolver(highlightFormSchema),
-    values: useMemo(() => highlightToFormValues(highlight), [highlight]),
+    values: useMemo(
+      () =>
+        highlight
+          ? highlightToFormValues(highlight)
+          : highlightToFormValues(copyOf, { copy: Boolean(copyOf) }),
+      [highlight, copyOf],
+    ),
     resetOptions: { keepDirtyValues: true },
   });
   const { register, control, formState } = form;
   const { errors, isDirty } = formState;
   const { allowLeave } = useUnsavedChangesGuard(isDirty && !saving);
-  const stores = useStoreOptions();
   const w = useWatch({ control });
   const badge = w.badge ?? "featured";
+  const future = Boolean(w.startsAt && new Date(w.startsAt).getTime() > Date.now());
+
+  const submitWith = (status?: "draft" | "published") => (e?: FormEvent) => {
+    // Criar: "Publicar"/"Agendar" (principal) ou "Salvar rascunho" decidem a situação.
+    if (status) form.setValue("status", status);
+    return form.handleSubmit((v) => onSubmit(v, { form, allowLeave }))(e);
+  };
+
+  const preview = (
+    <HighlightPhonePreview
+      slide={{
+        title: w.title ?? "",
+        subtitle: w.subtitle,
+        ctaLabel: w.ctaLabel,
+        imageUrl: w.imageUrl,
+        badge,
+      }}
+      next={next}
+      total={total}
+    />
+  );
 
   return (
-    <form onSubmit={form.handleSubmit((v) => onSubmit(v, { form, allowLeave }))} noValidate>
+    <form onSubmit={submitWith(creating ? "published" : undefined)} noValidate>
+      <PreviewButton title="Na home do app">{preview}</PreviewButton>
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_19.5rem]">
         <fieldset disabled={readOnly} className="min-w-0">
           <Card padding="lg">
@@ -97,7 +127,7 @@ export function HighlightForm({
               >
                 <Input
                   maxLength={30}
-                  placeholder={DEFAULT_CTA[w.targetType ?? "none"] ?? "Ex.: Ver programação"}
+                  placeholder={`Ex.: ${DEFAULT_CTA[w.targetType ?? "none"] ?? "Ver programação"}`}
                   {...register("ctaLabel", nullable)}
                 />
               </Field>
@@ -144,13 +174,21 @@ export function HighlightForm({
               />
               {badge === "sponsored" && (
                 <Field label="Patrocinador" optional error={errors.sponsorStoreId?.message}>
-                  <Select placeholder="Sem loja" {...register("sponsorStoreId", nullable)}>
-                    {(stores.data ?? []).map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </Select>
+                  <Controller
+                    control={control}
+                    name="sponsorStoreId"
+                    render={({ field }) => (
+                      <StoreSelect
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        name={field.name}
+                        placeholder="Sem loja (escolha o patrocinador)"
+                        selectedLabel={highlight?.sponsorStore?.name}
+                        disabled={readOnly}
+                      />
+                    )}
+                  />
                 </Field>
               )}
             </FormSection>
@@ -160,7 +198,7 @@ export function HighlightForm({
             </FormSection>
 
             <FormSection
-              title="Período e publicação"
+              title="Período"
               description="Horário de Brasília. Fora do período, o slide sai do carrossel sozinho."
             >
               <FieldRow>
@@ -194,24 +232,6 @@ export function HighlightForm({
                   />
                 </Field>
               </FieldRow>
-              <Field label="Situação" error={errors.status?.message}>
-                <Controller
-                  control={control}
-                  name="status"
-                  render={({ field }) => (
-                    <Segmented
-                      label="Situação"
-                      value={field.value ?? "draft"}
-                      onChange={field.onChange}
-                      options={highlightStatusSchema.options.map((s) => ({
-                        value: s,
-                        label: HIGHLIGHT_STATUS_LABEL[s],
-                      }))}
-                      className={readOnly ? "pointer-events-none w-fit opacity-70" : "w-fit"}
-                    />
-                  )}
-                />
-              </Field>
             </FormSection>
           </Card>
         </fieldset>
@@ -219,17 +239,7 @@ export function HighlightForm({
         <aside aria-label="Prévia na home do app" className="hidden xl:block">
           <div className="sticky top-6 flex flex-col gap-2">
             <p className="text-xs font-medium text-neutral-500">Na home do app</p>
-            <HighlightPhonePreview
-              slide={{
-                title: w.title ?? "",
-                subtitle: w.subtitle,
-                ctaLabel: w.ctaLabel,
-                imageUrl: w.imageUrl,
-                badge,
-              }}
-              next={next}
-              total={total}
-            />
+            {preview}
           </div>
         </aside>
       </div>
@@ -240,7 +250,17 @@ export function HighlightForm({
           saving={saving}
           alwaysVisible={creating}
           onReset={creating ? undefined : () => form.reset()}
-          submitLabel={submitLabel}
+          submitLabel={creating ? (future ? "Agendar" : "Publicar") : submitLabel}
+          submitIcon={creating ? (future ? CalendarClock : Radio) : undefined}
+          secondary={
+            creating
+              ? {
+                  label: "Salvar rascunho",
+                  icon: Save,
+                  onClick: () => void submitWith("draft")(),
+                }
+              : undefined
+          }
         />
       )}
     </form>

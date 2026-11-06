@@ -99,17 +99,18 @@ interface EventRow {
   recurrence: EventRecurrence;
   starts_on: string;
   ends_on: string | null;
-  weekday: number | null;
+  weekdays: number[] | null;
   start_time: string | null;
   end_time: string | null;
   is_long_running: boolean;
   awards_seal: boolean;
   status: EventStatus;
+  archived_at: Date | null;
 }
 
 const EVENT_COLUMNS = sql.raw(`id, title, category_id, description, image_url, tone, icon, place,
-  floor_id, store_id, recurrence, starts_on, ends_on, weekday, start_time, end_time,
-  is_long_running, awards_seal, status`);
+  floor_id, store_id, recurrence, starts_on, ends_on, weekdays, start_time, end_time,
+  is_long_running, awards_seal, status, archived_at`);
 
 const eventToDomain = (r: EventRow) =>
   AgendaEvent.restore({
@@ -126,13 +127,17 @@ const eventToDomain = (r: EventRow) =>
     recurrence: r.recurrence,
     startsOn: r.starts_on,
     endsOn: r.ends_on,
-    weekday: r.weekday,
+    weekdays: r.weekdays,
     startTime: hhmmOrNull(r.start_time),
     endTime: hhmmOrNull(r.end_time),
     isLongRunning: r.is_long_running,
     awardsSeal: r.awards_seal,
     status: r.status,
+    archivedAt: r.archived_at,
   });
+
+/** weekday (legado do app) = primeiro dia da lista. */
+const firstDay = (days: number[] | null) => days?.[0] ?? null;
 
 export class PgAgendaEventRepository implements AgendaEventRepository {
   constructor(private readonly db: Database) {}
@@ -148,12 +153,13 @@ export class PgAgendaEventRepository implements AgendaEventRepository {
     const row = await this.db.one<EventRow>(sql`
       insert into agenda.events
         (title, category_id, description, image_url, tone, icon, place, floor_id, store_id,
-         recurrence, starts_on, ends_on, weekday, start_time, end_time, is_long_running,
+         recurrence, starts_on, ends_on, weekday, weekdays, start_time, end_time, is_long_running,
          awards_seal, status)
       values
         (${d.title}, ${d.categoryId}, ${d.description}, ${d.imageUrl}, ${d.tone}, ${d.icon},
          ${d.place}, ${d.floorId}, ${d.storeId}, ${d.recurrence}, ${d.startsOn}::date,
-         ${d.endsOn}::date, ${d.weekday}, ${d.startTime}::time, ${d.endTime}::time,
+         ${d.endsOn}::date, ${firstDay(d.weekdays)}, ${d.weekdays}::smallint[],
+         ${d.startTime}::time, ${d.endTime}::time,
          ${d.isLongRunning}, ${d.awardsSeal}, ${d.status})
       returning ${EVENT_COLUMNS}
     `);
@@ -167,9 +173,11 @@ export class PgAgendaEventRepository implements AgendaEventRepository {
       set title = ${s.title}, category_id = ${s.categoryId}, description = ${s.description},
           image_url = ${s.imageUrl}, tone = ${s.tone}, icon = ${s.icon}, place = ${s.place},
           floor_id = ${s.floorId}, store_id = ${s.storeId}, recurrence = ${s.recurrence},
-          starts_on = ${s.startsOn}::date, ends_on = ${s.endsOn}::date, weekday = ${s.weekday},
+          starts_on = ${s.startsOn}::date, ends_on = ${s.endsOn}::date,
+          weekday = ${firstDay(s.weekdays)}, weekdays = ${s.weekdays}::smallint[],
           start_time = ${s.startTime}::time, end_time = ${s.endTime}::time,
-          is_long_running = ${s.isLongRunning}, awards_seal = ${s.awardsSeal}, status = ${s.status}
+          is_long_running = ${s.isLongRunning}, awards_seal = ${s.awardsSeal}, status = ${s.status},
+          archived_at = ${s.archivedAt}
       where id = ${s.id}
     `);
   }
@@ -179,6 +187,13 @@ export class PgAgendaEventRepository implements AgendaEventRepository {
       () => this.db.query(sql`delete from agenda.events where id = ${id}`),
       () => new ConflictError("Este evento está ligado a um desafio. Remova o vínculo antes."),
     );
+  }
+
+  async countInterests(id: string): Promise<number> {
+    const { n } = await this.db.one<{ n: number }>(
+      sql`select count(*) as n from agenda.event_interests where event_id = ${id}`,
+    );
+    return n;
   }
 }
 

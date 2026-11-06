@@ -10,6 +10,7 @@ import {
   jobListSchema,
   jobSchema,
   type ListJobsQuery,
+  type RecyclingItem,
   ROUTES,
   recyclingItemListSchema,
   recyclingItemSchema,
@@ -44,12 +45,17 @@ export const contentApi = {
   updateRecyclingItem: (id: string, body: UpdateRecyclingItemBody) =>
     apiRequest(ROUTES.recyclingItems.update, recyclingItemSchema, { params: { id }, body }),
   removeRecyclingItem: (id: string) => apiCall(ROUTES.recyclingItems.remove, { params: { id } }),
+  /** Nova ordem do Sustentarp (todos os ids). */
+  reorderRecyclingItems: (ids: string[]) =>
+    apiCall(ROUTES.recyclingItems.reorder, { body: { ids } }),
   jobs: (query: ListJobsQuery, signal?: AbortSignal) =>
     apiRequest(ROUTES.jobs.list, jobListSchema, { query, signal }),
   createJob: (body: CreateJobBody) => apiRequest(ROUTES.jobs.create, jobSchema, { body }),
   updateJob: (id: string, body: UpdateJobBody) =>
     apiRequest(ROUTES.jobs.update, jobSchema, { params: { id }, body }),
   removeJob: (id: string) => apiCall(ROUTES.jobs.remove, { params: { id } }),
+  /** Encerrar agora: vai para "Encerradas" (republica com updateJob { days }). */
+  closeJob: (id: string) => apiRequest(ROUTES.jobs.close, jobSchema, { params: { id } }),
 };
 
 export const contentKeys = {
@@ -133,6 +139,31 @@ export function useSaveRecyclingItem() {
   });
 }
 
+/** Ordem do Sustentarp por arrastar: a lista já mostra a nova ordem enquanto salva. */
+export function useReorderRecyclingItems() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: contentApi.reorderRecyclingItems,
+    onMutate: async (ids) => {
+      await qc.cancelQueries({ queryKey: contentKeys.recycling });
+      const previous = qc.getQueryData<{ data: RecyclingItem[] }>(contentKeys.recycling);
+      if (previous) {
+        const byId = new Map(previous.data.map((i) => [i.id, i]));
+        const data = ids.flatMap((id, i) => {
+          const item = byId.get(id);
+          return item ? [{ ...item, sortOrder: i + 1 }] : [];
+        });
+        qc.setQueryData(contentKeys.recycling, { data });
+      }
+      return { previous };
+    },
+    onError: (_e, _ids, ctx) => {
+      if (ctx?.previous) qc.setQueryData(contentKeys.recycling, ctx.previous);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: contentKeys.recycling }),
+  });
+}
+
 export function useDeleteRecyclingItem() {
   const invalidate = useInvalidate(contentKeys.recycling);
   return useMutation({ mutationFn: contentApi.removeRecyclingItem, onSuccess: invalidate });
@@ -150,4 +181,18 @@ export function useSaveJob() {
 export function useRemoveJob() {
   const invalidate = useInvalidate(contentKeys.allJobs);
   return useMutation({ mutationFn: contentApi.removeJob, onSuccess: invalidate });
+}
+
+export function useCloseJob() {
+  const invalidate = useInvalidate(contentKeys.allJobs);
+  return useMutation({ mutationFn: contentApi.closeJob, onSuccess: invalidate });
+}
+
+/** Republica (ou encerra de novo para desfazer): renova o prazo a partir de hoje. */
+export function useRepublishJob() {
+  const invalidate = useInvalidate(contentKeys.allJobs);
+  return useMutation({
+    mutationFn: ({ id, days }: { id: string; days: number }) => contentApi.updateJob(id, { days }),
+    onSuccess: invalidate,
+  });
 }

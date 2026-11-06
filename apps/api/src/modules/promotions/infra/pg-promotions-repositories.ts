@@ -1,5 +1,9 @@
+import { ConflictError } from "../../../shared/domain/errors";
 import type { Database } from "../../../shared/infra/database/database";
-import { translateConstraintErrors } from "../../../shared/infra/database/errors";
+import {
+  translateConstraintErrors,
+  translateInUseError,
+} from "../../../shared/infra/database/errors";
 import { sql } from "../../../shared/infra/database/sql";
 import { Claim, type ClaimStatus, type NewClaim } from "../domain/claim";
 import {
@@ -14,6 +18,7 @@ import type {
   ClaimRepository,
   ClaimWithStore,
   CouponRepository,
+  CouponUsage,
   StoreLookup,
 } from "../domain/repositories";
 
@@ -42,11 +47,12 @@ interface CouponRow {
   review: CouponReview;
   review_note: string | null;
   created_by: string | null;
+  archived_at: Date | null;
 }
 
 const COUPON_COLUMNS = sql.raw(`id, store_id, title, headline, headline_sub, description,
   schedule_note, starts_at, ends_at, total_quantity, redeem_window_hours, expires_with_promotion, use_until, tone, icon,
-  image_url, savings_cents, status, weekdays, review, review_note, created_by`);
+  image_url, savings_cents, status, weekdays, review, review_note, created_by, archived_at`);
 
 const couponToDomain = (r: CouponRow) =>
   Coupon.restore({
@@ -72,6 +78,7 @@ const couponToDomain = (r: CouponRow) =>
     review: r.review,
     reviewNote: r.review_note,
     createdBy: r.created_by,
+    archivedAt: r.archived_at,
   });
 
 export class PgCouponRepository implements CouponRepository {
@@ -117,9 +124,28 @@ export class PgCouponRepository implements CouponRepository {
           redeem_window_hours = ${s.redeemWindowHours}, tone = ${s.tone}, icon = ${s.icon},
           image_url = ${s.imageUrl}, savings_cents = ${s.savingsCents}, status = ${s.status},
           weekdays = ${s.weekdays}::smallint[],
-          expires_with_promotion = ${s.expiresWithPromotion}, use_until = ${s.useUntil}, review = ${s.review}, review_note = ${s.reviewNote}
+          expires_with_promotion = ${s.expiresWithPromotion}, use_until = ${s.useUntil}, review = ${s.review}, review_note = ${s.reviewNote},
+          archived_at = ${s.archivedAt}
       where id = ${s.id}
     `);
+  }
+
+  usage(couponId: string): Promise<CouponUsage> {
+    return this.db.one<CouponUsage>(sql`
+      select
+        (select count(*) from promotions.coupon_claims where coupon_id = ${couponId})::int as claims,
+        (select count(*) from gamification.challenges where coupon_id = ${couponId})::int as challenges,
+        (select count(*) from marketing.highlights
+          where target_type = 'coupon' and target_id = ${couponId})::int as highlights
+    `);
+  }
+
+  async remove(couponId: string): Promise<void> {
+    // Rede de segurança: um pego ou desafio criado entre a checagem e o delete (FK restrict).
+    await translateInUseError(
+      () => this.db.query(sql`delete from promotions.coupons where id = ${couponId}`),
+      () => new ConflictError("Alguém acabou de pegar este cupom. Arquive em vez de excluir."),
+    );
   }
 
   async countTaken(couponId: string, now: Date): Promise<number> {

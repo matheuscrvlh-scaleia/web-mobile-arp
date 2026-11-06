@@ -46,7 +46,7 @@ export function EventsPage() {
       />
       <TabPanel idBase="eventos" value={tab}>
         {tab === "lista" && <EventsListTab />}
-        {tab === "calendario" && <EventsCalendar />}
+        {tab === "calendario" && <EventsCalendar canCreate={can("events.manage")} />}
         {tab === "categorias" && <EventCategoriesTab canEdit={can("events.manage")} />}
       </TabPanel>
       <ImportSiteEventsModal open={importing} onClose={() => setImporting(false)} />

@@ -1,4 +1,4 @@
-import { BusinessRuleError } from "../../../shared/domain/errors";
+import { BusinessRuleError, ConflictError, ValidationError } from "../../../shared/domain/errors";
 import { applyPatch } from "../../../shared/domain/patch";
 import { EventSchedule, type EventScheduleProps } from "./event-schedule";
 
@@ -18,10 +18,12 @@ export interface AgendaEventDetails {
   isLongRunning: boolean;
   awardsSeal: boolean;
   status: EventStatus;
+  /** Arquivado: fora das listas do painel (nunca com status published). */
+  archivedAt: Date | null;
 }
 
 export type AgendaEventProps = AgendaEventDetails & EventScheduleProps & { id: string };
-export type NewAgendaEvent = Omit<AgendaEventProps, "id">;
+export type NewAgendaEvent = Omit<AgendaEventProps, "id" | "archivedAt">;
 /** PATCH: undefined = mantém; null = limpa. */
 export type AgendaEventChanges = Partial<NewAgendaEvent>;
 
@@ -39,12 +41,12 @@ export class AgendaEvent {
   }
 
   static restore(props: AgendaEventProps): AgendaEvent {
-    const { recurrence, startsOn, endsOn, weekday, startTime, endTime, ...details } = props;
+    const { recurrence, startsOn, endsOn, weekdays, startTime, endTime, ...details } = props;
     const schedule = EventSchedule.restore({
       recurrence,
       startsOn,
       endsOn,
-      weekday,
+      weekdays,
       startTime,
       endTime,
     });
@@ -61,25 +63,51 @@ export class AgendaEvent {
   /** Aplica um PATCH: junta o estado atual com as mudanças e valida o resultado. */
   update(changes: AgendaEventChanges): void {
     const merged = applyPatch(this.toState(), changes);
-    const { recurrence, startsOn, endsOn, weekday, startTime, endTime, ...details } = merged;
+    const { recurrence, startsOn, endsOn, weekdays, startTime, endTime, ...details } = merged;
+    if (details.archivedAt && details.status === "published") {
+      throw new BusinessRuleError("Desarquive o evento antes de publicar.");
+    }
     this.schedule = EventSchedule.create({
       recurrence,
       startsOn,
       endsOn,
-      weekday,
+      weekdays,
       startTime,
       endTime,
     });
     this.details = details;
   }
 
-  /** Só rascunho pode ser apagado; publicado se cancela (mantém o histórico). */
-  assertDeletable(): void {
-    if (this.details.status !== "draft") {
-      throw new BusinessRuleError(
-        "Só rascunhos podem ser apagados. Para tirar do ar, cancele o evento.",
+  /** Nova data de início (o fim anda junto, mantendo a duração). A situação não muda. */
+  postpone(startsOn: string): void {
+    if (startsOn === this.schedule.toState().startsOn) {
+      throw ValidationError.field("startsOn", "Escolha uma data diferente da atual");
+    }
+    this.schedule = EventSchedule.create(this.schedule.movedTo(startsOn));
+  }
+
+  /**
+   * Excluir só o que ninguém usou: sem interessados (quem marcou interesse
+   * perderia o evento sem aviso). Com uso, arquive.
+   */
+  assertDeletable(interests: number): void {
+    if (interests > 0) {
+      throw new ConflictError(
+        `${interests === 1 ? "1 pessoa marcou" : `${interests} pessoas marcaram`} interesse neste evento: arquive em vez de excluir.`,
       );
     }
+  }
+
+  /** Sai das listas e do calendário do painel; publicado é pausado antes (sai do app). */
+  archive(now: Date): void {
+    if (this.details.archivedAt) return;
+    const status = this.details.status === "published" ? "paused" : this.details.status;
+    this.details = { ...this.details, status, archivedAt: now };
+  }
+
+  /** Volta às listas como estava (pausado, cancelado ou rascunho), nunca direto no app. */
+  unarchive(): void {
+    this.details = { ...this.details, archivedAt: null };
   }
 
   toState(): AgendaEventProps {

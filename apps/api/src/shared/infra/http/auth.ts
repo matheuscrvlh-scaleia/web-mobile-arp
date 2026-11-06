@@ -1,4 +1,4 @@
-import { PERMISSIONS, type Permission } from "@arp/contracts";
+import { PERMISSIONS, type Permission, permissionInfo } from "@arp/contracts";
 import type { FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
 import { hasPermission, type StaffActor, type VisitorActor } from "../../application/actor";
@@ -64,7 +64,15 @@ export const authPlugin = fp<AuthPluginOptions>(
       async function authorizeRequest(request: FastifyRequest) {
         const actor = request.actor;
         if (!actor) throw new UnauthenticatedError();
-        if (!hasPermission(actor, permission as Permission)) throw new ForbiddenError();
+        if (!hasPermission(actor, permission as Permission)) {
+          // Diz o que falta, com o nome da tela de cargos (o TI resolve direto).
+          const info = permissionInfo(permission);
+          throw new ForbiddenError(
+            info
+              ? `Você não tem acesso a isso. Precisa da permissão "${info.label}" (${info.group}).`
+              : undefined,
+          );
+        }
       };
 
     app.decorate("auth", { authenticate, authorize });

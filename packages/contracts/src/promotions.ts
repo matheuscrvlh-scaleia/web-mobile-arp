@@ -52,6 +52,40 @@ export const couponCodeSchema = z
 export const couponStatusSchema = z.enum(["draft", "active", "paused", "ended"]);
 export type CouponStatus = z.infer<typeof couponStatusSchema>;
 
+/**
+ * Situação que a pessoa vê (derivada do status, das datas, do estoque e do
+ * arquivo): scheduled = publicada com início no futuro; soldout = no ar sem
+ * unidade livre; ended = encerrada à mão ou com o fim já passado; archived =
+ * fora das listas padrão (o status guardado continua o mesmo).
+ */
+export const couponLifecycleSchema = z.enum([
+  "draft",
+  "scheduled",
+  "active",
+  "paused",
+  "soldout",
+  "ended",
+  "archived",
+]);
+export type CouponLifecycle = z.infer<typeof couponLifecycleSchema>;
+
+/** Ordem da lista ("-" = decrescente). Padrão: criadas por último primeiro (ordem estável). */
+export const couponSortSchema = z.enum([
+  "-created",
+  "created",
+  "-starts",
+  "starts",
+  "-ends",
+  "ends",
+  "remaining",
+  "-remaining",
+  "-used",
+  "used",
+  "title",
+  "-title",
+]);
+export type CouponSort = z.infer<typeof couponSortSchema>;
+
 export const claimStatusSchema = z.enum(["active", "redeemed", "expired", "cancelled"]);
 export type ClaimStatus = z.infer<typeof claimStatusSchema>;
 
@@ -99,6 +133,10 @@ export const couponSchema = z.object({
   /** Economia estimada por uso (para o "você economizou" do app). */
   savingsCents: z.number().int().nullable(),
   status: couponStatusSchema,
+  /** Situação que aparece na tela (ver couponLifecycleSchema). */
+  lifecycle: couponLifecycleSchema,
+  /** Arquivada em (null = nas listas padrão). */
+  archivedAt: isoDateTimeSchema.nullable(),
   /** Dias em que pode ser usado (0 = domingo). */
   weekdays: z.array(z.number().int()),
   review: couponReviewSchema,
@@ -155,6 +193,30 @@ export const createCouponBodySchema = z
 export type CreateCouponBody = z.infer<typeof createCouponBodySchema>;
 export type CreateCouponInput = z.input<typeof createCouponBodySchema>;
 
+/** Até 50 lojas por vez (ex.: Black Friday): uma promoção igual por loja, tudo ou nada. */
+export const COUPON_BULK_MAX_STORES = 50;
+
+/** A mesma promoção para várias lojas de uma vez (uma por loja). */
+const { storeId: _storeId, ...bulkCouponFields } = couponFields;
+export const createCouponsBodySchema = z
+  .object({
+    ...bulkCouponFields,
+    storeIds: z
+      .array(idSchema)
+      .min(1, "Escolha ao menos uma loja")
+      .max(COUPON_BULK_MAX_STORES, `No máximo ${COUPON_BULK_MAX_STORES} lojas por vez`)
+      .refine((l) => new Set(l).size === l.length, "Loja repetida"),
+    status: z.enum(["draft", "active"]).default("draft"),
+  })
+  .refine(endsAfterStart, endsAfterStartIssue)
+  .refine(useUntilAfterStart, useUntilIssue);
+export type CreateCouponsBody = z.infer<typeof createCouponsBodySchema>;
+export const couponListSchema = listOf(couponSchema);
+
+/** Arquivar (some das listas padrão, guarda o histórico) ou desarquivar. */
+export const archiveCouponBodySchema = z.object({ archived: z.boolean() });
+export type ArchiveCouponBody = z.infer<typeof archiveCouponBodySchema>;
+
 /** Não dá para baixar o total abaixo do que já foi pego (regra no domínio). */
 export const updateCouponBodySchema = z
   .object({ ...couponFields, weekdays: weekdaysSchema, expiresWithPromotion: z.boolean() })
@@ -184,6 +246,9 @@ export const listCouponsQuerySchema = paginationQuerySchema.extend({
   status: couponStatusSchema.optional(),
   review: couponReviewSchema.optional(),
   kind: storeKindSchema.optional(),
+  /** Situação na tela; sem ela, todas menos as arquivadas. */
+  lifecycle: couponLifecycleSchema.optional(),
+  sort: couponSortSchema.optional(),
 });
 export type ListCouponsQuery = z.infer<typeof listCouponsQuerySchema>;
 
@@ -196,7 +261,15 @@ export const couponClaimSchema = z.object({
   claimedAt: isoDateTimeSchema,
   expiresAt: isoDateTimeSchema,
   redeemedAt: isoDateTimeSchema.nullable(),
-  coupon: z.object({ id: idSchema, title: z.string(), headline: z.string() }),
+  coupon: z.object({
+    id: idSchema,
+    title: z.string(),
+    headline: z.string(),
+    /** Condições que o caixa confere (ausentes em leituras resumidas). */
+    description: z.string().nullable().optional(),
+    scheduleNote: z.string().nullable().optional(),
+    weekdays: z.array(z.number().int()).optional(),
+  }),
   store: refSchema,
   visitor: refSchema,
   redeemedBy: refSchema.nullable(),
@@ -211,6 +284,9 @@ export const listClaimsQuerySchema = paginationQuerySchema.extend({
   storeId: idSchema.optional(),
   visitorId: idSchema.optional(),
   status: claimStatusSchema.optional(),
+  /** Pegou de/até (dias em São Paulo, inclusive). */
+  from: isoDateSchema.optional(),
+  to: isoDateSchema.optional(),
 });
 export type ListClaimsQuery = z.infer<typeof listClaimsQuerySchema>;
 
@@ -227,7 +303,12 @@ export const redeemClaimBodySchema = z.object({ code: couponCodeSchema });
 export type RedeemClaimBody = z.infer<typeof redeemClaimBodySchema>;
 
 /** Relatório: cupons pegos e usados por loja no período (dias em São Paulo). */
-export const couponsByStoreQuerySchema = z.object({ from: isoDateSchema, to: isoDateSchema });
+export const couponsByStoreQuerySchema = z.object({
+  from: isoDateSchema,
+  to: isoDateSchema,
+  /** Lojista: a API força a própria loja (pedir outra é 403). */
+  storeId: idSchema.optional(),
+});
 export type CouponsByStoreQuery = z.infer<typeof couponsByStoreQuerySchema>;
 export const couponsByStoreRowSchema = z.object({
   store: refSchema,
@@ -236,3 +317,26 @@ export const couponsByStoreRowSchema = z.object({
 });
 export type CouponsByStoreRow = z.infer<typeof couponsByStoreRowSchema>;
 export const couponsByStoreSchema = listOf(couponsByStoreRowSchema);
+
+/** Relatório por promoção: pegos, usados e economia no período (dias em São Paulo). */
+export const couponsByPromotionQuerySchema = z.object({
+  from: isoDateSchema,
+  to: isoDateSchema,
+  storeId: idSchema.optional(),
+});
+export type CouponsByPromotionQuery = z.infer<typeof couponsByPromotionQuerySchema>;
+export const couponsByPromotionRowSchema = z.object({
+  coupon: z.object({ id: idSchema, title: z.string(), headline: z.string() }),
+  store: refSchema,
+  lifecycle: couponLifecycleSchema,
+  /** Cupons liberados (estoque total). */
+  total: z.number().int(),
+  claimed: z.number().int(),
+  used: z.number().int(),
+  /** Venceram sem uso no período (voltaram para a promoção). */
+  returned: z.number().int(),
+  /** Economia gerada = usados × economia por uso (null = economia não informada). */
+  savingsCents: z.number().int().nullable(),
+});
+export type CouponsByPromotionRow = z.infer<typeof couponsByPromotionRowSchema>;
+export const couponsByPromotionSchema = listOf(couponsByPromotionRowSchema);

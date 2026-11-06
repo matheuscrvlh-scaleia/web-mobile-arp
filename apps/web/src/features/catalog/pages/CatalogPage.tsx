@@ -5,31 +5,38 @@ import {
   type StoreKind,
   storeKindSchema,
 } from "@arp/contracts";
-import { Building2, Pencil, Plus, Tags, Trash2 } from "lucide-react";
+import { Building2, Plus, Tags } from "lucide-react";
 import { useState } from "react";
+import { errorMessage } from "@/shared/api";
 import { useAuth } from "@/shared/auth";
+import { PATHS } from "@/shared/config/paths";
 import { useSearchParamOption } from "@/shared/hooks";
-import { formatNumber } from "@/shared/lib/format";
 import {
   Button,
   Card,
   CardHeader,
-  type Column,
-  ConfirmDialog,
   EmptyState,
   ErrorState,
-  IconButton,
   IconTile,
   PageHeader,
+  Skeleton,
   type TabItem,
-  Table,
   TabPanel,
   Tabs,
   toast,
 } from "@/shared/ui";
-import { useBlocks, useDeleteBlock, useDeleteStoreCategory, useStoreCategories } from "../api";
+import {
+  useBlocks,
+  useDeleteBlock,
+  useDeleteStoreCategory,
+  useReorderBlocks,
+  useReorderStoreCategories,
+  useStoreCategories,
+} from "../api";
 import { BlockFormModal } from "../components/BlockFormModal";
 import { CategoryFormModal } from "../components/CategoryFormModal";
+import { DeleteCatalogModal } from "../components/DeleteCatalogModal";
+import { SortableCatalogList } from "../components/SortableCatalogList";
 
 type Tab = "categorias" | "blocos";
 
@@ -39,6 +46,13 @@ const KIND_COLOR: Record<StoreKind, string> = {
   food: "#c8692f",
   service: "#3d5a80",
 };
+
+/** Lista de lojas já filtrada (o número de lojas de cada item leva para lá). */
+const storesWith = (filter: { categoryId?: string; blockId?: string }) =>
+  `${PATHS.stores}?${new URLSearchParams(filter as Record<string, string>).toString()}&visao=tabela`;
+
+const byOrder = <T extends { sortOrder: number; name: string }>(a: T, b: T) =>
+  a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, "pt-BR");
 
 export function CatalogPage() {
   const { can } = useAuth();
@@ -53,7 +67,7 @@ export function CatalogPage() {
     <>
       <PageHeader
         title="Categorias e blocos"
-        description="Os cadastros que organizam o guia: categorias das lojas e os blocos da ARP."
+        description="Os cadastros que organizam o guia: categorias das lojas e os blocos da ARP. Arraste ou use as setas para mudar a ordem do app."
       />
       {tabs.length > 1 && (
         <Tabs
@@ -76,57 +90,16 @@ export function CatalogPage() {
   );
 }
 
+const KINDS = storeKindSchema.options;
+
+/** As 3 categorias do app em abas, cada uma com a largura toda. */
 function CategoriesTab({ canEdit }: { canEdit: boolean }) {
   const categories = useStoreCategories();
   const remove = useDeleteStoreCategory();
+  const reorder = useReorderStoreCategories();
+  const [kind, setKind] = useSearchParamOption<StoreKind>("tipo", KINDS, "shop");
   const [editing, setEditing] = useState<StoreCategory | { kind: StoreKind } | null>(null);
   const [deleting, setDeleting] = useState<StoreCategory | null>(null);
-
-  const columns = (kind: StoreKind): Column<StoreCategory>[] => [
-    {
-      key: "name",
-      header: "Categoria",
-      cell: (c) => (
-        <span className="flex items-center gap-3">
-          <IconTile icon={c.icon} size="sm" color={KIND_COLOR[kind]} />
-          <span className="font-medium">{c.name}</span>
-        </span>
-      ),
-    },
-    { key: "order", header: "Ordem", numeric: true, cell: (c) => c.sortOrder },
-    { key: "stores", header: "Lojas", numeric: true, cell: (c) => formatNumber(c.storesCount) },
-    ...(canEdit
-      ? [
-          {
-            key: "actions",
-            header: <span className="sr-only">Ações</span>,
-            numeric: true,
-            cell: (c: StoreCategory) => (
-              <span className="inline-flex gap-1">
-                <IconButton
-                  icon={Pencil}
-                  size="sm"
-                  label={`Editar ${c.name}`}
-                  onClick={() => setEditing(c)}
-                />
-                <IconButton
-                  icon={Trash2}
-                  size="sm"
-                  variant="danger"
-                  label={
-                    c.storesCount > 0
-                      ? `${c.name} tem lojas: mude-as de categoria antes`
-                      : `Apagar ${c.name}`
-                  }
-                  disabled={c.storesCount > 0}
-                  onClick={() => setDeleting(c)}
-                />
-              </span>
-            ),
-          },
-        ]
-      : []),
-  ];
 
   if (categories.error) {
     return (
@@ -136,132 +109,121 @@ function CategoriesTab({ canEdit }: { canEdit: boolean }) {
     );
   }
 
+  const all = categories.data ?? [];
+  const rows = all.filter((c) => c.kind === kind).sort(byOrder);
+  const kindTabs: TabItem<StoreKind>[] = KINDS.map((k) => ({
+    value: k,
+    label: `${STORE_KIND_LABEL[k]} (${all.filter((c) => c.kind === k).length})`,
+  }));
+
   return (
-    <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-      {storeKindSchema.options.map((kind) => {
-        const rows = categories.data
-          ?.filter((c) => c.kind === kind)
-          .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, "pt-BR"));
-        return (
-          <Card key={kind}>
-            <CardHeader
-              title={STORE_KIND_LABEL[kind]}
-              description={`Subcategorias da aba “${STORE_KIND_LABEL[kind]}” no app.`}
-              action={
-                canEdit && (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    icon={Plus}
-                    onClick={() => setEditing({ kind })}
-                  >
-                    Nova
-                  </Button>
-                )
-              }
-            />
-            <Table
-              caption={`Categorias de ${STORE_KIND_LABEL[kind]}`}
-              columns={columns(kind)}
-              rows={rows}
-              rowKey={(c) => c.id}
-              loading={categories.isLoading}
-              skeletonRows={4}
-              empty={<EmptyState compact icon={Tags} title="Nenhuma categoria ainda" />}
-            />
-          </Card>
-        );
-      })}
+    <Card>
+      <CardHeader
+        title={`Categorias de ${STORE_KIND_LABEL[kind]}`}
+        description={`Aparecem nesta ordem na aba “${STORE_KIND_LABEL[kind]}” do app.`}
+        action={
+          canEdit && (
+            <Button size="sm" variant="secondary" icon={Plus} onClick={() => setEditing({ kind })}>
+              Nova categoria
+            </Button>
+          )
+        }
+      />
+      <Tabs
+        idBase="tipos"
+        label="Tipo de categoria"
+        items={kindTabs}
+        value={kind}
+        onChange={setKind}
+        className="mb-4"
+      />
+      <TabPanel idBase="tipos" value={kind}>
+        {categories.isLoading ? (
+          <Skeleton className="h-64 rounded-2xl" />
+        ) : rows.length === 0 ? (
+          <EmptyState compact icon={Tags} title="Nenhuma categoria ainda" />
+        ) : (
+          <SortableCatalogList
+            items={rows}
+            label={`Ordem das categorias de ${STORE_KIND_LABEL[kind]}`}
+            canEdit={canEdit}
+            leading={(c) => <IconTile icon={c.icon} size="sm" color={KIND_COLOR[kind]} />}
+            storesHref={(c) => storesWith({ categoryId: c.id })}
+            onReorder={(ids) => {
+              // Ordem de antes, para o "Desfazer" do aviso.
+              const before = rows.map((c) => c.id);
+              reorder.mutate(ids, {
+                onSuccess: () =>
+                  toast.success("Ordem salva. O app já mostra assim.", {
+                    action: {
+                      label: "Desfazer",
+                      onClick: () =>
+                        reorder.mutate(before, {
+                          onSuccess: () => toast.info("Ordem anterior de volta."),
+                          onError: (e) => toast.error(errorMessage(e)),
+                        }),
+                    },
+                  }),
+                onError: (e) => toast.error(errorMessage(e)),
+              });
+            }}
+            onEdit={setEditing}
+            onDelete={setDeleting}
+          />
+        )}
+      </TabPanel>
 
       <CategoryFormModal
         open={editing !== null}
         category={editing && "id" in editing ? editing : undefined}
         defaultKind={editing && !("id" in editing) ? editing.kind : undefined}
+        nextOrder={rows.length}
         onClose={() => setEditing(null)}
       />
-      <ConfirmDialog
-        open={deleting !== null}
+      <DeleteCatalogModal
+        item={deleting}
+        noun="categoria"
+        options={[...all]
+          .sort((a, b) => KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind) || byOrder(a, b))
+          .map((c) => ({ id: c.id, name: `${c.name} (${STORE_KIND_LABEL[c.kind]})` }))}
+        loading={remove.isPending}
+        error={remove.error}
         onClose={() => {
           setDeleting(null);
           remove.reset();
         }}
-        danger
-        title={`Apagar a categoria ${deleting?.name ?? ""}?`}
-        description="Ela some dos filtros do app."
-        confirmLabel="Apagar"
-        loading={remove.isPending}
-        error={remove.error}
-        onConfirm={() =>
+        onConfirm={(moveTo) =>
           deleting &&
-          remove.mutate(deleting.id, {
-            onSuccess: () => {
-              toast.success("Categoria apagada.");
-              setDeleting(null);
+          remove.mutate(
+            { id: deleting.id, ...(moveTo ? { moveTo } : {}) },
+            {
+              onSuccess: () => {
+                toast.success(
+                  moveTo ? "Lojas movidas e categoria excluída." : "Categoria excluída.",
+                );
+                setDeleting(null);
+              },
             },
-          })
+          )
         }
       />
-    </div>
+    </Card>
   );
 }
 
 function BlocksTab({ canEdit }: { canEdit: boolean }) {
   const blocks = useBlocks();
   const remove = useDeleteBlock();
+  const reorder = useReorderBlocks();
   const [editing, setEditing] = useState<Block | "new" | null>(null);
   const [deleting, setDeleting] = useState<Block | null>(null);
-
-  const columns: Column<Block>[] = [
-    {
-      key: "name",
-      header: "Bloco",
-      cell: (b) => (
-        <span className="flex items-center gap-3">
-          <IconTile icon={Building2} size="sm" />
-          <span className="font-medium">{b.name}</span>
-        </span>
-      ),
-    },
-    { key: "order", header: "Ordem", numeric: true, cell: (b) => b.sortOrder },
-    { key: "stores", header: "Lojas", numeric: true, cell: (b) => formatNumber(b.storesCount) },
-    ...(canEdit
-      ? [
-          {
-            key: "actions",
-            header: <span className="sr-only">Ações</span>,
-            numeric: true,
-            cell: (b: Block) => (
-              <span className="inline-flex gap-1">
-                <IconButton
-                  icon={Pencil}
-                  size="sm"
-                  label={`Editar ${b.name}`}
-                  onClick={() => setEditing(b)}
-                />
-                <IconButton
-                  icon={Trash2}
-                  size="sm"
-                  variant="danger"
-                  label={
-                    b.storesCount > 0
-                      ? `${b.name} tem lojas: mude-as de bloco antes`
-                      : `Apagar ${b.name}`
-                  }
-                  disabled={b.storesCount > 0}
-                  onClick={() => setDeleting(b)}
-                />
-              </span>
-            ),
-          },
-        ]
-      : []),
-  ];
+  const rows = blocks.data ? [...blocks.data].sort(byOrder) : [];
 
   return (
     <Card>
       <CardHeader
         title="Blocos"
-        description="Os prédios da ARP, usados no “onde fica” de cada loja."
+        description="Os prédios da ARP, usados no “onde fica” de cada loja. A ordem vale para os filtros."
         action={
           canEdit && (
             <Button size="sm" variant="secondary" icon={Plus} onClick={() => setEditing("new")}>
@@ -272,43 +234,65 @@ function BlocksTab({ canEdit }: { canEdit: boolean }) {
       />
       {blocks.error ? (
         <ErrorState compact error={blocks.error} onRetry={() => void blocks.refetch()} />
+      ) : blocks.isLoading ? (
+        <Skeleton className="h-64 rounded-2xl" />
+      ) : rows.length === 0 ? (
+        <EmptyState compact icon={Building2} title="Nenhum bloco ainda" />
       ) : (
-        <Table
-          caption="Blocos"
-          columns={columns}
-          rows={
-            blocks.data ? [...blocks.data].sort((a, b) => a.sortOrder - b.sortOrder) : undefined
-          }
-          rowKey={(b) => b.id}
-          loading={blocks.isLoading}
-          skeletonRows={4}
-          empty={<EmptyState compact icon={Building2} title="Nenhum bloco ainda" />}
+        <SortableCatalogList
+          items={rows}
+          label="Ordem dos blocos"
+          canEdit={canEdit}
+          leading={() => <IconTile icon={Building2} size="sm" />}
+          storesHref={(b) => storesWith({ blockId: b.id })}
+          onReorder={(ids) => {
+            const before = rows.map((b) => b.id);
+            reorder.mutate(ids, {
+              onSuccess: () =>
+                toast.success("Ordem dos blocos salva.", {
+                  action: {
+                    label: "Desfazer",
+                    onClick: () =>
+                      reorder.mutate(before, {
+                        onSuccess: () => toast.info("Ordem anterior de volta."),
+                        onError: (e) => toast.error(errorMessage(e)),
+                      }),
+                  },
+                }),
+              onError: (e) => toast.error(errorMessage(e)),
+            });
+          }}
+          onEdit={setEditing}
+          onDelete={setDeleting}
         />
       )}
       <BlockFormModal
         open={editing !== null}
         block={editing === "new" || editing === null ? undefined : editing}
+        nextOrder={rows.length}
         onClose={() => setEditing(null)}
       />
-      <ConfirmDialog
-        open={deleting !== null}
+      <DeleteCatalogModal
+        item={deleting}
+        noun="bloco"
+        options={rows.map((b) => ({ id: b.id, name: b.name }))}
+        loading={remove.isPending}
+        error={remove.error}
         onClose={() => {
           setDeleting(null);
           remove.reset();
         }}
-        danger
-        title={`Apagar o ${deleting?.name ?? "bloco"}?`}
-        confirmLabel="Apagar"
-        loading={remove.isPending}
-        error={remove.error}
-        onConfirm={() =>
+        onConfirm={(moveTo) =>
           deleting &&
-          remove.mutate(deleting.id, {
-            onSuccess: () => {
-              toast.success("Bloco apagado.");
-              setDeleting(null);
+          remove.mutate(
+            { id: deleting.id, ...(moveTo ? { moveTo } : {}) },
+            {
+              onSuccess: () => {
+                toast.success(moveTo ? "Lojas movidas e bloco excluído." : "Bloco excluído.");
+                setDeleting(null);
+              },
             },
-          })
+          )
         }
       />
     </Card>

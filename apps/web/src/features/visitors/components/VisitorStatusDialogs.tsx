@@ -1,12 +1,12 @@
-import { updateVisitorStatusBodySchema } from "@arp/contracts";
+import { anonymizeVisitorBodySchema, updateVisitorStatusBodySchema } from "@arp/contracts";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Ban } from "lucide-react";
+import { Ban, EyeOff } from "lucide-react";
 import { useForm, useWatch } from "react-hook-form";
 import type { z } from "zod";
 import { applyApiErrors, errorMessage } from "@/shared/api";
 import { formatNumber } from "@/shared/lib/format";
 import { Button, ConfirmDialog, Field, FormError, Modal, Textarea, toast } from "@/shared/ui";
-import { useUpdateVisitorStatus } from "../api";
+import { useAnonymizeVisitor, useUpdateVisitorStatus } from "../api";
 
 type Input = z.input<typeof updateVisitorStatusBodySchema>;
 type Values = z.output<typeof updateVisitorStatusBodySchema>;
@@ -15,7 +15,7 @@ const REASON_MAX = 240;
 const SUGGESTIONS = [
   "Uso de várias contas para pegar cupons",
   "Tentativa de fraude no caixa",
-  "Pedido do próprio visitante",
+  "Pedido do próprio visitante para pausar a conta",
 ];
 
 /** Bloquear: o motivo é obrigatório (fica no histórico e ajuda quem revisar depois). */
@@ -58,13 +58,14 @@ export function BlockVisitorModal({
       open={open}
       onClose={close}
       busy={update.isPending}
+      dirty={reason.trim().length > 0}
       alert
       title={`Bloquear ${visitor.name}?`}
       description="A pessoa não consegue mais pegar cupons nem ganhar selos. Os cupons ativos dela deixam de valer no caixa."
       footer={
         <>
           <Button variant="secondary" onClick={close} disabled={update.isPending}>
-            Cancelar
+            Voltar
           </Button>
           <Button
             type="submit"
@@ -144,5 +145,99 @@ export function UnblockVisitorDialog({
         )
       }
     />
+  );
+}
+
+type AnonymizeInput = z.input<typeof anonymizeVisitorBodySchema>;
+type AnonymizeValues = z.output<typeof anonymizeVisitorBodySchema>;
+
+/**
+ * LGPD (pedido do titular): apaga nome, e-mail, telefone, foto e apelido.
+ * Irreversível: explica o que some e o que fica, e pede o motivo.
+ */
+export function AnonymizeVisitorModal({
+  open,
+  visitor,
+  onClose,
+}: {
+  open: boolean;
+  visitor: { id: string; name: string };
+  onClose: () => void;
+}) {
+  const anonymize = useAnonymizeVisitor(visitor.id);
+  const form = useForm<AnonymizeInput, unknown, AnonymizeValues>({
+    resolver: zodResolver(anonymizeVisitorBodySchema),
+    defaultValues: { reason: "" },
+  });
+  const reason = useWatch({ control: form.control, name: "reason" }) ?? "";
+  const close = () => {
+    form.reset();
+    anonymize.reset();
+    onClose();
+  };
+
+  const onSubmit = form.handleSubmit((body) =>
+    anonymize.mutate(body, {
+      onSuccess: () => {
+        toast.success(`Dados de ${visitor.name} apagados. O registro ficou no histórico.`);
+        close();
+      },
+      onError: (e) => {
+        if (!applyApiErrors(e, form.setError, ["reason"]))
+          form.setError("root", { message: errorMessage(e) });
+      },
+    }),
+  );
+
+  return (
+    <Modal
+      open={open}
+      onClose={close}
+      busy={anonymize.isPending}
+      dirty={reason.trim().length > 0}
+      alert
+      title={`Anonimizar os dados de ${visitor.name}?`}
+      description="Use quando a própria pessoa pede para apagar os dados dela (LGPD). Não tem volta."
+      footer={
+        <>
+          <Button variant="secondary" onClick={close} disabled={anonymize.isPending}>
+            Voltar
+          </Button>
+          <Button
+            type="submit"
+            form="form-anonimizar"
+            variant="danger"
+            icon={EyeOff}
+            loading={anonymize.isPending}
+          >
+            Anonimizar dados
+          </Button>
+        </>
+      }
+    >
+      <form id="form-anonimizar" onSubmit={onSubmit} noValidate className="flex flex-col gap-3">
+        <ul className="flex flex-col gap-1.5 rounded-2xl bg-neutral-100 px-4 py-3 text-sm text-neutral-700">
+          <li>
+            <b className="font-semibold text-neutral-900">Some:</b> nome, e-mail, telefone, foto,
+            apelido do ranking e os avisos no celular.
+          </li>
+          <li>
+            <b className="font-semibold text-neutral-900">Fica:</b> os números (cupons, selos,
+            trocas), sem dizer de quem são.
+          </li>
+          <li>A conta fica bloqueada para sempre; a pessoa pode criar outra depois.</li>
+        </ul>
+        <FormError message={form.formState.errors.root?.message} />
+        <Field
+          label="Motivo"
+          required
+          action={`${formatNumber(reason.length)}/${REASON_MAX}`}
+          hint="Fica registrado no histórico (ex.: como e quando o pedido chegou)."
+          error={form.formState.errors.reason?.message}
+        >
+          <Textarea autoFocus rows={3} maxLength={REASON_MAX} {...form.register("reason")} />
+        </Field>
+      </form>
+    </Modal>
   );
 }

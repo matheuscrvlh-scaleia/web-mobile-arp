@@ -7,13 +7,21 @@ const MAX_SEGMENTS = 62;
  * Barra do período como a do app (month-bar): um traço por dia, os que já
  * passaram mais fortes e o de hoje em verde. O texto ao lado diz o mesmo.
  */
-export function PeriodBar({ progress }: { progress: PeriodProgress }) {
+export function PeriodBar({
+  progress,
+  draft = false,
+}: {
+  progress: PeriodProgress;
+  /** Rascunho nunca começa sozinho: o texto diz isso em vez de "começa em breve". */
+  draft?: boolean;
+}) {
   const { day, days } = progress;
   const segments = Math.min(days, MAX_SEGMENTS);
   const scale = days / segments;
   const current = day === 0 ? -1 : Math.ceil(day / scale);
-  const text =
-    day === 0
+  const text = draft
+    ? `Não publicada: não começa sozinha · ${days} dias`
+    : day === 0
       ? `Começa em breve · ${days} dias`
       : day >= days && progress.fraction >= 1
         ? `Encerrada · ${days} dias`

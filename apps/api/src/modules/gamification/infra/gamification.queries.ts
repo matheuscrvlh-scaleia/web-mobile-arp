@@ -6,9 +6,11 @@ import type {
   ChallengeValidation,
   EarnedSeal,
   ListEarnedSealsQuery,
+  QrBlocked,
   QrCode,
   RewardTier,
   Seal,
+  SealRef,
 } from "@arp/contracts";
 import { offsetOf, type Page, toPage } from "../../../shared/application/pagination";
 import type { Clock } from "../../../shared/application/ports/clock";
@@ -36,6 +38,8 @@ interface SealRow {
   available_from: Date | null;
   available_until: Date | null;
   earned_count: number;
+  challenges_count: number;
+  active_challenges_count: number;
   created_at: Date;
   updated_at: Date;
 }
@@ -56,6 +60,8 @@ const toSeal = (r: SealRow): Seal => ({
   availableFrom: isoOrNull(r.available_from),
   availableUntil: isoOrNull(r.available_until),
   earnedCount: r.earned_count,
+  challengesCount: r.challenges_count,
+  activeChallengesCount: r.active_challenges_count,
   createdAt: iso(r.created_at),
   updatedAt: iso(r.updated_at),
 });
@@ -264,7 +270,14 @@ export class GamificationQueries {
              s.sort_order, s.status, s.points, s.validity_months, s.repeatable,
              s.available_from, s.available_until,
              s.created_at, s.updated_at,
-             (select count(*) from gamification.earned_seals e where e.seal_id = s.id) as earned_count
+             (select count(*) from gamification.earned_seals e where e.seal_id = s.id) as earned_count,
+             (select count(*) from gamification.challenges ch where ch.seal_id = s.id)
+               as challenges_count,
+             (select count(*) from gamification.challenges ch
+              join gamification.campaigns c on c.id = ch.campaign_id
+              where ch.seal_id = s.id and ch.status = 'active'
+                and c.status <> 'archived' and c.ends_at > ${this.clock.now()})
+               as active_challenges_count
       from gamification.seals s
       ${sql.where([id && sql`s.id = ${id}`])}
       order by s.status, s.sort_order, s.name
@@ -355,20 +368,63 @@ export class GamificationQueries {
   }
 
   /**
-   * QR Codes do desafio que esta pessoa gerou (Fase 2: cada um vê os seus).
-   * Os antigos, sem autor, aparecem para a equipe da ARP (sem loja).
+   * QR Codes do desafio. A equipe da ARP (sem loja) vê todos, para um colega
+   * reimprimir ou revogar o cartaz de outro; o lojista só os que gerou.
    */
   async listQrCodes(
     challengeId: string,
     viewer: { id: string; storeId: string | null },
   ): Promise<QrCode[]> {
-    const legacy = viewer.storeId === null ? sql`or q.created_by is null` : sql.empty;
+    const mine = viewer.storeId === null ? sql.empty : sql`and q.created_by = ${viewer.id}`;
     const rows = await this.db.many<QrRow>(sql`
       ${QR_SELECT}
-      where q.challenge_id = ${challengeId} and (q.created_by = ${viewer.id} ${legacy})
+      where q.challenge_id = ${challengeId} ${mine}
       order by q.created_at, q.id
     `);
     return rows.map(toQrCode);
+  }
+
+  /** O que o telão mostra ao lado do código: desafio, selo e campanha. */
+  async qrScreenInfo(qrId: string): Promise<{
+    label: string;
+    challenge: { id: string; title: string; howTo: string };
+    seal: SealRef;
+    campaign: { id: string; name: string };
+    blocked: QrBlocked | null;
+    startsAt: string;
+  } | null> {
+    const now = this.clock.now();
+    const row = await this.db.maybeOne<{
+      label: string;
+      challenge: { id: string; title: string; howTo: string };
+      seal: SealRef;
+      campaign: { id: string; name: string };
+      blocked: QrBlocked | null;
+      starts_at: Date;
+    }>(sql`
+      select q.label,
+             case
+               when ch.status <> 'active' then 'paused'
+               when c.status <> 'published' then 'unpublished'
+               when ${now} < greatest(c.starts_at, coalesce(ch.available_from, c.starts_at))
+                 then 'not_started'
+               when ${now} >= least(c.ends_at, coalesce(ch.available_until, c.ends_at))
+                 then 'ended'
+             end as blocked,
+             greatest(c.starts_at, coalesce(ch.available_from, c.starts_at)) as starts_at,
+             jsonb_build_object('id', ch.id, 'title', ch.title, 'howTo', ch.how_to) as challenge,
+             jsonb_build_object('id', s.id, 'name', s.name, 'icon', s.icon,
+                                'gradientFrom', s.gradient_from, 'gradientTo', s.gradient_to) as seal,
+             jsonb_build_object('id', c.id, 'name', c.name) as campaign
+      from gamification.qr_codes q
+      join gamification.challenges ch on ch.id = q.challenge_id
+      join gamification.seals s on s.id = ch.seal_id
+      join gamification.campaigns c on c.id = ch.campaign_id
+      where q.id = ${qrId}
+    `);
+    if (!row) return null;
+    const { starts_at, ...rest } = row;
+    return { ...rest, startsAt: iso(starts_at) };
   }
 
   async getQrCode(id: string): Promise<QrCode | null> {

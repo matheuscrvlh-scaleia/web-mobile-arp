@@ -21,6 +21,12 @@ export class UpdateChallengeUseCase {
       const challenge = await challenges.findById(input.id);
       if (!challenge) throw new NotFoundError(CHALLENGE_NOT_FOUND);
       await assertChallengeReferences(this.deps, input.changes);
+      if (input.changes.sealId !== undefined && input.changes.sealId !== challenge.sealId) {
+        challenge.assertSealChangeAllowed(
+          input.changes.sealId,
+          await challenges.countEarned(challenge.id),
+        );
+      }
       const before = challenge.toState();
       challenge.update(input.changes);
       // Gatilho de cupom: o desafio é da loja do cupom.

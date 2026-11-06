@@ -55,6 +55,7 @@ export const ICON_KEYWORDS: Readonly<Record<string, string>> = {
   "flower-2": "flor pilates yoga bem-estar",
   dumbbell: "academia",
   "heart-pulse": "saúde clínica",
+  hammer: "ferramentas conserto reforma",
   stethoscope: "médico saúde",
   pill: "farmácia remédio",
   "paw-print": "pet animal",

@@ -5,11 +5,13 @@ import { CreateCatalogItemUseCase } from "../directory/application/create-catalo
 import { DeleteCatalogItemUseCase } from "../directory/application/delete-catalog-item.use-case";
 import { UpdateCatalogItemUseCase } from "../directory/application/update-catalog-item.use-case";
 import {
+  CloseJobUseCase,
   CreateJobUseCase,
   RemoveJobUseCase,
   UpdateContentPageUseCase,
   UpdateJobUseCase,
 } from "./application/content.use-cases";
+import { ReorderRecyclingItemsUseCase } from "./application/reorder-recycling-items.use-case";
 import {
   ART_POINT_NOT_FOUND,
   appContentRoutes,
@@ -23,6 +25,7 @@ import {
   PgContentPages,
   recyclingItemRepository,
 } from "./infra/pg-content-repositories";
+import { PgRecyclingOrder } from "./infra/pg-recycling-order";
 
 function commands<P extends { id: string }>(deps: CatalogDeps<P>) {
   return {
@@ -54,6 +57,11 @@ export function createContentModule(core: CoreDeps) {
       audit,
       uow,
     }),
+    reorderRecyclingItems: new ReorderRecyclingItemsUseCase({
+      order: new PgRecyclingOrder(db),
+      audit,
+      uow,
+    }),
     recyclingItems: commands({
       entityType: "recycling_item",
       notFoundMessage: RECYCLING_ITEM_NOT_FOUND,
@@ -64,6 +72,7 @@ export function createContentModule(core: CoreDeps) {
     createJob: new CreateJobUseCase(jobDeps),
     updateJob: new UpdateJobUseCase(jobDeps),
     removeJob: new RemoveJobUseCase(jobDeps),
+    closeJob: new CloseJobUseCase(jobDeps),
   });
   const app = appContentRoutes({ queries, clock });
 

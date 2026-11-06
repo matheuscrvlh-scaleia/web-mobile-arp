@@ -1,8 +1,10 @@
 import { type AppSettings, appSettingsSchema } from "@arp/contracts";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
+import { Link } from "react-router";
 import type { z } from "zod";
 import { applyApiErrors, errorMessage } from "@/shared/api";
+import { PATHS } from "@/shared/config/paths";
 import { useUnsavedChangesGuard } from "@/shared/hooks";
 import { formatNumber } from "@/shared/lib/format";
 import { pickDirty } from "@/shared/lib/forms";
@@ -32,8 +34,8 @@ export function SettingsPage() {
   return (
     <>
       <PageHeader
-        title="Configurações do app"
-        description="Textos, contatos e regras padrão que o app do visitante usa."
+        title="Configurações"
+        description="Regras padrão, contatos e textos fixos que o app do visitante usa."
       />
       {settings.error ? (
         <Card>
@@ -98,7 +100,7 @@ function SettingsForm({ settings }: { settings: AppSettings }) {
     <form onSubmit={onSubmit} noValidate>
       <Card padding="lg">
         <FormSection
-          title="Cupons"
+          title="Promoções"
           description="Valor sugerido ao criar uma promoção (dá para mudar em cada uma)."
         >
           <Field
@@ -115,6 +117,9 @@ function SettingsForm({ settings }: { settings: AppSettings }) {
               {...register("couponDefaultWindowHours", { valueAsNumber: true })}
             />
           </Field>
+        </FormSection>
+
+        <FormSection title="Vagas" description="Vagas de emprego das lojas no app.">
           <Field
             label="Dias de uma vaga no ar"
             required
@@ -129,6 +134,12 @@ function SettingsForm({ settings }: { settings: AppSettings }) {
               {...register("jobDays", { valueAsNumber: true })}
             />
           </Field>
+        </FormSection>
+
+        <FormSection
+          title="Clube ARP"
+          description="Por quanto tempo os pontos dos selos valem para trocar por prêmios."
+        >
           <FieldRow>
             <Field
               label="Validade dos pontos (meses)"
@@ -146,7 +157,7 @@ function SettingsForm({ settings }: { settings: AppSettings }) {
             <Field
               label="Avisar antes de vencer (dias)"
               required
-              hint="Push para o visitante quando um selo está para vencer (0 = sem aviso)."
+              hint="Push para o visitante quando os pontos estão para vencer (0 = sem aviso)."
               error={errors.pointsExpiryNoticeDays?.message}
             >
               <Input
@@ -178,7 +189,19 @@ function SettingsForm({ settings }: { settings: AppSettings }) {
           </FieldRow>
         </FormSection>
 
-        <FormSection title="Textos do app" description="Aparecem nas telas de informação do app.">
+        <FormSection
+          title="Textos fixos do app"
+          description={
+            <>
+              Painéis de informação do app. História, regras, regulamento, Circuito e Sustentarp
+              ficam em{" "}
+              <Link to={PATHS.content()} className="font-medium underline underline-offset-2">
+                Conteúdo do app
+              </Link>
+              .
+            </>
+          }
+        >
           <Field
             label="Sobre a ARP"
             action={<Counter value={about} max={2000} />}

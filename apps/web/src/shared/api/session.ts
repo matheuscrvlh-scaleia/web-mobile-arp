@@ -8,10 +8,15 @@ import { API_PREFIX, ROUTES, type SessionResponse, sessionResponseSchema } from 
 type Listener = (event: SessionEvent) => void;
 export type SessionEvent =
   | { type: "refreshed"; session: SessionResponse }
-  | { type: "expired" }
+  | {
+      type: "expired" /** O admin desativou a conta (a API disse ACCOUNT_DISABLED). */;
+      disabled?: boolean;
+    }
   | { type: "signed-out" };
 
 let accessToken: string | null = null;
+/** A última renovação falhou porque a conta foi desativada. */
+let lastRefreshDisabled = false;
 let inflight: Promise<SessionResponse | null> | null = null;
 let renewTimer: ReturnType<typeof setTimeout> | undefined;
 const listeners = new Set<Listener>();
@@ -35,6 +40,8 @@ export function onSessionEvent(listener: Listener): () => void {
 }
 
 export const getAccessToken = () => accessToken;
+/** A última renovação falhou porque a conta foi desativada? */
+export const refreshWasDisabled = () => lastRefreshDisabled;
 
 /** Guarda a sessão nova e agenda a renovação 1 min antes de vencer. */
 export function setSession(session: SessionResponse) {
@@ -62,7 +69,7 @@ export function signedOut() {
 export function sessionExpired() {
   if (accessToken === null) return;
   clearSession();
-  emit({ type: "expired" });
+  emit({ type: "expired", disabled: lastRefreshDisabled });
 }
 
 async function doRefresh(): Promise<SessionResponse | null> {
@@ -72,7 +79,14 @@ async function doRefresh(): Promise<SessionResponse | null> {
       credentials: "include",
       headers: { Accept: "application/json" },
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      lastRefreshDisabled = await res
+        .json()
+        .then((b: { error?: { code?: string } }) => b?.error?.code === "ACCOUNT_DISABLED")
+        .catch(() => false);
+      return null;
+    }
+    lastRefreshDisabled = false;
     const parsed = sessionResponseSchema.safeParse(await res.json());
     if (!parsed.success) return null;
     setSession(parsed.data);

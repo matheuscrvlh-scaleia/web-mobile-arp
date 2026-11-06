@@ -10,7 +10,7 @@ import {
   type UpdateSealBody,
 } from "@arp/contracts";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiRequest, snapshotQueries, updateListItem } from "@/shared/api";
+import { apiCall, apiRequest, snapshotQueries, updateListItem } from "@/shared/api";
 import type { SaveInput } from "@/shared/lib/forms";
 
 export const sealsApi = {
@@ -18,6 +18,7 @@ export const sealsApi = {
   create: (body: CreateSealBody) => apiRequest(ROUTES.seals.create, sealSchema, { body }),
   update: (id: string, body: UpdateSealBody) =>
     apiRequest(ROUTES.seals.update, sealSchema, { params: { id }, body }),
+  remove: (id: string) => apiCall(ROUTES.seals.remove, { params: { id } }),
   earned: (query: Partial<ListEarnedSealsQuery>, signal?: AbortSignal) =>
     apiRequest(ROUTES.earnedSeals.list, earnedSealPageSchema, { query, signal }),
 };
@@ -71,6 +72,18 @@ export function useSaveSeal() {
         qc.invalidateQueries({ queryKey: ["visitors"] }),
       ]);
     },
+  });
+}
+
+/** Exclui selo nunca usado (sem conquistas e sem desafio; a API devolve CONFLICT). */
+export function useDeleteSeal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: sealsApi.remove,
+    onSuccess: (_v, id) =>
+      qc.setQueryData<ListOf<Seal>>(sealKeys.list(), (old) =>
+        old ? { data: old.data.filter((s) => s.id !== id) } : old,
+      ),
   });
 }
 

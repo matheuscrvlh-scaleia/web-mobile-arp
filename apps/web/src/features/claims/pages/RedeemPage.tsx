@@ -1,6 +1,7 @@
 import type { CouponClaim } from "@arp/contracts";
 import { CheckCheck, ClipboardCheck, Keyboard, RotateCcw, Wallet } from "lucide-react";
 import { type FormEvent, type RefObject, useEffect, useId, useRef, useState } from "react";
+import { useSearchParams } from "react-router";
 import { useAuth } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
 import {
@@ -24,7 +25,8 @@ import {
   RedeemProblemBanner,
   RedeemSuccess,
 } from "../components/RedeemFeedback";
-import { CODE_BODY_LENGTH, fullCode, isCompleteCode } from "../lib/code";
+import { CODE_BODY_LENGTH, fullCode, isCompleteCode, normalizeCodeBody } from "../lib/code";
+import { invalidToday } from "../lib/weekdays";
 
 /** Resultado da última validação (fica na tela até o próximo código). */
 type Outcome =
@@ -41,15 +43,22 @@ export function RedeemPage() {
   const hintId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const validateRef = useRef<HTMLButtonElement>(null);
-  const [body, setBody] = useState("");
-  const [submitted, setSubmitted] = useState<string | null>(null);
+  // ?codigo=ARP-XXXXXX (vindo de "Validar" em Cupons pegos): já consulta.
+  const [params] = useSearchParams();
+  const [initial] = useState(() => normalizeCodeBody(params.get("codigo") ?? ""));
+  const [body, setBody] = useState(initial);
+  const [submitted, setSubmitted] = useState<string | null>(() =>
+    isCompleteCode(initial) ? fullCode(initial) : null,
+  );
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [incomplete, setIncomplete] = useState(false);
   const [log, addToLog] = useRedeemedLog();
   const lookup = useClaimLookup(submitted);
   const redeem = useRedeemClaim();
   const claim = submitted && lookup.data?.code === submitted ? lookup.data : undefined;
-  const blocked = claim ? problemFromStatus(claim.status) : null;
+  const blocked = claim
+    ? (problemFromStatus(claim.status) ?? (invalidToday(claim) ? "CLAIM_WRONG_DAY" : null))
+    : null;
 
   // Cupom bom na tela: o foco vai para "Validar" (Enter valida).
   const readyId = claim && !blocked && !outcome ? claim.id : null;
@@ -113,8 +122,8 @@ export function RedeemPage() {
         title="Validar cupom"
         description={
           user?.store
-            ? `Digite o código que o visitante mostrar no caixa da ${user.store.name}.`
-            : "Digite o código que o visitante mostrar no caixa."
+            ? `Leia o QR ou digite o código que o visitante mostrar no caixa da ${user.store.name}.`
+            : "Leia o QR ou digite o código que o visitante mostrar no caixa."
         }
         actions={
           <Can permission="coupons.view">
@@ -239,7 +248,7 @@ function RedeemResult({
           compact
           icon={ClipboardCheck}
           title="Esperando um código"
-          description="O visitante mostra o cupom no app (código ARP-XXXXXX e QR). Confira e valide aqui."
+          description="O visitante mostra o cupom no app (código ARP-XXXXXX e QR). Leia o QR ou digite o código, confira as condições e valide."
         />
       </Card>
     );
@@ -272,26 +281,29 @@ function RedeemResult({
   return (
     <>
       <ClaimTicket claim={claim} />
+      {/* No celular, "Validar" fica preso no pé da tela, grande; "Outro código" é um link discreto. */}
       <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="max-sm:sticky max-sm:bottom-3 max-sm:z-10 sm:flex sm:flex-1">
+          <Button
+            ref={validateRef}
+            variant="brand"
+            size="lg"
+            icon={CheckCheck}
+            loading={validating}
+            onClick={onValidate}
+            className="h-16 w-full text-base shadow-lg sm:shadow-none"
+          >
+            Validar {claim.code}
+          </Button>
+        </div>
         <Button
-          ref={validateRef}
-          variant="brand"
-          size="lg"
-          icon={CheckCheck}
-          loading={validating}
-          onClick={onValidate}
-          className="h-16 flex-1 text-base"
-        >
-          Validar {claim.code}
-        </Button>
-        <Button
-          variant="secondary"
+          variant="ghost"
           size="lg"
           onClick={onNext}
           disabled={validating}
-          className="h-16"
+          className="self-center sm:h-16 sm:self-auto"
         >
-          Cancelar
+          Outro código
         </Button>
       </div>
     </>

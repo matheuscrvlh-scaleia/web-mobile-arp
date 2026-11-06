@@ -1,7 +1,9 @@
 import type { Campaign } from "@arp/contracts";
 import { Plus, SearchX, Trophy } from "lucide-react";
+import { useState } from "react";
 import { PATHS } from "@/shared/config/paths";
 import { useSearchParamOption } from "@/shared/hooks";
+import { normalize } from "@/shared/lib/text";
 import {
   ButtonLink,
   Can,
@@ -9,25 +11,36 @@ import {
   EmptyState,
   ErrorState,
   PageHeader,
-  Segmented,
+  SearchInput,
   SkeletonGrid,
+  StatusTabs,
+  statusTabLabel,
   type TabItem,
 } from "@/shared/ui";
 import { useCampaigns } from "../api";
 import { CampaignCard } from "../components/CampaignCard";
 
-type Filter = "todas" | "no-ar" | "em-breve" | "encerradas" | "rascunhos";
-const FILTERS: readonly Filter[] = ["todas", "no-ar", "em-breve", "encerradas", "rascunhos"];
+type Filter = "todas" | "no-ar" | "em-breve" | "rascunhos" | "encerradas" | "arquivadas";
+const FILTERS: readonly Filter[] = [
+  "todas",
+  "no-ar",
+  "em-breve",
+  "rascunhos",
+  "encerradas",
+  "arquivadas",
+];
 
+// Arquivada sai das listas do dia a dia: só aparece na aba própria.
 const MATCH: Record<Filter, (c: Campaign) => boolean> = {
-  todas: () => true,
+  todas: (c) => c.status !== "archived",
   "no-ar": (c) => c.status === "published" && c.phase === "live",
   "em-breve": (c) => c.status === "published" && c.phase === "upcoming",
-  encerradas: (c) => c.status === "archived" || (c.status === "published" && c.phase === "ended"),
   rascunhos: (c) => c.status === "draft",
+  encerradas: (c) => c.status === "published" && c.phase === "ended",
+  arquivadas: (c) => c.status === "archived",
 };
 
-/** No ar primeiro, depois as próximas, rascunhos e por fim as que já acabaram. */
+/** Ativas primeiro, depois as próximas, rascunhos e por fim as que já acabaram. */
 function rank(c: Campaign): number {
   if (c.status === "published" && c.phase === "live") return 0;
   if (c.status === "published" && c.phase === "upcoming") return 1;
@@ -38,16 +51,21 @@ function rank(c: Campaign): number {
 export function CampaignsPage() {
   const campaigns = useCampaigns();
   const [filter, setFilter] = useSearchParamOption("fase", FILTERS, "todas");
+  const [search, setSearch] = useState("");
   const all = campaigns.data ?? [];
+  const term = normalize(search.trim());
   const list = all
     .filter(MATCH[filter])
+    .filter((c) => !term || normalize(c.name).includes(term))
     .sort((a, b) => rank(a) - rank(b) || b.startsAt.localeCompare(a.startsAt));
+  const count = (f: Filter) => all.filter(MATCH[f]).length;
   const options: TabItem<Filter>[] = [
-    { value: "todas", label: "Todas", count: all.length },
-    { value: "no-ar", label: "No ar", count: all.filter(MATCH["no-ar"]).length },
-    { value: "em-breve", label: "Em breve", count: all.filter(MATCH["em-breve"]).length },
-    { value: "encerradas", label: "Encerradas" },
-    { value: "rascunhos", label: "Rascunhos" },
+    { value: "todas", label: statusTabLabel("all", "a"), count: count("todas") },
+    { value: "no-ar", label: statusTabLabel("active", "a"), count: count("no-ar") },
+    { value: "em-breve", label: statusTabLabel("scheduled", "a"), count: count("em-breve") },
+    { value: "rascunhos", label: statusTabLabel("draft", "a"), count: count("rascunhos") },
+    { value: "encerradas", label: statusTabLabel("ended", "a"), count: count("encerradas") },
+    { value: "arquivadas", label: statusTabLabel("archived", "a"), count: count("arquivadas") },
   ];
 
   return (
@@ -63,14 +81,16 @@ export function CampaignsPage() {
           </Can>
         }
       />
-      <Segmented
-        label="Filtrar campanhas"
-        size="sm"
-        options={options}
-        value={filter}
-        onChange={setFilter}
-        className="mb-5"
-      />
+      <div className="flex flex-wrap items-start gap-3">
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Buscar campanha"
+          label="Buscar campanha"
+          className="mb-5 w-full sm:w-64"
+        />
+        <StatusTabs options={options} value={filter} onChange={setFilter} />
+      </div>
       {campaigns.error ? (
         <Card>
           <ErrorState error={campaigns.error} onRetry={() => void campaigns.refetch()} />
@@ -96,7 +116,9 @@ export function CampaignsPage() {
             <EmptyState
               icon={SearchX}
               title="Nenhuma campanha neste filtro"
-              description="Escolha outro filtro acima."
+              description={
+                search ? "Confira o nome ou escolha outra situação." : "Escolha outro filtro acima."
+              }
             />
           )}
         </Card>

@@ -1,32 +1,57 @@
-import { COUPON_REVIEW_LABEL, type CouponReview, type CouponStatus } from "@arp/contracts";
 import {
-  CircleCheck,
-  CircleStop,
-  CircleX,
-  Hourglass,
-  type LucideIcon,
-  Pause,
-  PencilLine,
-} from "lucide-react";
-import { StatusBadge, type StatusTone } from "@/shared/ui";
+  COUPON_REVIEW_LABEL,
+  type Coupon,
+  type CouponLifecycle,
+  type CouponReview,
+} from "@arp/contracts";
+import { CircleX, Hourglass } from "lucide-react";
+import { formatDateShort } from "@/shared/lib/format";
+import { type Lifecycle, LifecycleBadge, StatusBadge } from "@/shared/ui";
 
-export const COUPON_STATUS: Record<
-  CouponStatus,
-  { label: string; plural: string; tone: StatusTone; icon: LucideIcon }
+/** Situação da promoção (feminino: "a promoção") no selo padrão do sistema. */
+export const COUPON_LIFECYCLE: Record<
+  CouponLifecycle,
+  { label: string; plural: string; badge: Lifecycle }
 > = {
-  draft: { label: "Rascunho", plural: "Rascunhos", tone: "neutral", icon: PencilLine },
-  active: { label: "Ativa", plural: "Ativas", tone: "success", icon: CircleCheck },
-  paused: { label: "Pausada", plural: "Pausadas", tone: "warning", icon: Pause },
-  ended: { label: "Encerrada", plural: "Encerradas", tone: "neutral", icon: CircleStop },
+  draft: { label: "Rascunho", plural: "Rascunhos", badge: "draft" },
+  scheduled: { label: "Agendada", plural: "Agendadas", badge: "scheduled" },
+  active: { label: "Ativa", plural: "Ativas", badge: "active" },
+  paused: { label: "Pausada", plural: "Pausadas", badge: "paused" },
+  soldout: { label: "Esgotada", plural: "Esgotadas", badge: "soldOut" },
+  ended: { label: "Encerrada", plural: "Encerradas", badge: "ended" },
+  archived: { label: "Arquivada", plural: "Arquivadas", badge: "archived" },
 };
 
-/** Situação da promoção, com ícone e texto. */
-export function CouponStatusBadge({ status }: { status: CouponStatus }) {
-  const s = COUPON_STATUS[status];
+/** Ordem do filtro de situação. */
+export const LIFECYCLE_ORDER: CouponLifecycle[] = [
+  "active",
+  "scheduled",
+  "draft",
+  "paused",
+  "soldout",
+  "ended",
+  "archived",
+];
+
+/** Dica curta ao lado do selo: quando começa, quando termina. */
+function hintOf(c: Pick<Coupon, "lifecycle" | "startsAt" | "endsAt">): string | undefined {
+  if (c.lifecycle === "scheduled") return `começa ${formatDateShort(c.startsAt)}`;
+  if ((c.lifecycle === "active" || c.lifecycle === "soldout") && c.endsAt)
+    return `até ${formatDateShort(c.endsAt)}`;
+  return undefined;
+}
+
+/** Situação da promoção, com ícone, texto e (opcional) a dica de data. */
+export function CouponStatusBadge({
+  coupon,
+  withHint = false,
+}: {
+  coupon: Pick<Coupon, "lifecycle" | "startsAt" | "endsAt">;
+  withHint?: boolean;
+}) {
+  const s = COUPON_LIFECYCLE[coupon.lifecycle];
   return (
-    <StatusBadge tone={s.tone} icon={s.icon}>
-      {s.label}
-    </StatusBadge>
+    <LifecycleBadge status={s.badge} label={s.label} hint={withHint ? hintOf(coupon) : undefined} />
   );
 }
 

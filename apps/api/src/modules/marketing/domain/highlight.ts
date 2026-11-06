@@ -1,10 +1,11 @@
-import { type FieldErrors, ValidationError } from "../../../shared/domain/errors";
+import { ConflictError, type FieldErrors, ValidationError } from "../../../shared/domain/errors";
 import { applyPatch } from "../../../shared/domain/patch";
 import { type Phase, phaseOf } from "../../../shared/domain/time";
 
 export type HighlightBadge = "featured" | "sponsored";
 export type HighlightTarget = "event" | "coupon" | "store" | "url" | "none";
-export type HighlightStatus = "draft" | "published" | "archived";
+/** paused = "No ar" desligado (mantém a posição); archived sai da ordem do carrossel. */
+export type HighlightStatus = "draft" | "published" | "paused" | "archived";
 
 export interface HighlightProps {
   id: string;
@@ -80,6 +81,20 @@ export class Highlight {
     this.props = normalized(applyPatch(this.props, changes));
   }
 
+  /** Saiu do arquivo agora (volta para o fim do carrossel). */
+  static leftArchive(before: HighlightProps, after: HighlightProps): boolean {
+    return before.status === "archived" && after.status !== "archived";
+  }
+
+  /** Excluir só o que nunca apareceu: com exibições, arquive (guarda o relatório). */
+  assertDeletable(impressions: number): void {
+    if (impressions > 0) {
+      throw new ConflictError(
+        `Este destaque já foi visto ${impressions === 1 ? "1 vez" : `${impressions} vezes`}: arquive para guardar os números do patrocinador.`,
+      );
+    }
+  }
+
   phaseAt(now: Date): Phase {
     return phaseOf(now, this.props.startsAt, this.props.endsAt);
   }
@@ -103,7 +118,7 @@ export function assertCompleteOrder(ids: readonly string[], existing: readonly s
   if (!complete) {
     throw ValidationError.field(
       "ids",
-      "Envie todos os destaques, cada um uma vez. A lista pode ter mudado: recarregue a página.",
+      "A lista de destaques mudou enquanto você reordenava: recarregue a página e tente de novo.",
     );
   }
 }

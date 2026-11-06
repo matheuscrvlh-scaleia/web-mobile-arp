@@ -1,34 +1,18 @@
-import type { Campaign, CampaignStatus } from "@arp/contracts";
-import { Archive, PencilLine } from "lucide-react";
-import { PhaseBadge, StatusBadge } from "@/shared/ui";
-
-export const CAMPAIGN_STATUS_LABEL: Record<CampaignStatus, string> = {
-  draft: "Rascunho",
-  published: "Publicada",
-  archived: "Arquivada",
-};
+import type { Campaign } from "@arp/contracts";
+import { LifecycleBadge } from "@/shared/ui";
+import { CAMPAIGN_LIFECYCLE_LABEL, campaignLifecycle } from "../lib/lifecycle";
 
 /**
- * Situação da campanha. Publicada mostra a fase (em breve, no ar,
- * encerrada); rascunho e arquivada não aparecem no app, então a fase não
- * importa.
+ * Situação da campanha no ciclo de vida padrão: Rascunho, Agendada, No ar,
+ * Encerrada ou Arquivada (publicada vira a fase em relação a agora).
  */
 export function CampaignStatusBadge({
   campaign,
+  hint,
 }: {
   campaign: Pick<Campaign, "status" | "phase">;
+  hint?: string;
 }) {
-  if (campaign.status === "draft")
-    return (
-      <StatusBadge tone="neutral" icon={PencilLine}>
-        Rascunho (fora do app)
-      </StatusBadge>
-    );
-  if (campaign.status === "archived")
-    return (
-      <StatusBadge tone="neutral" icon={Archive}>
-        Arquivada
-      </StatusBadge>
-    );
-  return <PhaseBadge phase={campaign.phase} />;
+  const status = campaignLifecycle(campaign);
+  return <LifecycleBadge status={status} label={CAMPAIGN_LIFECYCLE_LABEL[status]} hint={hint} />;
 }

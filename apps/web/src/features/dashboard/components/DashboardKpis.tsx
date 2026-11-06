@@ -41,13 +41,13 @@ interface KpiDef {
   /** Fonte e fórmula (vão para o modal "de onde vem"). */
   source: string;
   formula: string;
-  /** O filtro de loja não muda este número (base do app). */
-  global?: boolean;
+  /** Com loja (lojista ou filtro): rótulo, fonte e cálculo próprios. */
+  store?: { label: string; source: string; formula: string };
   link?: (storeId?: string) => { href: string; label: string; permission: Permission | null };
 }
 
 const int = (v: number) => formatNumber(v);
-const CLAIMS_SOURCE = "Cupons pegos pelos visitantes no app (tabela promotions.coupon_claims)";
+const CLAIMS_SOURCE = "Cupons pegos pelos visitantes no app";
 
 const KPIS: KpiDef[] = [
   {
@@ -57,9 +57,13 @@ const KPIS: KpiDef[] = [
     tone: "dark",
     format: int,
     stock: true,
-    global: true,
-    source: "Cadastros de visitantes no app (tabela visitors.visitors)",
+    source: "Cadastros de visitantes no app",
     formula: "Todos os cadastros feitos até o fim do período, desde o início do app",
+    store: {
+      label: "Clientes da loja",
+      source: "Visitantes que já pegaram um cupom da loja",
+      formula: "Quem pegou pelo menos um cupom da loja até o fim do período",
+    },
     link: () => ({
       href: PATHS.visitors,
       label: "Ver visitantes",
@@ -71,9 +75,13 @@ const KPIS: KpiDef[] = [
     label: "Novos cadastros",
     icon: UserPlus,
     format: int,
-    global: true,
-    source: "Cadastros de visitantes no app (tabela visitors.visitors)",
+    source: "Cadastros de visitantes no app",
     formula: "Cadastros feitos dentro do período, pela data do cadastro",
+    store: {
+      label: "Novos clientes",
+      source: "Visitantes que já pegaram um cupom da loja",
+      formula: "Quem pegou o primeiro cupom da loja dentro do período",
+    },
     link: () => ({
       href: PATHS.visitors,
       label: "Ver visitantes",
@@ -129,7 +137,7 @@ const KPIS: KpiDef[] = [
     icon: HandCoins,
     format: (v) => formatCents(v, { whole: true }),
     hint: "Estimada pelos cupons usados",
-    source: `${CLAIMS_SOURCE}, com a economia informada em cada promoção (promotions.coupons)`,
+    source: `${CLAIMS_SOURCE}, com a economia informada em cada promoção`,
     formula:
       "Para cada promoção: cupons usados no período × economia por cupom. Promoção sem economia informada conta R$ 0",
     link: (storeId) => ({
@@ -144,7 +152,7 @@ const KPIS: KpiDef[] = [
     icon: Award,
     tone: "dark",
     format: int,
-    source: "Selos conquistados pelos visitantes (tabela gamification.earned_seals)",
+    source: "Selos conquistados pelos visitantes",
     formula: "Selos ganhos no período, pela data da conquista. Com loja: só os desafios dela",
     link: () => ({
       href: PATHS.earnedSeals(),
@@ -158,7 +166,7 @@ const KPIS: KpiDef[] = [
     icon: Ticket,
     format: int,
     stock: true,
-    source: "Promoções cadastradas (tabela promotions.coupons)",
+    source: "Promoções cadastradas",
     formula: "Promoções com situação ativa que já começaram e ainda não terminaram, agora",
     link: () => ({
       href: PATHS.coupons,
@@ -172,7 +180,7 @@ const KPIS: KpiDef[] = [
     icon: CalendarDays,
     format: int,
     hint: "Publicados, nos próximos 30 dias",
-    source: "Agenda de eventos (tabela agenda.events)",
+    source: "Agenda de eventos",
     formula: "Eventos publicados que acontecem de hoje até daqui a 30 dias (inclui os recorrentes)",
     link: () => ({
       href: PATHS.events,
@@ -207,7 +215,11 @@ export function DashboardKpis({
   const vs = `vs ${periodLabel} anteriores`;
   const detailQuery = (metric: DashboardMetric) => ({ ...query, metric });
 
-  const cards = KPIS.map((k) => {
+  // Com loja, os números de visitantes são os clientes da loja (LOJ-26).
+  const defs =
+    storeName || query.storeId ? KPIS.map((k) => (k.store ? { ...k, ...k.store } : k)) : KPIS;
+
+  const cards = defs.map((k) => {
     const kpi = kpis[k.metric];
     const delta = formatDelta(kpi.value, kpi.previous, k.deltaKind);
     return (
@@ -227,7 +239,7 @@ export function DashboardKpis({
     );
   });
 
-  const def = KPIS.find((k) => k.metric === open);
+  const def = defs.find((k) => k.metric === open);
   let info: KpiDetailInfo | null = null;
   if (def) {
     const kpi = kpis[def.metric];
@@ -240,12 +252,7 @@ export function DashboardKpis({
       sources: [
         { label: "Fonte", value: def.source },
         { label: "Cálculo", value: def.formula },
-        {
-          label: "Loja",
-          value: def.global
-            ? "Sempre o app inteiro: o filtro de loja não muda este número"
-            : (storeName ?? "Todas as lojas"),
-        },
+        { label: "Loja", value: storeName ?? "Todas as lojas" },
       ],
       link: link && can(link.permission) ? link : undefined,
     };
@@ -262,7 +269,7 @@ export function DashboardKpis({
       <KpiDetailModal
         query={open ? detailQuery(open) : null}
         info={info}
-        subtitle={`Últimos ${periodLabel} · ${def?.global ? "app inteiro" : (storeName ?? "todas as lojas")}`}
+        subtitle={`Últimos ${periodLabel} · ${storeName ?? "todas as lojas"}`}
         onClose={() => setOpen(null)}
       />
     </div>

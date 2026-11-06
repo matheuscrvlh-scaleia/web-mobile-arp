@@ -1,9 +1,11 @@
 import type { LucideIcon } from "lucide-react";
-import { type KeyboardEvent, type ReactNode, useId, useRef } from "react";
+import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef } from "react";
 import { NavLink } from "react-router";
 import { cn } from "@/shared/lib/cn";
 
-const BAR = "vidro inline-flex max-w-full gap-1 overflow-x-auto rounded-full p-1";
+// No celular as opções quebram linha em vez de rolar escondidas para o lado.
+const BAR =
+  "vidro inline-flex max-w-full gap-1 overflow-x-auto rounded-full p-1 max-sm:flex-wrap max-sm:rounded-3xl";
 const ITEM =
   "inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-full px-4 py-2 text-sm whitespace-nowrap text-neutral-500 transition hover:text-neutral-900";
 const ACTIVE = "bg-neutral-900 font-medium text-white hover:text-white";
@@ -81,8 +83,19 @@ export function Tabs<T extends string>({
   className?: string;
 }) {
   const { onKeyDown, ref } = useRovingKeys(items, onChange);
+  // No celular a barra rola de lado: a aba ativa sempre fica à vista (só a barra rola, não a página).
+  const barRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const bar = barRef.current;
+    const el = bar?.querySelector<HTMLElement>(`[id="${idBase}-tab-${value}"]`);
+    if (!bar || !el || bar.scrollWidth <= bar.clientWidth) return;
+    const b = bar.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    if (r.left < b.left) bar.scrollLeft += r.left - b.left - 8;
+    else if (r.right > b.right) bar.scrollLeft += r.right - b.right + 8;
+  }, [idBase, value]);
   return (
-    <div role="tablist" aria-label={label} className={cn(BAR, className)}>
+    <div ref={barRef} role="tablist" aria-label={label} className={cn(BAR, className)}>
       {items.map((item, i) => {
         const active = item.value === value;
         return (

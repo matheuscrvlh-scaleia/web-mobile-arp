@@ -3,10 +3,12 @@ import {
   BellRing,
   CalendarClock,
   CircleOff,
+  Heart,
   type LucideIcon,
   Pencil,
   Send,
   Store,
+  TriangleAlert,
   Users,
 } from "lucide-react";
 import { formatDateTime } from "@/shared/lib/format";
@@ -41,9 +43,37 @@ export const AUDIENCE: Record<
     description: 'Quem pediu "Avisar ofertas" da loja escolhida.',
     icon: Store,
   },
+  event_interested: {
+    label: "Interessados no evento",
+    description:
+      "Quem marcou interesse no evento. Aviso de serviço (adiado, cancelado): chega até a quem não aceitou ofertas.",
+    icon: Heart,
+  },
 };
 
-export function NotificationStatusBadge({ status }: { status: NotificationStatus }) {
+/** Agendada que passou da hora há mais de 5 min sem sair: o envio travou. */
+const LATE_MS = 5 * 60_000;
+
+export function NotificationStatusBadge({
+  status,
+  scheduledAt,
+}: {
+  status: NotificationStatus;
+  scheduledAt?: string | null;
+}) {
+  if (
+    status === "scheduled" &&
+    scheduledAt &&
+    new Date(scheduledAt).getTime() < Date.now() - LATE_MS
+  ) {
+    return (
+      <span title="Passou da hora e ainda não saiu. Se continuar assim, avise o suporte.">
+        <StatusBadge tone="warning" icon={TriangleAlert}>
+          Atrasada
+        </StatusBadge>
+      </span>
+    );
+  }
   const s = NOTIFICATION_STATUS[status];
   return (
     <StatusBadge tone={s.tone} icon={s.icon}>
@@ -60,8 +90,10 @@ export function notificationWhen(n: Pick<PushNotification, "status" | "scheduled
   return null;
 }
 
-/** Público em texto ("Seguidores de Casa Brava"). */
-export function audienceText(n: Pick<PushNotification, "audience" | "store">) {
+/** Público em texto ("Seguidores de Casa Brava", "Interessados em “Feira de Natal”"). */
+export function audienceText(n: Pick<PushNotification, "audience" | "store" | "event">) {
   if (n.audience === "store_followers") return `Seguidores de ${n.store?.name ?? "uma loja"}`;
+  if (n.audience === "event_interested")
+    return n.event ? `Interessados em “${n.event.name}”` : "Interessados no evento";
   return AUDIENCE[n.audience].label;
 }

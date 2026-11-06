@@ -14,7 +14,9 @@ const FIELDS = ["email", "password"] as const;
 export function LoginPage() {
   const [params] = useSearchParams();
   const login = useLogin();
-  const expired = params.get("motivo") === "expirou";
+  const reason = params.get("motivo");
+  const expired = reason === "expirou";
+  const disabled = reason === "desativado";
   const form = useForm<z.input<typeof loginBodySchema>, unknown, LoginBody>({
     resolver: zodResolver(loginBodySchema),
     defaultValues: { email: "", password: "" },
@@ -53,6 +55,11 @@ export function LoginPage() {
           <PasswordInput autoComplete="current-password" {...form.register("password")} />
         </Field>
 
+        {disabled && !login.error && (
+          <output className="block rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800">
+            Seu acesso foi desativado. Fale com o administrador do painel.
+          </output>
+        )}
         {expired && !login.error && (
           <output className="block rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
             Sua sessão expirou. Entre de novo para continuar de onde parou.

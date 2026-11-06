@@ -1,23 +1,93 @@
 import type { StoreDetail } from "@arp/contracts";
-import { MapPin, Power, PowerOff } from "lucide-react";
-import { useState } from "react";
+import { MapPin, Power, PowerOff, Trash2 } from "lucide-react";
+import { useNavigate } from "react-router";
 import { errorMessage } from "@/shared/api";
 import { useAuth } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
-import { formatRelative } from "@/shared/lib/format";
+import { formatRelative, plural } from "@/shared/lib/format";
 import { thumbnailProps } from "@/shared/lib/images";
-import { Button, ButtonLink, ConfirmDialog, IconTile, toast } from "@/shared/ui";
-import { useDeactivateStore, useUpdateStore } from "../api";
+import { ActionMenu, Button, ButtonLink, confirmar, IconTile, toast } from "@/shared/ui";
+import { useDeactivateStore, useDeleteStore, useUpdateStore } from "../api";
+import { confirmDeactivate } from "./confirm-deactivate";
 import { CouponsBadge, OpenNowBadge, StoreStatusBadge } from "./StoreBadges";
 import { StoreCover } from "./StoreCard";
+
+const USAGE_LABEL: Record<keyof StoreDetail["usage"], [string, string]> = {
+  coupons: ["cupom", "cupons"],
+  challenges: ["desafio", "desafios"],
+  events: ["evento", "eventos"],
+  highlights: ["destaque", "destaques"],
+  notifications: ["notificação", "notificações"],
+  jobs: ["vaga", "vagas"],
+  merchants: ["lojista", "lojistas"],
+};
+
+/** "3 cupons e 1 lojista" (o que impede excluir); vazio = pode excluir. */
+export function storeUsageText(usage: StoreDetail["usage"]): string {
+  const parts = (Object.keys(USAGE_LABEL) as (keyof StoreDetail["usage"])[])
+    .filter((k) => usage[k] > 0)
+    .map((k) => plural(usage[k], USAGE_LABEL[k][0], USAGE_LABEL[k][1]));
+  if (parts.length <= 1) return parts.join("");
+  return `${parts.slice(0, -1).join(", ")} e ${parts.at(-1)}`;
+}
 
 /** Topo da loja: capa (ou a cor da marca), logo, nome, onde fica e ações. */
 export function StoreHero({ store }: { store: StoreDetail }) {
   const { can } = useAuth();
-  const [confirming, setConfirming] = useState(false);
+  const navigate = useNavigate();
   const deactivate = useDeactivateStore(store.id);
   const update = useUpdateStore(store.id);
+  const remove = useDeleteStore();
   const manage = can("stores.manage");
+  const used = storeUsageText(store.usage);
+
+  const reactivate = (undo = false) =>
+    update.mutate(
+      { status: "active" },
+      {
+        onSuccess: () =>
+          undo
+            ? toast.info("Loja ativa de novo.")
+            : toast.success("Loja reativada. Ela volta a aparecer no app.", {
+                action: { label: "Desfazer", onClick: () => turnOff(true) },
+              }),
+        onError: (e) => toast.error(errorMessage(e)),
+      },
+    );
+
+  const turnOff = (undo = false) =>
+    deactivate.mutate(undefined, {
+      onSuccess: () =>
+        undo
+          ? toast.info("Loja desativada de novo.")
+          : toast.success("Loja desativada. Saiu do guia, do mapa e da busca do app.", {
+              action: { label: "Desfazer", onClick: () => reactivate(true) },
+            }),
+      onError: (e) => toast.error(errorMessage(e)),
+    });
+
+  /** Com cupom no ar, visitantes perdem a loja agora: pergunta antes. Sem, aplica com Desfazer. */
+  const onDeactivate = async () => {
+    if (await confirmDeactivate([store])) turnOff();
+  };
+
+  const onDelete = async () => {
+    const ok = await confirmar({
+      title: `Excluir ${store.name}?`,
+      description:
+        "A loja sai do sistema de vez, com horários e lugar no mapa. Não dá para desfazer. Use para cadastro duplicado ou feito por engano.",
+      confirmLabel: "Excluir loja",
+      danger: true,
+    });
+    if (!ok) return;
+    remove.mutate(store.id, {
+      onSuccess: () => {
+        toast.success(`${store.name} excluída.`);
+        navigate(PATHS.stores);
+      },
+      onError: (e) => toast.error(errorMessage(e)),
+    });
+  };
 
   return (
     <section
@@ -51,7 +121,7 @@ export function StoreHero({ store }: { store: StoreDetail }) {
             <div className="min-w-0">
               <h1
                 id="loja-nome"
-                className="truncate text-3xl font-semibold tracking-tight md:text-4xl"
+                className="text-3xl font-semibold tracking-tight break-words md:text-4xl"
               >
                 {store.name}
               </h1>
@@ -75,6 +145,7 @@ export function StoreHero({ store }: { store: StoreDetail }) {
                 to={PATHS.map(store.floor.id)}
                 variant="secondary"
                 size="sm"
+                className="pointer-coarse:h-11"
                 icon={MapPin}
               >
                 Ver no mapa
@@ -85,8 +156,10 @@ export function StoreHero({ store }: { store: StoreDetail }) {
                 <Button
                   variant="secondary"
                   size="sm"
+                  className="pointer-coarse:h-11"
                   icon={PowerOff}
-                  onClick={() => setConfirming(true)}
+                  loading={deactivate.isPending}
+                  onClick={() => void onDeactivate()}
                 >
                   Desativar
                 </Button>
@@ -94,52 +167,53 @@ export function StoreHero({ store }: { store: StoreDetail }) {
                 <Button
                   variant="brand"
                   size="sm"
+                  className="pointer-coarse:h-11"
                   icon={Power}
                   loading={update.isPending}
-                  onClick={() =>
-                    update.mutate(
-                      { status: "active" },
-                      {
-                        onSuccess: () =>
-                          toast.success("Loja reativada. Ela volta a aparecer no app."),
-                        onError: (e) => toast.error(errorMessage(e)),
-                      },
-                    )
-                  }
+                  onClick={() => reactivate()}
                 >
                   Reativar
                 </Button>
               ))}
+            {manage && (
+              <ActionMenu
+                ariaLabel={`Mais ações de ${store.name}`}
+                size="sm"
+                // Mesmo visual "secondary" dos botões ao lado: fundo e ícone invertem juntos no escuro.
+                className="border border-neutral-200 bg-white text-neutral-800 hover:border-neutral-400 hover:bg-white aria-expanded:bg-white"
+                items={[
+                  {
+                    label: "Excluir loja",
+                    icon: Trash2,
+                    danger: true,
+                    disabled: Boolean(used),
+                    hint: used
+                      ? `Já tem ${used}: desative em vez de excluir.`
+                      : "Só para cadastro duplicado ou feito por engano.",
+                    onSelect: () => void onDelete(),
+                  },
+                ]}
+              />
+            )}
           </div>
         </div>
         <div className="flex flex-wrap gap-1.5">
-          <StoreStatusBadge status={store.status} />
-          {store.status === "active" && <OpenNowBadge open={store.isOpenNow} />}
-          <CouponsBadge count={store.activeCouponsCount} />
+          {/* Fundo sólido do tema (inverte no escuro junto com as cores do selo): não some sobre foto. */}
+          <span className="rounded-full bg-white">
+            <StoreStatusBadge status={store.status} />
+          </span>
+          {store.status === "active" && (
+            <span className="rounded-full bg-white">
+              <OpenNowBadge open={store.isOpenNow} hasHours={store.hasHours} />
+            </span>
+          )}
+          {store.activeCouponsCount > 0 && (
+            <span className="rounded-full bg-white">
+              <CouponsBadge count={store.activeCouponsCount} />
+            </span>
+          )}
         </div>
       </div>
-
-      <ConfirmDialog
-        open={confirming}
-        onClose={() => {
-          setConfirming(false);
-          deactivate.reset();
-        }}
-        danger
-        title={`Desativar ${store.name}?`}
-        description="A loja some do guia, do mapa e da busca do app. Cupons e histórico continuam guardados, e dá para reativar depois."
-        confirmLabel="Desativar"
-        loading={deactivate.isPending}
-        error={deactivate.error}
-        onConfirm={() =>
-          deactivate.mutate(undefined, {
-            onSuccess: () => {
-              setConfirming(false);
-              toast.success("Loja desativada.");
-            },
-          })
-        }
-      />
     </section>
   );
 }

@@ -1,16 +1,16 @@
 import "@fontsource-variable/geist";
 import "./styles/globals.css";
+import { configureZodMessages } from "@arp/contracts";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router/dom";
-import { config as zodConfig } from "zod";
-import { ptBR } from "zod/locales";
 import { AppProviders } from "./app/providers";
 import { router } from "./app/router";
 import { startVersionCheck } from "./shared/ui";
 
-// Mensagens de validação do Zod em português (as mesmas da API).
-zodConfig(ptBR());
+// Mensagens de validação em português de gente (as mesmas da API):
+// "Obrigatório", "Escreva pelo menos 3 letras", "Escolha uma opção"…
+configureZodMessages();
 // Deploy novo no ar: aviso no canto para atualizar.
 startVersionCheck();
 

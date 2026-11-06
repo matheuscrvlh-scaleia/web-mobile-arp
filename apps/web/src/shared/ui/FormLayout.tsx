@@ -1,7 +1,9 @@
-import { RotateCcw, Save } from "lucide-react";
-import type { ReactNode } from "react";
+import { type LucideIcon, RotateCcw, Save } from "lucide-react";
+import { type ReactNode, useEffect } from "react";
+import { useIsMobile } from "@/shared/hooks";
 import { cn } from "@/shared/lib/cn";
 import { Button } from "./Button";
+import { registerBottomBar } from "./Toast";
 
 /**
  * Bloco de formulário: título e explicação à esquerda, campos à direita.
@@ -40,24 +42,40 @@ export function FieldRow({ children, className }: { children: ReactNode; classNa
   return <div className={cn("grid grid-cols-1 gap-4 sm:grid-cols-2", className)}>{children}</div>;
 }
 
+/** Segundo botão da barra (ex.: "Salvar rascunho" ao lado de "Publicar"). */
+export interface SaveBarSecondary {
+  label: string;
+  onClick: () => void;
+  loading?: boolean;
+  disabled?: boolean;
+  icon?: LucideIcon;
+}
+
 /**
  * Barra de salvar: gruda no pé da tela enquanto há alterações, com
  * "Desfazer" para voltar ao que estava salvo. Só o botão (criação, nada
- * alterado ainda): sem a pílula escura em volta.
+ * alterado ainda): sem a pílula escura em volta. No celular vira uma barra
+ * fixa de largura toda, e um espaço do mesmo tamanho no fim do formulário
+ * garante que ela nunca cubra o último campo. Os avisos (toasts) sobem
+ * enquanto ela está na tela.
  */
 export function SaveBar({
   dirty,
   saving,
   onReset,
   submitLabel = "Salvar alterações",
+  submitIcon = Save,
   disabled = false,
   alwaysVisible = false,
   besidePreview = false,
+  secondary,
 }: {
   dirty: boolean;
   saving: boolean;
   onReset?: () => void;
   submitLabel?: string;
+  /** Ícone do botão principal (padrão: disquete). Ex.: Send para "Publicar". */
+  submitIcon?: LucideIcon;
   disabled?: boolean;
   /** Formulários de criação: botão sempre visível, mesmo sem alteração. */
   alwaysVisible?: boolean;
@@ -66,22 +84,80 @@ export function SaveBar({
    * barra fica na coluna do formulário, sem cobrir a prévia.
    */
   besidePreview?: boolean;
+  /**
+   * Botão secundário antes do principal (type="button"), ex.: telas de
+   * criação com "Salvar rascunho" + "Publicar" (o principal é o submit).
+   */
+  secondary?: SaveBarSecondary;
 }) {
-  if (!dirty && !alwaysVisible) return null;
+  const visible = dirty || alwaysVisible;
+  const mobile = useIsMobile();
+  useEffect(() => (visible ? registerBottomBar() : undefined), [visible]);
+  if (!visible) return null;
   const note = dirty && !alwaysVisible;
   const undo = Boolean(onReset) && dirty;
+  const busy = saving || Boolean(secondary?.loading);
+
+  const secondaryButton = secondary && (
+    <Button
+      variant="secondary"
+      icon={secondary.icon}
+      loading={secondary.loading}
+      disabled={secondary.disabled || saving}
+      onClick={secondary.onClick}
+      className={mobile ? "h-11 flex-1" : undefined}
+    >
+      {secondary.label}
+    </Button>
+  );
   const submit = (
     <Button
       type="submit"
       variant="brand"
-      icon={Save}
+      icon={submitIcon}
       loading={saving}
-      disabled={disabled}
-      className={cn(!note && !undo && "pointer-events-auto shadow-lg")}
+      disabled={disabled || Boolean(secondary?.loading)}
+      className={cn(
+        mobile ? "h-11 flex-1" : !note && !undo && !secondary && "pointer-events-auto shadow-lg",
+      )}
     >
       {submitLabel}
     </Button>
   );
+  const undoButton = undo && (
+    <button
+      type="button"
+      onClick={onReset}
+      disabled={busy}
+      className={cn(
+        "inline-flex cursor-pointer items-center gap-2 rounded-full text-sm transition disabled:opacity-50",
+        mobile
+          ? "h-11 px-3 text-neutral-600 hover:bg-neutral-900/[0.06]"
+          : "h-10 px-4 text-[rgb(255_255_255/0.85)] hover:bg-[rgb(255_255_255/0.1)]",
+      )}
+    >
+      <RotateCcw className="size-4" aria-hidden />
+      Desfazer
+    </button>
+  );
+
+  if (mobile) {
+    return (
+      <>
+        {/* Espaço no fim do formulário do tamanho da barra fixa. */}
+        <div aria-hidden className="h-24" />
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-neutral-200 bg-white px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-12px_32px_-20px_rgb(0_0_0/0.35)]">
+          {note && <p className="mb-2 text-xs text-neutral-500">Alterações não salvas</p>}
+          <div className="flex items-center gap-2">
+            {undoButton}
+            {secondaryButton}
+            {submit}
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     // A faixa inteira é transparente a cliques: só a pílula/botão recebe.
     <div
@@ -90,7 +166,7 @@ export function SaveBar({
         besidePreview && "xl:pr-[21.5rem]",
       )}
     >
-      {!note && !undo ? (
+      {!note && !undo && !secondary ? (
         submit
       ) : (
         <div
@@ -102,17 +178,8 @@ export function SaveBar({
           {note && (
             <span className="mr-2 text-sm text-[rgb(255_255_255/0.8)]">Alterações não salvas</span>
           )}
-          {undo && (
-            <button
-              type="button"
-              onClick={onReset}
-              disabled={saving}
-              className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full px-4 text-sm text-[rgb(255_255_255/0.85)] transition hover:bg-[rgb(255_255_255/0.1)] disabled:opacity-50"
-            >
-              <RotateCcw className="size-4" aria-hidden />
-              Desfazer
-            </button>
-          )}
+          {undoButton}
+          {secondaryButton}
           {submit}
         </div>
       )}

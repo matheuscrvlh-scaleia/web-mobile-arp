@@ -59,7 +59,10 @@ export function startVersionCheck() {
   setInterval(check, CHECK_EVERY_MS);
   document.addEventListener("visibilitychange", check);
   // Tela que não baixou: os arquivos dela já são de outra versão.
-  window.addEventListener("vite:preloadError", () => avisarVersaoNova());
+  // Sem rede não é versão nova: quem fala é a faixa "Sem conexão".
+  window.addEventListener("vite:preloadError", () => {
+    if (navigator.onLine) avisarVersaoNova();
+  });
 }
 
 async function update() {
@@ -69,6 +72,7 @@ async function update() {
       title: "Atualizar sem salvar?",
       description: "Há alterações não salvas nesta tela. Se atualizar agora, elas se perdem.",
       confirmLabel: "Atualizar sem salvar",
+      cancelLabel: "Continuar editando",
       danger: true,
     }))
   )

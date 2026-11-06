@@ -21,6 +21,7 @@ import { iso, isoOrNull } from "../../../shared/infra/presenters";
 
 const RANKING_TOP = 10;
 const REDEMPTION_VISITORS_LIMIT = 8;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface PrizeRow {
   id: string;
@@ -144,6 +145,8 @@ export class ClubQueries {
   /** Balcão: acha o visitante por nome, e-mail ou telefone e mostra o saldo. */
   async redemptionVisitors(q: string, now: Date): Promise<RedemptionVisitor[]> {
     const digits = q.replace(/\D/g, "");
+    // O id vem do "Trocar pontos" no detalhe do visitante (/clube/trocar?visitante=<id>).
+    const byId = UUID_RE.test(q);
     const rows = await this.db.many<{
       id: string;
       name: string;
@@ -156,10 +159,14 @@ export class ClubQueries {
       select v.id, v.name, v.email, v.phone, v.avatar_url, v.status,
              ${visitorPointsSql(sql`v.id`, now)} as points
       from visitors.visitors v
-      where public.f_unaccent(lower(v.name)) like ${sql.containsPattern(q)}
-         or lower(v.email) like ${sql.containsPattern(q)}
+      where ${
+        byId
+          ? sql`v.id = ${q}`
+          : sql`public.f_unaccent(lower(v.name)) like ${sql.containsPattern(q)}
+         or lower(v.email) like ${sql.containsPattern(q)}`
+      }
          ${
-           digits.length >= 4
+           !byId && digits.length >= 4
              ? sql`or regexp_replace(coalesce(v.phone, ''), '[^0-9]', '', 'g') like ${`%${digits}%`}`
              : sql.empty
          }
@@ -246,7 +253,7 @@ export class ClubQueries {
     }));
   }
 
-  /** Cupons pegos e usados por loja no período (dias em São Paulo). */
+  /** Cupons pegos e usados por loja no período (dias em São Paulo). `storeId` já vem com o escopo. */
   async couponsByStore(query: CouponsByStoreQuery): Promise<CouponsByStoreRow[]> {
     const from = sql`(${query.from}::date)::timestamp at time zone ${BUSINESS_TIME_ZONE}`;
     const to = sql`(${query.to}::date + 1)::timestamp at time zone ${BUSINESS_TIME_ZONE}`;
@@ -263,8 +270,9 @@ export class ClubQueries {
       from promotions.coupon_claims cc
       join promotions.coupons c on c.id = cc.coupon_id
       join directory.stores st on st.id = c.store_id
-      where (cc.claimed_at >= ${from} and cc.claimed_at < ${to})
-         or (cc.redeemed_at >= ${from} and cc.redeemed_at < ${to})
+      where ((cc.claimed_at >= ${from} and cc.claimed_at < ${to})
+          or (cc.redeemed_at >= ${from} and cc.redeemed_at < ${to}))
+        ${query.storeId ? sql`and c.store_id = ${query.storeId}` : sql.empty}
       group by st.id, st.name
       order by used desc, claimed desc, st.name
     `);

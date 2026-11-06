@@ -2,7 +2,7 @@ import type { StaffActor } from "../../../shared/application/actor";
 import { assertCompleteOrder } from "../domain/highlight";
 import type { HighlightUseCaseDeps } from "./marketing-deps";
 
-/** Reordena o carrossel inteiro numa transação. */
+/** Reordena o carrossel (todos os não arquivados) numa transação. */
 export class ReorderHighlightsUseCase {
   constructor(private readonly deps: HighlightUseCaseDeps) {}
 

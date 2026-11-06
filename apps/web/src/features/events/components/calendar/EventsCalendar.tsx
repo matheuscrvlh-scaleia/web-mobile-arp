@@ -38,13 +38,15 @@ function useMonthParam(): [string, (m: string) => void] {
   return [month, set];
 }
 
+/** "Dezembro de 2026" (só a primeira letra maiúscula). */
 const monthTitle = (m: string) => {
   const [y, mo] = m.split("-").map(Number) as [number, number];
-  return `${MONTH_LABEL[mo - 1]} de ${y}`;
+  const name = MONTH_LABEL[mo - 1] ?? "";
+  return `${name.charAt(0).toUpperCase()}${name.slice(1)} de ${y}`;
 };
 
 /** Aba "Calendário": o mês com faixas (eventos longos) e eventos por dia. */
-export function EventsCalendar() {
+export function EventsCalendar({ canCreate = false }: { canCreate?: boolean }) {
   const [month, setMonth] = useMonthParam();
   const today = todayIso();
   const weeks = monthWeeks(month);
@@ -57,8 +59,12 @@ export function EventsCalendar() {
   return (
     <Card>
       <CardHeader
-        title={<span className="capitalize">{monthTitle(month)}</span>}
-        description="Eventos longos aparecem como faixa em todos os dias; os demais, no dia."
+        title={monthTitle(month)}
+        description={
+          canCreate
+            ? "Clique num dia para criar um evento nele. Eventos longos aparecem como faixa."
+            : "Eventos longos aparecem como faixa em todos os dias; os demais, no dia."
+        }
         action={
           <>
             {occurrences.isFetching && !occurrences.isLoading && (
@@ -106,7 +112,13 @@ export function EventsCalendar() {
             </section>
           )}
           <div className="hidden md:block">
-            <MonthGrid month={month} today={today} byDay={split.byDay} longs={split.longs} />
+            <MonthGrid
+              month={month}
+              today={today}
+              byDay={split.byDay}
+              longs={split.longs}
+              canCreate={canCreate}
+            />
           </div>
           <div className="md:hidden">
             <AgendaList month={month} today={today} byDay={split.byDay} />

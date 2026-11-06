@@ -15,6 +15,7 @@ import {
   ROUTES,
   recyclingItemListSchema,
   recyclingItemSchema,
+  reorderRecyclingItemsBodySchema,
   updateArtPointBodySchema,
   updateContentPageBodySchema,
   updateJobBodySchema,
@@ -31,12 +32,14 @@ import type { CreateCatalogItemUseCase } from "../../directory/application/creat
 import type { DeleteCatalogItemUseCase } from "../../directory/application/delete-catalog-item.use-case";
 import type { UpdateCatalogItemUseCase } from "../../directory/application/update-catalog-item.use-case";
 import {
+  type CloseJobUseCase,
   type CreateJobUseCase,
   JOB_NOT_FOUND,
   type RemoveJobUseCase,
   type UpdateContentPageUseCase,
   type UpdateJobUseCase,
 } from "../application/content.use-cases";
+import type { ReorderRecyclingItemsUseCase } from "../application/reorder-recycling-items.use-case";
 import type { ArtPointProps, RecyclingItemProps } from "../domain/content";
 import type { ContentQueries } from "../infra/content.queries";
 
@@ -52,9 +55,11 @@ export interface ContentRoutesDeps {
   updatePage: UpdateContentPageUseCase;
   artPoints: Commands<ArtPointProps>;
   recyclingItems: Commands<RecyclingItemProps>;
+  reorderRecyclingItems: ReorderRecyclingItemsUseCase;
   createJob: CreateJobUseCase;
   updateJob: UpdateJobUseCase;
   removeJob: RemoveJobUseCase;
+  closeJob: CloseJobUseCase;
 }
 
 export const ART_POINT_NOT_FOUND = "Ponto do Circuito não encontrado";
@@ -155,6 +160,14 @@ export function contentRoutes(deps: ContentRoutesDeps): FastifyPluginAsyncZod {
       await deps.recyclingItems.remove.execute(request.params, staffOf(request));
       return reply.status(204).send();
     });
+    r.route(
+      ROUTES.recyclingItems.reorder,
+      { body: reorderRecyclingItemsBodySchema },
+      async (request, reply) => {
+        await deps.reorderRecyclingItems.execute(request.body, staffOf(request));
+        return reply.status(204).send();
+      },
+    );
 
     /* Vagas (lojista: só as da loja dele) */
     r.route(
@@ -181,6 +194,16 @@ export function contentRoutes(deps: ContentRoutesDeps): FastifyPluginAsyncZod {
       async (request) => {
         const { id } = request.params;
         await deps.updateJob.execute({ id, changes: request.body }, staffOf(request));
+        const [job] = await queries.jobs({ id }, clock.now());
+        return orNotFound(job, JOB_NOT_FOUND);
+      },
+    );
+    r.route(
+      ROUTES.jobs.close,
+      { params: idParamsSchema, response: { 200: jobSchema } },
+      async (request) => {
+        const { id } = request.params;
+        await deps.closeJob.execute({ id }, staffOf(request));
         const [job] = await queries.jobs({ id }, clock.now());
         return orNotFound(job, JOB_NOT_FOUND);
       },

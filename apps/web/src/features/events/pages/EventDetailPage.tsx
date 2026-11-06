@@ -1,11 +1,19 @@
 import type { Event } from "@arp/contracts";
-import { CalendarX2, ExternalLink, Heart } from "lucide-react";
+import { Archive, CalendarX2, ExternalLink, Heart } from "lucide-react";
 import { useParams } from "react-router";
 import { applyApiErrors, errorMessage } from "@/shared/api";
 import { useAuth } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
 import { formatDateTime, formatNumber } from "@/shared/lib/format";
-import { DemoMark, LoadError, LoadingRegion, PageHeader, Skeleton, toast } from "@/shared/ui";
+import {
+  DemoMark,
+  LoadError,
+  LoadingRegion,
+  PageHeader,
+  Skeleton,
+  StatusBadge,
+  toast,
+} from "@/shared/ui";
 import { useEvent, useUpdateEvent } from "../api";
 import { EventStatusBadge, SealPill } from "../components/EventBadges";
 import { EventStatusActions } from "../components/EventStatusActions";
@@ -24,7 +32,7 @@ export function EventDetailPage() {
         onRetry={() => void event.refetch()}
         icon={CalendarX2}
         title="Evento não encontrado"
-        description="Ele pode ter sido apagado ou o endereço está errado."
+        description="Ele pode ter sido excluído ou o endereço está errado."
         back={{ to: PATHS.events, label: "Ver a agenda" }}
       />
     );
@@ -62,7 +70,13 @@ function EventEditor({ event }: { event: Event }) {
         back={{ to: PATHS.events, label: "Eventos" }}
         description={
           <span className="flex flex-wrap items-center gap-2">
-            <EventStatusBadge status={event.status} />
+            {event.archivedAt ? (
+              <StatusBadge tone="outline" icon={Archive}>
+                Arquivado
+              </StatusBadge>
+            ) : (
+              <EventStatusBadge status={event.status} />
+            )}
             {event.awardsSeal && <SealPill />}
             {event.siteUrl && (
               <a

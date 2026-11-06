@@ -1,10 +1,11 @@
 import type { Highlight, HighlightBadge, HighlightStatus, HighlightTarget } from "@arp/contracts";
-import { Archive, CircleDashed, Megaphone, Sparkles } from "lucide-react";
-import { PhaseBadge, StatusBadge } from "@/shared/ui";
+import { Megaphone, Sparkles } from "lucide-react";
+import { type Lifecycle, LifecycleBadge, StatusBadge } from "@/shared/ui";
 
 export const HIGHLIGHT_STATUS_LABEL: Record<HighlightStatus, string> = {
   draft: "Rascunho",
-  published: "Publicado",
+  published: "Ativo",
+  paused: "Pausado",
   archived: "Arquivado",
 };
 
@@ -43,23 +44,21 @@ export function KindBadge({ badge }: { badge: HighlightBadge }) {
   );
 }
 
-/** Situação: publicado mostra a fase (no ar, em breve, encerrado). */
+/** Ciclo de vida do destaque: publicado vira Agendado / Ativo / Encerrado pela data. */
+export function highlightLifecycle(h: Pick<Highlight, "status" | "phase">): Lifecycle {
+  if (h.status === "draft") return "draft";
+  if (h.status === "archived") return "archived";
+  if (h.phase === "ended") return "ended";
+  if (h.status === "paused") return "paused";
+  return h.phase === "upcoming" ? "scheduled" : "active";
+}
+
+/** Situação: publicado mostra a fase (ativo, agendado, encerrado). */
 export function HighlightStateBadge({
   highlight,
 }: {
   highlight: Pick<Highlight, "status" | "phase">;
 }) {
-  if (highlight.status === "draft")
-    return (
-      <StatusBadge tone="neutral" icon={CircleDashed}>
-        Rascunho
-      </StatusBadge>
-    );
-  if (highlight.status === "archived")
-    return (
-      <StatusBadge tone="neutral" icon={Archive}>
-        Arquivado
-      </StatusBadge>
-    );
-  return <PhaseBadge phase={highlight.phase} ended="Encerrado" />;
+  const lifecycle = highlightLifecycle(highlight);
+  return <LifecycleBadge status={lifecycle} />;
 }

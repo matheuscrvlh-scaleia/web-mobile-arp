@@ -1,9 +1,14 @@
-import type { CouponClaim } from "@arp/contracts";
-import { Store, Timer, UserRound } from "lucide-react";
+import { type CouponClaim, WEEKDAY_SHORT, weekdaysLabel } from "@arp/contracts";
+import { CalendarX, Store, Timer, UserRound } from "lucide-react";
 import { useNow } from "@/shared/hooks";
 import { cn } from "@/shared/lib/cn";
+import { zonedParts } from "@/shared/lib/dates";
 import { formatCountdown, formatDateTime } from "@/shared/lib/format";
+import { invalidToday } from "../lib/weekdays";
 import { CLAIM_STATUS } from "./ClaimStatusBadge";
+
+// Segunda primeiro, domingo por último (como no comércio).
+const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 /**
  * O cupom pego como o visitante vê no app (ticket branco com picote):
@@ -30,6 +35,7 @@ export function ClaimTicket({ claim, dimmed = false }: { claim: CouponClaim; dim
             <span className="mr-2 text-[#2f7d3d]">{claim.coupon.headline}</span>
             {claim.coupon.title}
           </p>
+          <Conditions claim={claim} />
         </div>
         <Tear />
         <div
@@ -106,6 +112,51 @@ function Countdown({ claim }: { claim: CouponClaim }) {
       </div>
       <p className="mt-2 text-xs text-[#5f655e]">Vence em {formatDateTime(claim.expiresAt)}</p>
     </div>
+  );
+}
+
+/** O que o caixa confere antes de validar: regras, quando vale e os dias. */
+function Conditions({ claim }: { claim: CouponClaim }) {
+  const { description, scheduleNote, weekdays } = claim.coupon;
+  const days = weekdays ?? [];
+  const limitedDays = days.length > 0 && days.length < 7;
+  if (!description && !scheduleNote && !limitedDays) return null;
+  const today = zonedParts(new Date()).weekday;
+  const wrongDay = claim.status === "active" && invalidToday(claim);
+  return (
+    <section aria-label="Condições" className="mt-4 rounded-2xl bg-[#f6f5f3] p-4 text-sm">
+      <p className="text-xs font-semibold tracking-wider text-[#5f655e] uppercase">Condições</p>
+      {scheduleNote && <p className="mt-1 font-semibold">{scheduleNote}</p>}
+      {description && <p className="mt-1 whitespace-pre-line text-[#3b403a]">{description}</p>}
+      {limitedDays && (
+        <>
+          <ul className="mt-3 flex flex-wrap gap-1.5" aria-label={`Vale: ${weekdaysLabel(days)}`}>
+            {WEEK_ORDER.map((d) => {
+              const on = days.includes(d);
+              return (
+                <li
+                  key={d}
+                  aria-hidden
+                  className={cn(
+                    "rounded-full px-2.5 py-1 text-xs font-semibold",
+                    on ? "bg-[#2f7d3d] text-[#fff]" : "bg-[#fff] text-[#a3a8a2] line-through",
+                    d === today && "ring-2 ring-[#141714] ring-offset-1",
+                  )}
+                >
+                  {WEEKDAY_SHORT[d]}
+                </li>
+              );
+            })}
+          </ul>
+          {wrongDay && (
+            <p className="mt-3 flex items-center gap-2 rounded-xl bg-[#fde8e4] px-3 py-2 font-semibold text-[#9b2c1a]">
+              <CalendarX className="size-4 shrink-0" aria-hidden />
+              Hoje ({WEEKDAY_SHORT[today]}) não vale: só {weekdaysLabel(days)}.
+            </p>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 

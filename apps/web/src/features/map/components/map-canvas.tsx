@@ -93,6 +93,25 @@ export function MapCanvas({
   );
 }
 
+/**
+ * Planta do andar (foto ou PDF exportado em imagem) por baixo do desenho,
+ * para decalcar os blocos. Só no painel: o app mostra o desenho.
+ */
+export function FloorPlanImage({ url, opacity }: { url: string; opacity: number }) {
+  return (
+    <image
+      href={url}
+      x={0}
+      y={0}
+      width={VIEW_W}
+      height={VIEW_H}
+      preserveAspectRatio="xMidYMid meet"
+      opacity={opacity}
+      pointerEvents="none"
+    />
+  );
+}
+
 const TREES = [
   [0.11, 0.3],
   [0.89, 0.3],

@@ -54,7 +54,12 @@ ${event.description ? `<p>${esc(event.description)}</p>` : ""}
 
 function whenLabel(e: App.EventDetail): string {
   const time = e.startTime ? ` às ${e.startTime.replace(":00", "h").replace(":", "h")}` : "";
-  if (e.recurrence === "weekly" && e.weekday !== null) return `Toda ${WEEKDAYS[e.weekday]}${time}`;
+  const days = e.weekdays ?? (e.weekday === null ? [] : [e.weekday]);
+  if (e.recurrence === "weekly" && days.length > 0) {
+    const names = days.map((d) => WEEKDAYS[d]);
+    const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} e ${names.at(-1)}` : names[0];
+    return `Toda ${list}${time}`;
+  }
   const day = e.nextDate ?? e.startsOn;
   if (e.endsOn && e.endsOn !== e.startsOn) return `${br(e.startsOn)} a ${br(e.endsOn)}${time}`;
   return `${br(day)}${time}`;

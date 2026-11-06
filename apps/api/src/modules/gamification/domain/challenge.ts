@@ -99,21 +99,49 @@ export class Challenge {
   }
 
   /**
-   * Travas para apagar: quem já ganhou o selo mantém o histórico (não dá
-   * para apagar) e desafio ativo precisa sair do app antes (desativar).
+   * Trava para excluir: quem já ganhou o selo mantém o histórico. Sem selo
+   * dado, sai mesmo ativo (nunca valeu nada para ninguém).
    */
   assertDeletable(earnedCount: number): void {
     if (earnedCount > 0) {
       throw new ConflictError(
-        `Este desafio já deu ${earnedCount} selo(s). Desative em vez de apagar.`,
+        `Este desafio já deu ${earnedCount === 1 ? "1 selo" : `${earnedCount} selos`}: pause em vez de excluir. Quem ganhou mantém o selo.`,
       );
     }
-    if (this.props.status === "active") {
-      throw new ConflictError("Desative o desafio antes de apagar.");
-    }
+  }
+
+  /**
+   * Trocar o selo de um desafio que já deu selos deixaria o histórico com um
+   * selo e o desafio com outro: para outro selo, crie outro desafio.
+   */
+  assertSealChangeAllowed(sealId: string | undefined, earnedCount: number): void {
+    if (sealId === undefined || sealId === this.props.sealId || earnedCount === 0) return;
+    throw ValidationError.field(
+      "sealId",
+      "Este desafio já deu selos: quem ganhou ficou com o selo atual. Para outro selo, crie outro desafio.",
+    );
   }
 
   toState(): ChallengeProps {
     return { ...this.props };
+  }
+}
+
+/** Nova ordem precisa trazer todos os desafios da campanha, cada um uma vez. */
+export function assertCompleteChallengeOrder(
+  ids: readonly string[],
+  existing: readonly string[],
+): void {
+  const requested = new Set(ids);
+  const current = new Set(existing);
+  const complete =
+    requested.size === ids.length &&
+    requested.size === current.size &&
+    [...requested].every((id) => current.has(id));
+  if (!complete) {
+    throw ValidationError.field(
+      "ids",
+      "A lista de desafios mudou enquanto você arrastava. Recarregue a página e tente de novo.",
+    );
   }
 }

@@ -1,4 +1,6 @@
 import type {
+  ActiveMerchantInvite,
+  ListMerchantInvitesQuery,
   ListMerchantSignupsQuery,
   MerchantInvitation,
   MerchantInvite,
@@ -44,16 +46,43 @@ export interface MerchantSignupDeps {
 export class MerchantSignupService {
   constructor(private readonly deps: MerchantSignupDeps) {}
 
-  /** A ARP gera o link da loja (o token só sai aqui; no banco fica o hash). */
-  async invite(storeId: string, actor: StaffActor): Promise<MerchantInvite> {
+  /**
+   * A ARP gera o link da loja (o token só sai aqui; no banco fica o hash).
+   * Um link valendo por loja: com outro ainda valendo, 409 (o painel pergunta);
+   * `replace` cancela os anteriores na mesma transação.
+   */
+  async invite(storeId: string, actor: StaffActor, replace = false): Promise<MerchantInvite> {
     const { db, uow, clock, audit, opaqueTokens } = this.deps;
     const { token, hash } = opaqueTokens.generate();
-    const expiresAt = new Date(clock.now().getTime() + INVITE_DAYS * DAY_MS);
+    const now = clock.now();
+    const expiresAt = new Date(now.getTime() + INVITE_DAYS * DAY_MS);
     return uow.run(async () => {
       const store = await db.maybeOne<{ id: string; name: string }>(
-        sql`select id, name from directory.stores where id = ${storeId}`,
+        sql`select id, name from directory.stores where id = ${storeId} for update`,
       );
       if (!store) throw new NotFoundError("Loja não encontrada");
+      const active = await db.many<{ id: string; expires_at: Date }>(sql`
+        select id, expires_at from identity.merchant_invites
+        where store_id = ${storeId} and expires_at > ${now}
+      `);
+      if (active.length > 0 && !replace) {
+        throw new ConflictError(
+          `A ${store.name} já tem um link de cadastro valendo. Reenvie o mesmo link ou gere outro (o anterior deixa de valer).`,
+          { reason: "INVITE_ACTIVE" },
+        );
+      }
+      for (const old of active) {
+        await db.query(
+          sql`update identity.merchant_invites set expires_at = ${now} where id = ${old.id}`,
+        );
+        await audit.log({
+          actor,
+          action: "merchant_invite.cancel",
+          entityType: "merchant_invite",
+          entityId: old.id,
+          changes: { expiresAt: { from: iso(old.expires_at), to: iso(now) } },
+        });
+      }
       const { id } = await db.one<{ id: string }>(sql`
         insert into identity.merchant_invites (token_hash, store_id, created_by, expires_at)
         values (${hash}, ${storeId}, ${actor.id}, ${expiresAt})
@@ -66,7 +95,67 @@ export class MerchantSignupService {
         entityId: id,
         changes: { storeId },
       });
-      return { token, store, expiresAt: iso(expiresAt) };
+      return { id, token, store, expiresAt: iso(expiresAt) };
+    });
+  }
+
+  /** Links ainda valendo (o token não volta: só dá para cancelar ou gerar outro). */
+  async invites(query: ListMerchantInvitesQuery): Promise<ActiveMerchantInvite[]> {
+    const rows = await this.deps.db.many<{
+      id: string;
+      store_id: string;
+      store_name: string;
+      created_by_id: string | null;
+      created_by_name: string | null;
+      created_at: Date;
+      expires_at: Date;
+      signups_count: number;
+    }>(sql`
+      select i.id, i.store_id, s.name as store_name, u.id as created_by_id,
+             u.name as created_by_name, i.created_at, i.expires_at,
+             (select count(*) from identity.merchant_signups ms where ms.invite_id = i.id)::int
+               as signups_count
+      from identity.merchant_invites i
+      join directory.stores s on s.id = i.store_id
+      left join identity.users u on u.id = i.created_by
+      where i.expires_at > ${this.deps.clock.now()}
+        ${query.storeId ? sql`and i.store_id = ${query.storeId}` : sql.empty}
+      order by i.created_at desc
+      limit 200
+    `);
+    return rows.map((r) => ({
+      id: r.id,
+      store: { id: r.store_id, name: r.store_name },
+      createdBy: r.created_by_id ? { id: r.created_by_id, name: r.created_by_name ?? "" } : null,
+      createdAt: iso(r.created_at),
+      expiresAt: iso(r.expires_at),
+      signupsCount: r.signups_count,
+    }));
+  }
+
+  /**
+   * Cancela o link na hora (vence agora). Quem já se cadastrou por ele segue
+   * esperando a aprovação; cancelar de novo não faz nada.
+   */
+  async cancelInvite(id: string, actor: StaffActor): Promise<void> {
+    const { db, uow, clock, audit } = this.deps;
+    await uow.run(async () => {
+      const now = clock.now();
+      const row = await db.maybeOne<{ expires_at: Date }>(
+        sql`select expires_at from identity.merchant_invites where id = ${id} for update`,
+      );
+      if (!row) throw new NotFoundError("Link não encontrado");
+      if (row.expires_at <= now) return;
+      await db.query(
+        sql`update identity.merchant_invites set expires_at = ${now} where id = ${id}`,
+      );
+      await audit.log({
+        actor,
+        action: "merchant_invite.cancel",
+        entityType: "merchant_invite",
+        entityId: id,
+        changes: { expiresAt: { from: iso(row.expires_at), to: iso(now) } },
+      });
     });
   }
 
@@ -105,7 +194,10 @@ export class MerchantSignupService {
   async list(query: ListMerchantSignupsQuery): Promise<MerchantSignup[]> {
     const rows = await this.deps.db.many<SignupRow>(sql`
       ${SIGNUP_SELECT}
-      ${query.status ? sql`where ms.status = ${query.status}` : sql.empty}
+      ${sql.where([
+        query.status && sql`ms.status = ${query.status}`,
+        query.storeId && sql`ms.store_id = ${query.storeId}`,
+      ])}
       order by (ms.status = 'pending') desc, ms.created_at desc
       limit 200
     `);
@@ -222,7 +314,7 @@ export class MerchantSignupService {
       await mailer.send({
         to: email,
         subject: "Seu acesso de lojista da ARP foi aprovado",
-        text: `Olá, ${name}!\n\nA ARP aprovou o seu cadastro da loja ${storeName}. Já dá para entrar na Área do lojista do app ARP com o seu e-mail e a senha que você escolheu.\n\nEquipe ARP`,
+        text: `Olá, ${name}!\n\nA ARP aprovou o seu cadastro da loja ${storeName}. Já dá para entrar no painel da ARP (o mesmo site do link de cadastro) com o seu e-mail e a senha que você escolheu.\n\nEquipe ARP`,
       });
     } catch (err) {
       logger.error({ err, email }, "Falha ao enviar o aviso de lojista aprovado");
@@ -240,13 +332,16 @@ interface SignupRow {
   status: MerchantSignupStatus;
   created_at: Date;
   decided_at: Date | null;
+  user_id: string | null;
+  user_status: "active" | "disabled" | null;
 }
 
 const SIGNUP_SELECT = sql`
   select ms.id, ms.store_id, s.name as store_name, ms.name, ms.email, ms.phone, ms.status,
-         ms.created_at, ms.decided_at
+         ms.created_at, ms.decided_at, u.id as user_id, u.status as user_status
   from identity.merchant_signups ms
   join directory.stores s on s.id = ms.store_id
+  left join identity.users u on u.id = ms.user_id
 `;
 
 const toSignup = (r: SignupRow): MerchantSignup => ({
@@ -258,4 +353,5 @@ const toSignup = (r: SignupRow): MerchantSignup => ({
   status: r.status,
   createdAt: iso(r.created_at),
   decidedAt: isoOrNull(r.decided_at),
+  user: r.user_id && r.user_status ? { id: r.user_id, status: r.user_status } : null,
 });

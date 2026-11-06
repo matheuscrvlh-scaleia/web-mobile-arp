@@ -1,5 +1,6 @@
 import {
   COUPON_CODE_PATTERN,
+  type CouponClaim,
   couponClaimPageSchema,
   couponClaimSchema,
   type ListClaimsQuery,
@@ -19,6 +20,27 @@ export const claimsApi = {
   /** Usa o código no caixa; devolve o cupom pego atualizado (status "redeemed"). */
   redeem: (code: string) => apiRequest(ROUTES.claims.redeem, couponClaimSchema, { body: { code } }),
 };
+
+/** Limite do "Exportar CSV" (páginas de 100 por cursor). */
+export const CLAIMS_EXPORT_MAX = 10_000;
+
+/**
+ * Todos os cupons pegos com os filtros da tela (sem a página), para exportar.
+ * Vai pelo cursor, 100 por vez, até acabar ou bater o limite.
+ */
+export async function fetchAllClaims(
+  query: Partial<ListClaimsQuery>,
+): Promise<{ rows: CouponClaim[]; truncated: boolean }> {
+  const { page: _page, cursor: _cursor, ...filters } = query;
+  const rows: CouponClaim[] = [];
+  let cursor: string | undefined;
+  do {
+    const res = await claimsApi.list({ ...filters, pageSize: 100, ...(cursor ? { cursor } : {}) });
+    rows.push(...res.data);
+    cursor = res.meta.nextCursor ?? undefined;
+  } while (cursor && rows.length < CLAIMS_EXPORT_MAX);
+  return { rows: rows.slice(0, CLAIMS_EXPORT_MAX), truncated: Boolean(cursor) };
+}
 
 export const claimKeys = {
   all: ["claims"] as const,

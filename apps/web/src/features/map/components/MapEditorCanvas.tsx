@@ -2,7 +2,7 @@ import type { MapPoint } from "@arp/contracts";
 import type { KeyboardEvent, RefObject } from "react";
 import { cn } from "@/shared/lib/cn";
 import type { PlacedPin } from "../api";
-import { MapCanvas, MapPointMark, MapShapeView, StorePinMark } from "./map-canvas";
+import { FloorPlanImage, MapCanvas, MapPointMark, MapShapeView, StorePinMark } from "./map-canvas";
 import { type MapEditor, useDragPreview } from "./useMapEditor";
 
 export type EditorMode = "pinos" | "desenho";
@@ -22,6 +22,7 @@ export function MapEditorCanvas({
   floorLabel,
   canMoveStores,
   canEditMap,
+  backgroundUrl,
 }: {
   svgRef: RefObject<SVGSVGElement | null>;
   editor: MapEditor;
@@ -31,6 +32,8 @@ export function MapEditorCanvas({
   floorLabel: string;
   canMoveStores: boolean;
   canEditMap: boolean;
+  /** Planta do andar, de fundo (só no painel). */
+  backgroundUrl?: string | null | undefined;
 }) {
   const { selection, placing, layout } = editor;
   const { positionOf, shapeAt } = useDragPreview(editor);
@@ -100,6 +103,7 @@ export function MapEditorCanvas({
         placing && "cursor-crosshair",
       )}
     >
+      {backgroundUrl && <FloorPlanImage url={backgroundUrl} opacity={drawing ? 0.55 : 0.3} />}
       <g key={floorLabel} className="mapa-camada">
         {layout.map((saved, i) => {
           const shape = shapeAt(i, saved);

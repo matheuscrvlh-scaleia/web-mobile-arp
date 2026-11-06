@@ -1,5 +1,6 @@
 import {
   appSettingsSchema,
+  auditActorListSchema,
   auditLogPageSchema,
   listAuditLogsQuerySchema,
   ROUTES,
@@ -74,6 +75,10 @@ export function platformRoutes(deps: PlatformRoutesDeps): FastifyPluginAsyncZod 
       ROUTES.auditLogs,
       { querystring: listAuditLogsQuerySchema, response: { 200: auditLogPageSchema } },
       async (request) => deps.auditLogs.list(request.query),
+    );
+
+    r.route(ROUTES.auditActors, { response: { 200: auditActorListSchema } }, async () =>
+      deps.auditLogs.actors(),
     );
 
     r.route(

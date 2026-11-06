@@ -2,7 +2,7 @@ import type { StaffActor } from "../../../shared/application/actor";
 import { diff, hasChanges } from "../../../shared/application/audit-changes";
 import { replacedImageUrls } from "../../../shared/application/image-variants";
 import { NotFoundError } from "../../../shared/domain/errors";
-import type { HighlightChanges } from "../domain/highlight";
+import { Highlight, type HighlightChanges } from "../domain/highlight";
 import {
   assertHighlightReferences,
   HIGHLIGHT_NOT_FOUND,
@@ -23,6 +23,9 @@ export class UpdateHighlightUseCase {
       if (!hasChanges(changes)) return [];
       await assertHighlightReferences(this.deps.references, highlight.toState(), before);
       await this.deps.highlights.save(highlight);
+      if (Highlight.leftArchive(before, highlight.toState())) {
+        await this.deps.highlights.moveToEnd(highlight.id);
+      }
       await this.deps.audit.log({
         actor,
         action: "highlight.update",

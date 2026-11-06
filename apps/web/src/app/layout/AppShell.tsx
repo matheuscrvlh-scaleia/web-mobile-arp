@@ -1,14 +1,40 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Menu, X } from "lucide-react";
-import { Suspense, useId, useMemo, useState } from "react";
+import { Suspense, useEffect, useId, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useNavigation } from "react-router";
+import { usePending } from "@/features/dashboard/api";
+import { pendingTotal } from "@/features/dashboard/lib/pending";
 import { useCurrentUser } from "@/shared/auth";
 import { cn } from "@/shared/lib/cn";
-import { PageSkeleton } from "@/shared/ui";
+import { OfflineBanner, PageSkeleton, toast } from "@/shared/ui";
+import { installDraftCapture, restoreDraftFor } from "../draft-recovery";
 import { homePathFor, navigationFor } from "../navigation";
 import { Brand } from "./Brand";
 import { SidebarNav } from "./SidebarNav";
 import { TopBar } from "./TopBar";
 import { UserPanel } from "./UserPanel";
+
+// Sessão caiu com formulário sujo ou salvando: guarda o rascunho (volta depois do login).
+installDraftCapture();
+
+/** De volta à tela onde a sessão caiu: devolve o que estava digitado. */
+function useDraftRestore() {
+  const queryClient = useQueryClient();
+  // Quem diz se há gravação em andamento é o cliente de queries atual.
+  useEffect(() => installDraftCapture(() => queryClient.isMutating() > 0), [queryClient]);
+  const { pathname, search } = useLocation();
+  useEffect(() => {
+    const ctrl = new AbortController();
+    void restoreDraftFor(`${pathname}${search}`, ctrl.signal).then((restored) => {
+      if (restored) {
+        toast.info(
+          "Recuperamos o que você tinha digitado antes de a sessão expirar. Confira e salve.",
+        );
+      }
+    });
+    return () => ctrl.abort();
+  }, [pathname, search]);
+}
 
 /**
  * Moldura das telas logadas: aurora atrás, menu de vidro flutuante à
@@ -23,6 +49,8 @@ export function AppShell() {
   const drawerId = useId();
   const navigation = useNavigation();
   const { pathname } = useLocation();
+  useDraftRestore();
+  const pending = pendingTotal(usePending().data?.data ?? []);
 
   return (
     <div className="min-h-dvh p-3 md:p-5">
@@ -39,6 +67,7 @@ export function AppShell() {
           className="progresso-navegacao fixed inset-x-0 top-0 z-[90] h-0.5"
         />
       )}
+      <OfflineBanner />
       <div aria-hidden className="aurora">
         <i />
         <i />
@@ -57,23 +86,39 @@ export function AppShell() {
             className="flex w-full cursor-pointer items-center justify-between px-4 py-3 text-left md:hidden"
           >
             <Brand />
-            <span className="grid size-10 place-items-center rounded-full bg-neutral-900 text-white">
+            <span className="relative grid size-10 place-items-center rounded-full bg-neutral-900 text-white">
+              {/* Pendências também no ☰ (o sino fica dentro da gaveta). */}
+              {!drawerOpen && pending > 0 && (
+                <span
+                  aria-hidden
+                  className="absolute -top-1 -right-1 min-w-5 rounded-full bg-amber-400 px-1 text-center text-[10px] leading-5 font-semibold text-amber-950 tabular-nums"
+                >
+                  {pending > 99 ? "99+" : pending}
+                </span>
+              )}
               {drawerOpen ? (
                 <X className="size-4" aria-hidden />
               ) : (
                 <Menu className="size-4" aria-hidden />
               )}
-              <span className="sr-only">{drawerOpen ? "Fechar menu" : "Abrir menu"}</span>
+              <span className="sr-only">
+                {drawerOpen ? "Fechar menu" : "Abrir menu"}
+                {!drawerOpen && pending > 0 ? ` (${pending} pendências)` : ""}
+              </span>
             </span>
           </button>
+          {/* Celular: a lista rola dentro da gaveta e o pé (tema, usuário) fica
+              fixo embaixo, opaco, sem cobrir itens. */}
           <div
             id={drawerId}
             className={cn(
               drawerOpen ? "flex" : "hidden",
-              "max-h-[75dvh] min-h-0 flex-col gap-4 overflow-y-auto px-4 pb-4 md:flex md:max-h-none md:flex-1 md:overflow-visible md:p-0",
+              "max-h-[calc(100dvh-7rem)] min-h-0 flex-col gap-4 overflow-hidden px-4 pb-4 md:flex md:max-h-none md:flex-1 md:overflow-visible md:p-0",
             )}
           >
-            <div className="min-h-0 flex-1 md:overflow-y-auto">
+            {/* Esmaece o pé da lista: mostra que há mais itens rolando (o pb-8 deixa
+                o último item sair por inteiro do esmaecido no fim da rolagem). */}
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-8 [mask-image:linear-gradient(to_bottom,black_calc(100%-2rem),transparent)]">
               {sections.length > 0 ? (
                 <SidebarNav sections={sections} onNavigate={() => setDrawerOpen(false)} />
               ) : (
@@ -82,13 +127,21 @@ export function AppShell() {
                 </p>
               )}
             </div>
-            <UserPanel />
+            <div className="shrink-0 border-t border-neutral-200/70 pt-4 md:border-0 md:pt-0">
+              <UserPanel />
+            </div>
           </div>
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col gap-5">
           <TopBar sections={sections} />
-          <main id="conteudo" tabIndex={-1} className="min-w-0 pb-6 outline-none">
+          {/* min-w-0 + overflow-x-clip: filho largo (tabela, código) rola dentro
+              do próprio quadro, nunca a página inteira no celular. */}
+          <main
+            id="conteudo"
+            tabIndex={-1}
+            className="min-w-0 overflow-x-clip pb-6 outline-none [overflow-clip-margin:1.25rem]"
+          >
             {/* key: trocar de tela reinicia o limite de Suspense (sem esqueleto preso). */}
             <Suspense key={pathname} fallback={<PageSkeleton />}>
               <Outlet />

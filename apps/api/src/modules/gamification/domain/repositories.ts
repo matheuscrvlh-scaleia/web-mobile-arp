@@ -10,6 +10,9 @@ export interface SealRepository {
   /** ConflictError se o slug já existir. */
   create(data: NewSeal): Promise<Seal>;
   save(seal: Seal): Promise<void>;
+  /** Uso do selo: conquistas e desafios que o dão (para excluir). */
+  usage(id: string): Promise<{ earned: number; challenges: number }>;
+  delete(id: string): Promise<void>;
 }
 
 export interface CampaignRepository {
@@ -17,14 +20,27 @@ export interface CampaignRepository {
   create(data: NewCampaign): Promise<Campaign>;
   save(campaign: Campaign): Promise<void>;
   replaceTiers(campaignId: string, tiers: readonly TierInput[]): Promise<void>;
+  tiersOf(campaignId: string): Promise<TierInput[]>;
+  /** Selos dados na campanha (com algum, não dá para excluir). */
+  countEarned(campaignId: string): Promise<number>;
+  /** Exclui a campanha com desafios, QR Codes e faixas (só sem selos dados). */
+  delete(campaignId: string): Promise<void>;
 }
 
 export interface ChallengeRepository {
   findById(id: string): Promise<Challenge | null>;
+  /** Desafios da campanha, na ordem do app. */
+  listByCampaign(campaignId: string): Promise<Challenge[]>;
   create(data: NewChallenge): Promise<Challenge>;
   save(challenge: Challenge): Promise<void>;
   delete(id: string): Promise<void>;
   countEarned(challengeId: string): Promise<number>;
+  /** Ordem para um desafio novo entrar no fim da campanha. */
+  nextSortOrder(campaignId: string): Promise<number>;
+  /** Ids dos desafios da campanha, travados para reordenar. */
+  lockCampaignIds(campaignId: string): Promise<string[]>;
+  /** sort_order = posição na lista (0, 1, 2…). */
+  applyOrder(ids: readonly string[]): Promise<void>;
 }
 
 export interface QrCodeRepository {

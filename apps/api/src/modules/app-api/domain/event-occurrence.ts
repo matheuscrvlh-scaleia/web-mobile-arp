@@ -5,7 +5,8 @@ export interface EventRecurrence {
   /** YYYY-MM-DD */
   startsOn: string;
   endsOn: string | null;
-  weekday: number | null;
+  /** weekly: dias da semana (0 = domingo). */
+  weekdays: number[] | null;
 }
 
 /** O evento acontece neste dia de calendário (YYYY-MM-DD)? */
@@ -18,7 +19,8 @@ export function occursOn(event: EventRecurrence, date: string): boolean {
       return event.endsOn !== null && date <= event.endsOn;
     case "weekly":
       return (
-        (event.endsOn === null || date <= event.endsOn) && weekdayOfDate(date) === event.weekday
+        (event.endsOn === null || date <= event.endsOn) &&
+        (event.weekdays ?? []).includes(weekdayOfDate(date))
       );
   }
 }
@@ -34,8 +36,9 @@ export function nextOccurrence(event: EventRecurrence, from: string): string | n
       candidate = start;
       break;
     case "weekly": {
-      if (event.weekday === null) return null;
-      const delta = (event.weekday - weekdayOfDate(start) + 7) % 7;
+      if (!event.weekdays?.length) return null;
+      const today = weekdayOfDate(start);
+      const delta = Math.min(...event.weekdays.map((d) => (d - today + 7) % 7));
       candidate = addDaysToDate(start, delta);
       break;
     }

@@ -1,12 +1,18 @@
-import type { VisitorDetail } from "@arp/contracts";
-import { Award, CalendarHeart, ChevronRight, Heart, TicketPercent } from "lucide-react";
+import type { PrizeRedemptionStatus, VisitorDetail } from "@arp/contracts";
+import { Award, CalendarHeart, ChevronRight, Gift, Heart, TicketPercent } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { ClaimsTable } from "@/features/claims";
 import { SealBadge } from "@/features/seals";
 import { useAuth } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
-import { formatDate, formatDateTime, formatRelative, plural } from "@/shared/lib/format";
+import {
+  formatDate,
+  formatDateTime,
+  formatNumber,
+  formatRelative,
+  plural,
+} from "@/shared/lib/format";
 import { ButtonLink, Card, CardHeader, EmptyState, IconTile } from "@/shared/ui";
 
 /** Selos do visitante, como a coleção do app. */
@@ -175,6 +181,78 @@ export function VisitorInterests({ visitor }: { visitor: VisitorDetail }) {
             </li>
           ))}
         </ul>
+      )}
+    </Card>
+  );
+}
+
+const REDEMPTION_STATUS: Record<PrizeRedemptionStatus, string> = {
+  delivered: "Entregue",
+  cancelled: "Desfeita",
+};
+
+/** Clube ARP: saldo, o que vence logo e as últimas trocas (sem precisar ir ao balcão). */
+export function VisitorClub({ visitor }: { visitor: VisitorDetail }) {
+  const { can } = useAuth();
+  const { points, expiringPoints, nextExpiryAt, redemptions } = visitor.club;
+  return (
+    <Card>
+      <CardHeader
+        title="Clube ARP"
+        icon={Gift}
+        description={
+          expiringPoints > 0 && nextExpiryAt
+            ? `${plural(expiringPoints, "ponto vence", "pontos vencem")} a partir de ${formatDate(nextExpiryAt)}`
+            : "Pontos dos selos que ainda valem, menos as trocas."
+        }
+      />
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <p>
+          <span className="text-3xl font-semibold tracking-tight tabular-nums">
+            {formatNumber(points)}
+          </span>{" "}
+          <span className="text-sm text-neutral-500">{points === 1 ? "ponto" : "pontos"}</span>
+        </p>
+        {can("club.redeem") && !visitor.anonymizedAt && visitor.status === "active" ? (
+          <ButtonLink
+            to={`${PATHS.prizeExchange}?visitante=${encodeURIComponent(visitor.id)}`}
+            variant="secondary"
+            size="sm"
+          >
+            Trocar pontos
+          </ButtonLink>
+        ) : null}
+      </div>
+      {redemptions.length === 0 ? (
+        <p className="text-sm text-neutral-500">Nenhuma troca ainda.</p>
+      ) : (
+        <ul className="flex flex-col divide-y divide-neutral-900/[0.06] text-sm">
+          {redemptions.map((r) => (
+            <li key={r.id} className="flex items-center justify-between gap-3 py-2">
+              <span className="min-w-0">
+                <span className="block truncate font-medium text-neutral-900">{r.prize.name}</span>
+                <span className="block text-xs text-neutral-500">
+                  {REDEMPTION_STATUS[r.status]} ·{" "}
+                  <time dateTime={r.createdAt} title={formatDateTime(r.createdAt)}>
+                    {formatDate(r.createdAt)}
+                  </time>
+                </span>
+              </span>
+              <span className="shrink-0 text-xs text-neutral-500 tabular-nums">
+                −{formatNumber(r.points)} pts
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {can("audit.view") && (
+        <Link
+          to={`${PATHS.audit}?actorId=${encodeURIComponent(visitor.id)}`}
+          className="mt-4 inline-flex items-center gap-1 text-sm text-neutral-600 hover:text-neutral-900"
+        >
+          Ver o que a pessoa fez no Histórico
+          <ChevronRight className="size-4" aria-hidden />
+        </Link>
       )}
     </Card>
   );

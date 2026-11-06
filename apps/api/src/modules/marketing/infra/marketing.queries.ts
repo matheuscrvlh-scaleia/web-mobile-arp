@@ -3,6 +3,7 @@ import type {
   HighlightBadge,
   HighlightStatus,
   HighlightTarget,
+  HighlightTargetIssue,
   ListHighlightsQuery,
   ListNotificationsQuery,
   NotificationAudience,
@@ -29,6 +30,7 @@ interface HighlightRow {
   target_type: HighlightTarget;
   target_id: string | null;
   target_label: string | null;
+  target_issue: HighlightTargetIssue | null;
   target_url: string | null;
   sponsor_store_id: string | null;
   sponsor_store_name: string | null;
@@ -53,7 +55,27 @@ const HIGHLIGHT_SELECT = sql`
            when 'event' then ev.title
            when 'coupon' then cp.title
            when 'store' then st.name
-         end as target_label
+         end as target_label,
+         -- Destino que não abre direito no app (aviso no painel).
+         case h.target_type
+           when 'event' then case
+             when ev.id is null then 'missing'
+             when ev.archived_at is not null then 'archived'
+             when ev.status in ('cancelled', 'paused', 'draft') then ev.status
+             when not (ev.recurrence = 'weekly' and ev.ends_on is null)
+               and coalesce(ev.ends_on, ev.starts_on) < (now() at time zone 'America/Sao_Paulo')::date
+               then 'ended'
+           end
+           when 'coupon' then case
+             when cp.id is null then 'missing'
+             when cp.status in ('draft', 'paused', 'ended', 'archived') then cp.status
+             when cp.ends_at <= now() then 'ended'
+           end
+           when 'store' then case
+             when st.id is null then 'missing'
+             when st.status <> 'active' then 'inactive'
+           end
+         end as target_issue
   from marketing.highlights h
   left join directory.stores sp on sp.id = h.sponsor_store_id
   left join agenda.events ev on h.target_type = 'event' and ev.id = h.target_id
@@ -78,6 +100,7 @@ function toHighlight(r: HighlightRow, now: Date): Highlight {
     targetType: r.target_type,
     targetId: r.target_id,
     targetLabel: r.target_label,
+    targetIssue: r.target_issue,
     targetUrl: r.target_url,
     sponsorStore: r.sponsor_store_id
       ? { id: r.sponsor_store_id, name: r.sponsor_store_name ?? "" }
@@ -110,6 +133,8 @@ interface NotificationRow {
   audience: NotificationAudience;
   store_id: string | null;
   store_name: string | null;
+  event_id: string | null;
+  event_title: string | null;
   deep_link: string | null;
   scheduled_at: Date | null;
   sent_at: Date | null;
@@ -123,7 +148,8 @@ interface NotificationRow {
 }
 
 const NOTIFICATION_COLUMNS = sql`
-  n.id, n.title, n.body, n.audience, n.store_id, s.name as store_name, n.deep_link,
+  n.id, n.title, n.body, n.audience, n.store_id, s.name as store_name, n.event_id,
+  ev.title as event_title, n.deep_link,
   n.scheduled_at, n.sent_at, n.status, n.recipients_count, n.created_by,
   u.name as created_by_name, n.created_at, n.updated_at, n.is_demo
 `;
@@ -132,6 +158,7 @@ const NOTIFICATION_FROM = sql`
   from marketing.push_notifications n
   join identity.users u on u.id = n.created_by
   left join directory.stores s on s.id = n.store_id
+  left join agenda.events ev on ev.id = n.event_id
 `;
 
 function toNotification(r: NotificationRow): PushNotification {
@@ -141,6 +168,7 @@ function toNotification(r: NotificationRow): PushNotification {
     body: r.body,
     audience: r.audience,
     store: r.store_id ? { id: r.store_id, name: r.store_name ?? "" } : null,
+    event: r.event_id ? { id: r.event_id, name: r.event_title ?? "Evento excluído" } : null,
     deepLink: r.deep_link,
     scheduledAt: isoOrNull(r.scheduled_at),
     sentAt: isoOrNull(r.sent_at),
@@ -198,10 +226,17 @@ export class MarketingQueries {
     return row ? toNotification(row) : null;
   }
 
-  async estimate(audience: NotificationAudience, storeId?: string): Promise<number> {
+  async estimate(
+    audience: NotificationAudience,
+    storeId?: string,
+    eventId?: string,
+  ): Promise<number> {
     if (audience === "store_followers" && !storeId) {
       throw ValidationError.field("storeId", "Escolha a loja");
     }
-    return this.audience.count(audience, storeId ?? null);
+    if (audience === "event_interested" && !eventId) {
+      throw ValidationError.field("eventId", "Escolha o evento");
+    }
+    return this.audience.count({ audience, storeId: storeId ?? null, eventId: eventId ?? null });
   }
 }

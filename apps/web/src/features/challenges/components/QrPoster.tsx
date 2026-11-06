@@ -1,7 +1,8 @@
 import type { Challenge, QrCode } from "@arp/contracts";
 import { QRCodeSVG } from "qrcode.react";
 import { SealBadge } from "@/features/seals";
-import { qrWindowText } from "../lib/qr";
+import { formatDateTime } from "@/shared/lib/format";
+import { qrValidityRange, qrWindowText } from "../lib/qr";
 
 // Cartaz e etiqueta do QR Code, em milímetros (é o que sai no papel).
 // Cores fixas: impressão não segue o tema do painel.
@@ -19,6 +20,10 @@ export const PRINT_SIZE: Record<PrintFormat, { w: number; h: number }> = {
 interface PrintProps {
   qr: QrCode;
   challenge: Pick<Challenge, "title" | "seal" | "campaign">;
+  /** Cartazes do mês: "Semana 2" na faixa de validade. */
+  week?: number;
+  /** Última semana do desafio: "Retire" em vez de "Troque". */
+  last?: boolean;
 }
 
 const INK = "#141714";
@@ -29,8 +34,13 @@ const STEPS = [
   "Aponte a câmera para este código",
 ];
 
-/** Cartaz A4 para pendurar onde o desafio acontece. */
-export function QrPoster({ qr, challenge }: PrintProps) {
+/**
+ * Cartaz A4 para pendurar onde o desafio acontece. A faixa de cima diz, em
+ * letra grande, de quando a quando vale e quando trocar: quem cola o cartaz
+ * precisa ver isso sem procurar.
+ */
+export function QrPoster({ qr, challenge, week, last = false }: PrintProps) {
+  const range = qrValidityRange(qr);
   return (
     <div
       className="flex flex-col items-center bg-[#fff] text-center"
@@ -58,8 +68,31 @@ export function QrPoster({ qr, challenge }: PrintProps) {
         </span>
       </div>
 
-      <div style={{ marginTop: "10mm" }}>
-        <SealBadge seal={challenge.seal} size={110} />
+      {range && (
+        <div
+          className="flex w-full items-center justify-between rounded-full text-left"
+          style={{ marginTop: "6mm", padding: "2.5mm 6mm", background: INK, color: "#fff" }}
+        >
+          <span className="flex flex-col leading-tight">
+            {week !== undefined && (
+              <span style={{ fontSize: "3.4mm", opacity: 0.75 }}>Semana {week}</span>
+            )}
+            <b style={{ fontSize: "6.5mm", letterSpacing: "-0.01em" }}>{range.text}</b>
+          </span>
+          <span className="text-right leading-tight" style={{ fontSize: "3.6mm" }}>
+            {week === undefined
+              ? "Este cartaz vence"
+              : last
+                ? "Retire este cartaz"
+                : "Troque este cartaz"}
+            <br />
+            em <b style={{ fontSize: "5mm" }}>{range.swapOn}</b>
+          </span>
+        </div>
+      )}
+
+      <div style={{ marginTop: range ? "6mm" : "10mm" }}>
+        <SealBadge seal={challenge.seal} size={range ? 96 : 110} />
       </div>
       <p className="font-semibold" style={{ marginTop: "5mm", fontSize: "5mm", color: GREEN }}>
         Ganhe o selo {challenge.seal.name}
@@ -85,7 +118,11 @@ export function QrPoster({ qr, challenge }: PrintProps) {
           level="M"
           fgColor={INK}
           bgColor="#ffffff"
-          style={{ width: "92mm", height: "92mm", display: "block" }}
+          style={{
+            width: range ? "84mm" : "92mm",
+            height: range ? "84mm" : "92mm",
+            display: "block",
+          }}
         />
       </div>
       <p style={{ marginTop: "3mm", fontSize: "3.4mm", color: "#77716a" }}>{qr.label}</p>
@@ -110,7 +147,7 @@ export function QrPoster({ qr, challenge }: PrintProps) {
         ))}
       </ol>
       <p className="mt-auto" style={{ fontSize: "3.2mm", color: "#77716a" }}>
-        Vale uma vez por pessoa · {qrWindowText(qr)}
+        Vale uma vez por pessoa{range ? "" : ` · ${qrWindowText(qr)}`}
       </p>
     </div>
   );
@@ -147,6 +184,12 @@ export function QrLabel({ qr, challenge }: PrintProps) {
         <span className="mt-auto" style={{ fontSize: "2.8mm", lineHeight: 1.25, color: "#5f5a54" }}>
           Abra o app ARP › Selos › Ler QR Code
         </span>
+        {/* Quem cola precisa saber quando trocar a etiqueta. */}
+        {qr.validUntil && (
+          <span style={{ marginTop: "1mm", fontSize: "2.6mm", lineHeight: 1.2, color: "#77716a" }}>
+            {qrValidityRange(qr)?.text ?? `Vale até ${formatDateTime(qr.validUntil)}`}
+          </span>
+        )}
       </div>
     </div>
   );

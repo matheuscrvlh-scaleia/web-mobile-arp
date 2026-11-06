@@ -14,3 +14,4 @@ export * from "./promotions";
 export * from "./routes";
 export * from "./users";
 export * from "./visitors";
+export * from "./zod-messages";

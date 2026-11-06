@@ -86,18 +86,34 @@ export async function toApiError(res: Response): Promise<ApiError> {
   return new ApiError(res.status, code, message);
 }
 
-export const networkError = () =>
+/** Mensagem do toast quando um envio (POST/PATCH/DELETE) não sai por falta de rede. */
+export const OFFLINE_SAVE_MESSAGE =
+  "Sem conexão: nada foi salvo. Tente de novo quando a internet voltar.";
+
+/** `write`: era um envio (nada foi salvo); senão, uma leitura. */
+export const networkError = (write = false) =>
   new ApiError(
     0,
     "NETWORK_ERROR",
-    "Sem conexão com o servidor. Confira a internet e tente de novo.",
+    write
+      ? OFFLINE_SAVE_MESSAGE
+      : "Sem conexão com o servidor. Confira a internet e tente de novo.",
   );
 
 export const isApiError = (e: unknown): e is ApiError => e instanceof ApiError;
 
+/** Erro de rede (sem internet ou servidor fora do ar)? */
+export const isNetworkError = (e: unknown): boolean => isApiError(e) && e.code === "NETWORK_ERROR";
+
 /** Mensagem amigável para qualquer erro (para toasts e estados de erro). */
 export function errorMessage(e: unknown): string {
-  if (isApiError(e)) return e.message;
+  if (isApiError(e)) {
+    // Erro de campo que a tela não marcou: diz o quê, em vez de "Dados inválidos".
+    const first = e.isValidation ? Object.values(e.fieldErrors)[0]?.[0] : undefined;
+    if (first && /^(dados|valor) inválido/i.test(e.message))
+      return `Confira o formulário: ${first}`;
+    return e.message;
+  }
   if (e instanceof Error && e.message) return e.message;
   return "Algo deu errado. Tente de novo.";
 }

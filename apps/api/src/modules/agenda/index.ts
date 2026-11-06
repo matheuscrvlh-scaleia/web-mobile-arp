@@ -4,6 +4,7 @@ import { CreateEventUseCase } from "./application/create-event.use-case";
 import { CreateEventCategoryUseCase } from "./application/create-event-category.use-case";
 import { DeleteEventUseCase } from "./application/delete-event.use-case";
 import { DeleteEventCategoryUseCase } from "./application/delete-event-category.use-case";
+import { EventLifecycleUseCase } from "./application/event-lifecycle.use-case";
 import { ImportSiteEventsUseCase } from "./application/import-site-events.use-case";
 import { UpdateEventUseCase } from "./application/update-event.use-case";
 import { UpdateEventCategoryUseCase } from "./application/update-event-category.use-case";
@@ -37,6 +38,7 @@ export function createAgendaModule(core: CoreDeps) {
     createEvent: new CreateEventUseCase(eventDeps),
     updateEvent: new UpdateEventUseCase(eventDeps),
     deleteEvent: new DeleteEventUseCase(eventDeps),
+    lifecycle: new EventLifecycleUseCase({ ...eventDeps, clock }),
     importSiteEvents: new ImportSiteEventsUseCase({
       ...eventDeps,
       source: new WordpressSiteEvents(),

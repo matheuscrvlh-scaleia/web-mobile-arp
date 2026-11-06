@@ -1,7 +1,14 @@
 import { Pencil } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
+import { ICON_KEYWORDS } from "@/shared/lib/icon-keywords";
 import { ICONS, iconFor } from "@/shared/lib/icons";
 import { useFieldControl } from "./Field";
+
+/** Nome do ícone em português ("heart-pulse" → "Saúde"), nunca o código. */
+function iconLabel(name: string): string {
+  const word = ICON_KEYWORDS[name]?.split(" ")[0];
+  return word ? word.charAt(0).toUpperCase() + word.slice(1) : "Ícone escolhido";
+}
 
 // A grade com busca (e os nomes em português) só carrega quando abre.
 const IconPickerDialog = lazy(() => import("./IconPickerDialog"));
@@ -45,8 +52,8 @@ export function IconPicker({
           <Icon className="size-4" aria-hidden />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-mono text-sm text-neutral-900">
-            {value || "Escolher ícone"}
+          <span className="block truncate text-sm text-neutral-900">
+            {value ? iconLabel(value) : "Escolher ícone"}
           </span>
           {value && !known && (
             <span className="block text-[11px] text-amber-900">Fora da lista do app</span>

@@ -110,7 +110,11 @@ export const formatHour = (h: number) => `${h}h`;
 
 /** "Ana Paula Souza" → "AS". */
 export function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
+  // Só palavras que começam com letra ou número ("[R2] Bia Lima" → "BL", não "[L").
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter((p) => /^[\p{L}\p{N}]/u.test(p));
   const first = parts[0]?.[0] ?? "";
   const last = parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? "") : "";
   return `${first}${last}`.toUpperCase();

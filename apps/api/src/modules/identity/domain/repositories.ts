@@ -79,3 +79,9 @@ export interface SessionRepository {
 export interface StoreExistence {
   exists(storeId: string): Promise<boolean>;
 }
+
+/** Cadastro de lojista ainda à espera da ARP (para o login explicar a espera). */
+export interface PendingSignupReader {
+  /** Hash da senha do cadastro pendente com este e-mail, se houver. */
+  pendingPasswordHash(email: string): Promise<string | null>;
+}

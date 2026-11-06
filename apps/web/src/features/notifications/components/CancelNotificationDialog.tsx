@@ -21,13 +21,14 @@ export function CancelNotificationDialog({
       open={notification !== null}
       onClose={close}
       danger
-      title="Cancelar o envio?"
+      title={`Cancelar o envio de “${notification?.title ?? ""}”?`}
       description={
         notification?.scheduledAt
-          ? `"${notification.title}" não vai sair em ${formatDateTime(notification.scheduledAt)}.`
-          : `"${notification?.title ?? ""}" não vai ser enviada.`
+          ? `Não vai sair em ${formatDateTime(notification.scheduledAt)}. Depois dá para voltar para rascunho e agendar de novo.`
+          : "Não vai ser enviada. Depois dá para voltar para rascunho e agendar de novo."
       }
       confirmLabel="Cancelar envio"
+      cancelLabel="Manter agendamento"
       loading={cancel.isPending}
       error={cancel.error}
       onConfirm={() => {

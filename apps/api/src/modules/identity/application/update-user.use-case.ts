@@ -6,6 +6,7 @@ import {
   auditState,
   requireRole,
   requireStore,
+  requireStoreForRole,
   USER_NOT_FOUND,
   type UserUseCaseDeps,
 } from "./user-rules";
@@ -28,6 +29,13 @@ export class UpdateUserUseCase {
           ? await requireRole(roles, changes.roleId)
           : currentRole;
       if (changes.storeId !== undefined) await requireStore(stores, changes.storeId);
+      // Só confere quando cargo ou loja mudam (não trava a edição de um cadastro antigo).
+      if (changes.roleId !== undefined || changes.storeId !== undefined) {
+        requireStoreForRole(
+          nextRole,
+          changes.storeId !== undefined ? changes.storeId : user.storeId,
+        );
+      }
 
       const before = auditState(user);
       const wasAdmin = user.isActive && currentRole.isSystem;

@@ -1,3 +1,4 @@
+import { Plus } from "lucide-react";
 import { Link } from "react-router";
 import { PATHS } from "@/shared/config/paths";
 import { cn } from "@/shared/lib/cn";
@@ -9,6 +10,9 @@ import { OccurrenceLink, statusLook, statusSuffix } from "./OccurrenceLink";
 
 const MAX_PER_DAY = 3;
 
+/** "Novo evento" já com o dia escolhido. */
+const newEventOn = (day: string) => `${PATHS.eventNew}?dia=${day}`;
+
 /**
  * Mês em grade (domingo a sábado). Eventos longos atravessam os dias como
  * faixa; os demais aparecem por dia, com a hora.
@@ -18,11 +22,14 @@ export function MonthGrid({
   today,
   byDay,
   longs,
+  canCreate = false,
 }: {
   month: string;
   today: string;
   byDay: Map<string, Occurrence[]>;
   longs: LongEvent[];
+  /** Clicar no dia abre "Novo evento" com a data. */
+  canCreate?: boolean;
 }) {
   const weeks = monthWeeks(month);
   return (
@@ -43,6 +50,7 @@ export function MonthGrid({
             today={today}
             byDay={byDay}
             bands={weekBands(week, longs)}
+            canCreate={canCreate}
           />
         ))}
       </ol>
@@ -56,12 +64,14 @@ function Week({
   today,
   byDay,
   bands,
+  canCreate,
 }: {
   week: string[];
   month: string;
   today: string;
   byDay: Map<string, Occurrence[]>;
   bands: ReturnType<typeof weekBands>;
+  canCreate: boolean;
 }) {
   const listRow = bands.length + 2;
   return (
@@ -69,22 +79,31 @@ function Week({
       className="grid min-h-28 grid-cols-7"
       style={{ gridTemplateRows: `auto repeat(${bands.length}, auto) 1fr` }}
     >
-      {week.map((day, i) => (
-        <span
-          key={`bg-${day}`}
-          aria-hidden
-          className={cn(
-            "border-neutral-900/[0.08] not-first:border-l",
-            !day.startsWith(month) && "bg-neutral-900/[0.025]",
-            day === today && "bg-marca/10",
-          )}
-          style={{ gridColumn: i + 1, gridRow: "1 / -1" }}
-        />
-      ))}
+      {week.map((day, i) => {
+        const look = cn(
+          "border-neutral-900/[0.08] not-first:border-l",
+          !day.startsWith(month) && "bg-neutral-900/[0.025]",
+          day === today && "bg-marca/10",
+        );
+        const place = { gridColumn: i + 1, gridRow: "1 / -1" };
+        // Fundo do dia clicável (o "+" ao lado do número é o caminho pelo teclado).
+        return canCreate ? (
+          <Link
+            key={`bg-${day}`}
+            to={newEventOn(day)}
+            aria-hidden
+            tabIndex={-1}
+            className={cn(look, "transition hover:bg-neutral-900/[0.04]")}
+            style={place}
+          />
+        ) : (
+          <span key={`bg-${day}`} aria-hidden className={look} style={place} />
+        );
+      })}
       {week.map((day, i) => (
         <span
           key={`n-${day}`}
-          className="px-2 pt-1.5 pb-1"
+          className="group/day pointer-events-none flex items-center justify-between px-2 pt-1.5 pb-1"
           style={{ gridColumn: i + 1, gridRow: 1 }}
         >
           <span
@@ -100,6 +119,16 @@ function Week({
             {longDay(day)}
             {day === today ? " (hoje)" : ""}
           </span>
+          {canCreate && (
+            <Link
+              to={newEventOn(day)}
+              aria-label={`Novo evento em ${longDay(day)}`}
+              title="Novo evento neste dia"
+              className="pointer-events-auto grid size-6 place-items-center rounded-full text-neutral-400 opacity-0 transition group-hover/day:opacity-100 hover:bg-neutral-900 hover:text-white focus-visible:opacity-100"
+            >
+              <Plus className="size-3.5" aria-hidden />
+            </Link>
+          )}
         </span>
       ))}
       {bands.map((row, r) =>
@@ -129,7 +158,7 @@ function Week({
         return (
           <ul
             key={`l-${day}`}
-            className="flex min-w-0 flex-col gap-1 px-1 pb-2"
+            className="pointer-events-none flex min-w-0 flex-col gap-1 px-1 pb-2 *:pointer-events-auto"
             style={{ gridColumn: i + 1, gridRow: listRow }}
           >
             {events.slice(0, MAX_PER_DAY).map((e) => (

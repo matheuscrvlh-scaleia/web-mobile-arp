@@ -9,8 +9,8 @@ export interface EventScheduleProps {
   startsOn: string;
   /** range: último dia; weekly: até quando (null = sem fim); single: sempre null. */
   endsOn: string | null;
-  /** weekly: 0 = domingo … 6 = sábado; demais: null. */
-  weekday: number | null;
+  /** weekly: dias da semana (0 = domingo … 6 = sábado), em ordem; demais: null. */
+  weekdays: number[] | null;
   /** HH:mm */
   startTime: string | null;
   endTime: string | null;
@@ -40,24 +40,21 @@ export class EventSchedule {
     if (p.recurrence === "range" && !p.endsOn) {
       addIssue(issues, "endsOn", "Informe o último dia do período");
     }
-    if (p.recurrence === "weekly" && p.weekday === null) {
-      addIssue(issues, "weekday", "Escolha o dia da semana");
+    if (p.recurrence === "weekly" && !p.weekdays?.length) {
+      addIssue(issues, "weekdays", "Escolha pelo menos um dia da semana");
     }
     if (p.endsOn && p.endsOn < p.startsOn) {
       addIssue(issues, "endsOn", "O fim precisa ser depois do início");
     }
     if (
       p.recurrence === "weekly" &&
-      p.weekday !== null &&
+      p.weekdays?.length &&
       p.endsOn &&
       p.endsOn >= p.startsOn &&
-      firstWeekdayOnOrAfter(p.startsOn, p.weekday) > p.endsOn
+      p.weekdays.every((d) => firstWeekdayOnOrAfter(p.startsOn, d) > (p.endsOn as string))
     ) {
-      addIssue(
-        issues,
-        "weekday",
-        `Não há ${WEEKDAY_NAMES[p.weekday]} entre o início e o fim informados`,
-      );
+      const names = p.weekdays.map((d) => WEEKDAY_NAMES[d]).join(" nem ");
+      addIssue(issues, "weekdays", `Não há ${names} entre o início e o fim informados`);
     }
     if (p.endTime && !p.startTime) {
       addIssue(issues, "startTime", "Informe o horário de início");
@@ -82,11 +79,14 @@ export class EventSchedule {
   private static normalize(props: EventScheduleProps): EventScheduleProps {
     switch (props.recurrence) {
       case "single":
-        return { ...props, endsOn: null, weekday: null };
+        return { ...props, endsOn: null, weekdays: null };
       case "range":
-        return { ...props, weekday: null };
-      case "weekly":
-        return props;
+        return { ...props, weekdays: null };
+      case "weekly": {
+        // Sem repetir e em ordem (o primeiro vira o "weekday" legado do app).
+        const days = props.weekdays ? [...new Set(props.weekdays)].sort((a, b) => a - b) : null;
+        return { ...props, weekdays: days?.length ? days : null };
+      }
     }
   }
 
@@ -96,11 +96,11 @@ export class EventSchedule {
 
   /** O evento acontece neste dia (YYYY-MM-DD)? */
   occursOn(date: string): boolean {
-    const { recurrence, startsOn, endsOn, weekday } = this.props;
+    const { recurrence, startsOn, endsOn, weekdays } = this.props;
     if (date < startsOn) return false;
     if (recurrence === "single") return date === startsOn;
     if (endsOn && date > endsOn) return false;
-    return recurrence === "range" || weekdayOfDate(date) === weekday;
+    return recurrence === "range" || (weekdays ?? []).includes(weekdayOfDate(date));
   }
 
   /** Dias do intervalo [from, to] em que o evento acontece. */
@@ -114,8 +114,23 @@ export class EventSchedule {
     return dates;
   }
 
+  /** Primeiro dia da semana (campo legado que o app ainda lê). */
+  get firstWeekday(): number | null {
+    return this.props.weekdays?.[0] ?? null;
+  }
+
+  /**
+   * Mesma agenda começando em `startsOn` (adiar): o fim anda os mesmos dias,
+   * mantendo a duração do período.
+   */
+  movedTo(startsOn: string): EventScheduleProps {
+    const shift = daysBetween(this.props.startsOn, startsOn);
+    const endsOn = this.props.endsOn ? addDaysToDate(this.props.endsOn, shift) : null;
+    return { ...this.props, startsOn, endsOn };
+  }
+
   toState(): EventScheduleProps {
-    return { ...this.props };
+    return { ...this.props, weekdays: this.props.weekdays ? [...this.props.weekdays] : null };
   }
 }
 

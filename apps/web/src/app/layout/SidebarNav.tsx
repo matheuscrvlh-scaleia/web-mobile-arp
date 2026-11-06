@@ -1,6 +1,7 @@
 import { ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router";
+import { usePending } from "@/features/dashboard/api";
 import { cn } from "@/shared/lib/cn";
 import { activeNavItem, type NavSection } from "../navigation";
 import { prefetchRoute } from "../prefetch";
@@ -40,6 +41,11 @@ export function SidebarNav({
   const active = activeNavItem(sections, pathname, search);
   const activeSection = active?.section.title;
   const [collapsed, setCollapsed] = useState<string[]>(readCollapsed);
+  // Contadores (ex.: cupons para aprovar): a mesma consulta do Dashboard e do sino.
+  const hasBadges = sections.some((s) => s.items.some((i) => i.badge));
+  const pending = usePending(hasBadges);
+  const countOf = (kind: string | undefined) =>
+    kind ? (pending.data?.data.find((p) => p.kind === kind)?.count ?? 0) : 0;
 
   useEffect(() => {
     if (!activeSection) return;
@@ -63,6 +69,7 @@ export function SidebarNav({
     <nav aria-label="Menu principal" className="flex flex-col gap-4 text-sm">
       {sections.map((section) => {
         const open = !collapsed.includes(section.title);
+        const sectionCount = section.items.reduce((n, it) => n + countOf(it.badge), 0);
         const id = `menu-${section.title.toLowerCase().replace(/\s+/g, "-")}`;
         return (
           <div key={section.title}>
@@ -73,7 +80,15 @@ export function SidebarNav({
               aria-controls={id}
               className="mb-1 flex w-full cursor-pointer items-center justify-between rounded-lg px-3 py-1.5 text-xs font-medium tracking-wider text-neutral-400 uppercase transition hover:text-neutral-700"
             >
-              {section.title}
+              <span className="flex items-center gap-2">
+                {section.title}
+                {/* Recolhida: o total da seção continua à vista. */}
+                {!open && sectionCount > 0 && (
+                  <span className="rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-900 normal-case">
+                    {sectionCount}
+                  </span>
+                )}
+              </span>
               <ChevronDown
                 className={cn("size-4 transition-transform", !open && "-rotate-90")}
                 aria-hidden
@@ -84,6 +99,7 @@ export function SidebarNav({
                 {section.items.map((it) => {
                   const Icon = it.icon;
                   const current = active?.item === it;
+                  const count = countOf(it.badge);
                   return (
                     <li key={it.to}>
                       <Link
@@ -98,7 +114,16 @@ export function SidebarNav({
                           className="size-[18px] shrink-0 opacity-80 group-aria-[current=page]:opacity-100"
                           aria-hidden
                         />
-                        <span className="truncate">{it.label}</span>
+                        <span className="flex-1 truncate">{it.label}</span>
+                        {count > 0 && (
+                          <span
+                            title={`${count} esperando`}
+                            className="min-w-5 rounded-full bg-amber-400 px-1.5 text-center text-[11px] leading-5 font-semibold text-amber-950 tabular-nums"
+                          >
+                            {count > 99 ? "99+" : count}
+                            <span className="sr-only"> esperando</span>
+                          </span>
+                        )}
                       </Link>
                     </li>
                   );

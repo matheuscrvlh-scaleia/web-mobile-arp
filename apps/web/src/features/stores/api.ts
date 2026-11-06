@@ -1,4 +1,6 @@
 import {
+  type BulkUpdateStoresBody,
+  bulkUpdateStoresResponseSchema,
   type CreateStoreBody,
   type ListStoresQuery,
   type MetricsPeriod,
@@ -46,7 +48,12 @@ export const storesApi = {
   /** Pino no mapa (permissão map.manage, separada da edição da loja). */
   setLocation: (id: string, body: UpdateStoreLocationBody) =>
     apiRequest(ROUTES.stores.updateLocation, storeDetailSchema, { params: { id }, body }),
-  deactivate: (id: string) => apiCall(ROUTES.stores.remove, { params: { id } }),
+  deactivate: (id: string) =>
+    apiRequest(ROUTES.stores.deactivate, storeDetailSchema, { params: { id } }),
+  /** Excluir de vez (só loja sem histórico; com histórico a API responde 409). */
+  remove: (id: string) => apiCall(ROUTES.stores.remove, { params: { id } }),
+  bulkUpdate: (body: BulkUpdateStoresBody) =>
+    apiRequest(ROUTES.stores.bulkUpdate, bulkUpdateStoresResponseSchema, { body }),
 };
 
 /* Cache -------------------------------------------------------------------- */
@@ -136,6 +143,37 @@ export function useUpdateStore(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: UpdateStoreBody) => storesApi.update(id, body),
+    onSuccess: (store, body) => {
+      storeSaved(qc, store);
+      return Promise.all([
+        invalidateLists(qc),
+        // Trocou de andar: mudam a contagem dos andares e os pinos dos dois mapas.
+        body.floorId && qc.invalidateQueries({ queryKey: floorKeys.all }),
+      ]);
+    },
+  });
+}
+
+/** PATCH de qualquer loja (ex.: o mapa corrige o bloco); os pinos recarregam. */
+export function usePatchStore() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: UpdateStoreBody }) => storesApi.update(id, body),
+    onSuccess: (store) => {
+      storeSaved(qc, store);
+      return Promise.all([
+        invalidateLists(qc),
+        qc.invalidateQueries({ queryKey: floorKeys.allPins() }),
+      ]);
+    },
+  });
+}
+
+/** Desativar: some do app, o histórico continua (Reativar = PATCH status). */
+export function useDeactivateStore(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => storesApi.deactivate(id),
     onSuccess: (store) => {
       storeSaved(qc, store);
       return invalidateLists(qc);
@@ -143,12 +181,30 @@ export function useUpdateStore(id: string) {
   });
 }
 
-/** "Apagar" loja = desativar (some do app, histórico continua). */
-export function useDeactivateStore(id: string) {
+/** Excluir de vez a loja sem histórico (cadastro por engano). */
+export function useDeleteStore() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => storesApi.deactivate(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: storeKeys.all }),
+    mutationFn: storesApi.remove,
+    onSuccess: (_v, id) => {
+      qc.removeQueries({ queryKey: storeKeys.detail(id) });
+      return Promise.all([invalidateLists(qc), qc.invalidateQueries({ queryKey: floorKeys.all })]);
+    },
+  });
+}
+
+/** Mesma mudança em várias lojas (categoria, bloco, andar, situação). */
+export function useBulkUpdateStores() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: storesApi.bulkUpdate,
+    // Categoria/bloco/andar mudam as contagens dos cadastros e os pinos do mapa.
+    onSuccess: () =>
+      Promise.all(
+        [storeKeys.all, floorKeys.all, ["store-categories"], ["blocks"]].map((queryKey) =>
+          qc.invalidateQueries({ queryKey }),
+        ),
+      ),
   });
 }
 
@@ -176,13 +232,15 @@ export function useSetStoreLocation() {
       return { rollback };
     },
     onError: (_e, _v, ctx) => ctx?.rollback(),
-    onSuccess: (store) => {
+    onSuccess: (store, { body }) => {
       storeSaved(qc, store);
       updateListItem<StorePin>(qc, pins, store.id, (s) => ({
         ...s,
         mapX: store.mapX,
         mapY: store.mapY,
       }));
+      // Trocou de andar: a contagem "N lojas" de cada andar muda.
+      if (body.floorId) return qc.invalidateQueries({ queryKey: floorKeys.list() });
     },
     onSettled: () => {
       if (qc.isMutating({ mutationKey: LOCATION_MUTATION }) === 1) {

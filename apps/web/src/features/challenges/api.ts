@@ -13,7 +13,7 @@ import {
   type UpdateQrCodeBody,
 } from "@arp/contracts";
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiCall, apiRequest, updateListItem } from "@/shared/api";
+import { apiCall, apiRequest, snapshotQueries, updateListItem } from "@/shared/api";
 
 export const challengesApi = {
   listByCoupon: (couponId: string, signal?: AbortSignal) =>
@@ -27,6 +27,8 @@ export const challengesApi = {
   update: (id: string, body: UpdateChallengeBody) =>
     apiRequest(ROUTES.challenges.update, challengeSchema, { params: { id }, body }),
   remove: (id: string) => apiCall(ROUTES.challenges.remove, { params: { id } }),
+  reorder: (campaignId: string, ids: string[]) =>
+    apiCall(ROUTES.campaigns.reorderChallenges, { params: { id: campaignId }, body: { ids } }),
 };
 
 export const qrCodesApi = {
@@ -109,12 +111,60 @@ export function useUpdateChallenge(id: string) {
   });
 }
 
-/** Só dá para apagar desafio que ainda não deu selo (a API devolve CONFLICT). */
+/** Só dá para excluir desafio que ainda não deu selo (a API devolve CONFLICT). */
 export function useDeleteChallenge() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: challengesApi.remove,
-    onSuccess: () => invalidateRelated(qc),
+    onSuccess: (_v, id) => {
+      qc.removeQueries({ queryKey: challengeKeys.detail(id) });
+      return invalidateRelated(qc);
+    },
+  });
+}
+
+/**
+ * Pausar/retomar na hora (lista e cabeçalho): otimista, volta se der erro.
+ * Quem chama mostra o toast com "Desfazer" (que chama de novo com o oposto).
+ */
+export function useSetChallengeStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: Challenge["status"] }) =>
+      challengesApi.update(id, { status }),
+    onMutate: async ({ id, status }) => {
+      await qc.cancelQueries({ queryKey: challengeKeys.all });
+      const rollback = snapshotQueries(qc, challengeKeys.all);
+      updateListItem<Challenge>(qc, challengeKeys.lists(), id, (c) => ({ ...c, status }));
+      qc.setQueryData<Challenge>(challengeKeys.detail(id), (c) => (c ? { ...c, status } : c));
+      return { rollback };
+    },
+    onError: (_e, _v, ctx) => ctx?.rollback(),
+    onSuccess: (challenge) => challengeSaved(qc, challenge),
+  });
+}
+
+/** Nova ordem dos desafios da campanha (arrastar): otimista, volta se der erro. */
+export function useReorderChallenges(campaignId: string) {
+  const qc = useQueryClient();
+  const key = challengeKeys.list(campaignId);
+  return useMutation({
+    mutationFn: (ids: string[]) => challengesApi.reorder(campaignId, ids),
+    onMutate: async (ids) => {
+      await qc.cancelQueries({ queryKey: key });
+      const rollback = snapshotQueries(qc, key);
+      const position = new Map(ids.map((id, i) => [id, i]));
+      qc.setQueryData<ListOf<Challenge>>(key, (old) =>
+        old
+          ? {
+              data: old.data.map((c) => ({ ...c, sortOrder: position.get(c.id) ?? c.sortOrder })),
+            }
+          : old,
+      );
+      return { rollback };
+    },
+    onError: (_e, _v, ctx) => ctx?.rollback(),
+    onSettled: () => qc.invalidateQueries({ queryKey: challengeKeys.lists() }),
   });
 }
 

@@ -12,7 +12,7 @@ export function CampaignCreatePage() {
     <>
       <PageHeader
         title="Nova campanha"
-        description="Depois de criar, defina as faixas de benefício e cadastre os desafios."
+        description="Nasce em rascunho (fora do app). Depois de criar, cadastre os desafios e publique."
         back={{ to: PATHS.campaigns, label: "Campanhas" }}
       />
       <CampaignForm
@@ -21,9 +21,9 @@ export function CampaignCreatePage() {
         onSubmit={(values, { form, allowLeave }) =>
           create.mutate(values, {
             onSuccess: ({ id }) => {
-              toast.success("Campanha criada. Agora, as faixas de benefício.");
+              toast.success("Campanha criada em rascunho. Agora, os desafios.");
               allowLeave();
-              navigate(PATHS.campaign(id, "faixas"));
+              navigate(PATHS.campaign(id, "desafios"));
             },
             onError: (e) => {
               if (!applyApiErrors(e, form.setError, CAMPAIGN_FORM_FIELDS))

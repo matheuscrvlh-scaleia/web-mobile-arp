@@ -29,6 +29,7 @@ interface EventRow {
   starts_on: string;
   ends_on: string | null;
   weekday: number | null;
+  weekdays: number[] | null;
   start_time: string | null;
   end_time: string | null;
   is_long_running: boolean;
@@ -51,7 +52,7 @@ interface EventDetailRow extends EventRow {
 
 const eventSelect = (extra: SqlFragment = sql.empty) => sql`
   select e.id, e.title, e.image_url, e.tone, e.icon, e.place, e.recurrence, e.starts_on,
-         e.ends_on, e.weekday, e.start_time, e.end_time, e.is_long_running, e.awards_seal,
+         e.ends_on, e.weekday, e.weekdays, e.start_time, e.end_time, e.is_long_running, e.awards_seal,
          ec.id as category_id, ec.name as category_name, ec.icon as category_icon
          ${extra}
   from agenda.events e
@@ -67,7 +68,7 @@ function toEventCard(r: EventRow, today: string): App.EventCard {
     recurrence: r.recurrence,
     startsOn: r.starts_on,
     endsOn: r.ends_on,
-    weekday: r.weekday,
+    weekdays: r.weekdays,
   };
   return {
     id: r.id,
@@ -78,6 +79,7 @@ function toEventCard(r: EventRow, today: string): App.EventCard {
     icon: r.icon,
     place: r.place,
     ...recurrence,
+    weekday: r.weekday,
     startTime: hhmmOrNull(r.start_time),
     endTime: hhmmOrNull(r.end_time),
     isLongRunning: r.is_long_running,
@@ -255,7 +257,7 @@ export class FeedQueries {
               recurrence: r.recurrence,
               startsOn: r.starts_on,
               endsOn: r.ends_on,
-              weekday: r.weekday,
+              weekdays: r.weekdays,
             },
             date,
           ),

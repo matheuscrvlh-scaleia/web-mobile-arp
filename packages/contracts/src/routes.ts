@@ -70,7 +70,13 @@ export const ROUTES = {
     list: r("GET", "/blocks", "map.view", "Blocos"),
     create: r("POST", "/blocks", "map.manage", "Criar bloco"),
     update: r("PATCH", "/blocks/:id", "map.manage", "Editar bloco"),
-    remove: r("DELETE", "/blocks/:id", "map.manage", "Apagar bloco sem lojas"),
+    reorder: r("PUT", "/blocks/order", "map.manage", "Reordenar blocos"),
+    remove: r(
+      "DELETE",
+      "/blocks/:id",
+      "map.manage",
+      "Apagar bloco (?moveTo leva as lojas para outro)",
+    ),
   },
   mapPoints: {
     list: r("GET", "/map-points", "map.view", "Pontos de referência (?floorId)"),
@@ -82,7 +88,13 @@ export const ROUTES = {
     list: r("GET", "/store-categories", "stores.view", "Categorias de loja"),
     create: r("POST", "/store-categories", "stores.manage", "Criar categoria"),
     update: r("PATCH", "/store-categories/:id", "stores.manage", "Editar categoria"),
-    remove: r("DELETE", "/store-categories/:id", "stores.manage", "Apagar categoria sem lojas"),
+    reorder: r("PUT", "/store-categories/order", "stores.manage", "Reordenar categorias"),
+    remove: r(
+      "DELETE",
+      "/store-categories/:id",
+      "stores.manage",
+      "Apagar categoria (?moveTo leva as lojas para outra)",
+    ),
   },
   stores: {
     list: r("GET", "/stores", "stores.view", "Lojas (paginado, filtros)"),
@@ -91,7 +103,9 @@ export const ROUTES = {
     create: r("POST", "/stores", "stores.manage", "Criar loja"),
     update: r("PATCH", "/stores/:id", "stores.manage", "Editar loja (inclui horários)"),
     updateLocation: r("PUT", "/stores/:id/location", "map.manage", "Posicionar loja no mapa"),
-    remove: r("DELETE", "/stores/:id", "stores.manage", "Desativar loja"),
+    bulkUpdate: r("POST", "/stores/bulk", "stores.manage", "Mudar várias lojas de uma vez"),
+    deactivate: r("POST", "/stores/:id/deactivate", "stores.manage", "Desativar loja"),
+    remove: r("DELETE", "/stores/:id", "stores.manage", "Excluir loja sem histórico"),
     metrics: r("GET", "/stores/:id/metrics", "coupons.view", "Painel do lojista"),
   },
 
@@ -102,6 +116,14 @@ export const ROUTES = {
     create: r("POST", "/coupons", "coupons.manage", "Criar promoção"),
     update: r("PATCH", "/coupons/:id", "coupons.manage", "Editar promoção"),
     changeStatus: r("POST", "/coupons/:id/status", "coupons.manage", "Ativar, pausar ou encerrar"),
+    createMany: r(
+      "POST",
+      "/coupons/bulk",
+      "coupons.manage",
+      "Criar a mesma promoção para várias lojas (uma por loja)",
+    ),
+    archive: r("POST", "/coupons/:id/archive", "coupons.manage", "Arquivar ou desarquivar"),
+    remove: r("DELETE", "/coupons/:id", "coupons.manage", "Excluir promoção sem cupons pegos"),
   },
   prizes: {
     list: r("GET", "/prizes", "challenges.view", "Prêmios da lojinha (com quem está perto)"),
@@ -110,23 +132,24 @@ export const ROUTES = {
     remove: r("DELETE", "/prizes/:id", "club.manage", "Apagar prêmio sem trocas"),
   },
   prizeRedemptions: {
-    list: r("GET", "/prize-redemptions", "club.manage", "Trocas da lojinha (paginado)"),
+    // Balcão: club.redeem (quem tem club.manage recebe junto, ver IMPLIED_PERMISSIONS).
+    list: r("GET", "/prize-redemptions", "club.redeem", "Trocas da lojinha (paginado)"),
     visitors: r(
       "GET",
       "/prize-redemptions/visitors",
-      "club.manage",
+      "club.redeem",
       "Buscar visitante com saldo de pontos (troca no balcão)",
     ),
     create: r(
       "POST",
       "/prize-redemptions",
-      "club.manage",
+      "club.redeem",
       "Trocar pontos por prêmio no balcão (já entregue)",
     ),
     cancel: r(
       "POST",
       "/prize-redemptions/:id/cancel",
-      "club.manage",
+      "club.redeem",
       "Desfazer troca (pontos e estoque voltam)",
     ),
   },
@@ -134,6 +157,12 @@ export const ROUTES = {
     ranking: r("GET", "/club/ranking", "reports.view", "Ranking de visitantes (apelidos)"),
     seals: r("GET", "/club/seals-report", "reports.view", "Selos dados por loja e produto"),
     coupons: r("GET", "/reports/coupons-by-store", "reports.view", "Cupons usados por loja"),
+    couponsByPromotion: r(
+      "GET",
+      "/reports/coupons-by-promotion",
+      "reports.view",
+      "Pegos, usados e economia por promoção",
+    ),
   },
   /** Cadastro de lojista pelo link (Fase 2): a ARP gera o link e aprova. */
   merchantSignups: {
@@ -149,7 +178,14 @@ export const ROUTES = {
     signup: r("POST", "/merchant-invites/:token/signup", null, "Lojista se cadastra pelo link", {
       public: true,
     }),
-    list: r("GET", "/merchant-signups", "merchants.approve", "Cadastros de lojista pendentes"),
+    invites: r("GET", "/merchant-invites", "merchants.approve", "Links de cadastro valendo"),
+    cancelInvite: r(
+      "DELETE",
+      "/merchant-invites/:id",
+      "merchants.approve",
+      "Cancelar link de cadastro",
+    ),
+    list: r("GET", "/merchant-signups", "merchants.approve", "Cadastros de lojista (?storeId)"),
     approve: r("POST", "/merchant-signups/:id/approve", "merchants.approve", "Aprovar lojista"),
     reject: r("POST", "/merchant-signups/:id/reject", "merchants.approve", "Recusar lojista"),
   },
@@ -163,6 +199,7 @@ export const ROUTES = {
     list: r("GET", "/seals", "challenges.view", "Selos"),
     create: r("POST", "/seals", "challenges.manage", "Criar selo"),
     update: r("PATCH", "/seals/:id", "challenges.manage", "Editar / arquivar selo"),
+    remove: r("DELETE", "/seals/:id", "challenges.manage", "Excluir selo nunca usado"),
   },
   campaigns: {
     list: r("GET", "/campaigns", "challenges.view", "Campanhas com faixas"),
@@ -170,13 +207,26 @@ export const ROUTES = {
     create: r("POST", "/campaigns", "challenges.manage", "Criar campanha"),
     update: r("PATCH", "/campaigns/:id", "challenges.manage", "Editar / publicar campanha"),
     replaceTiers: r("PUT", "/campaigns/:id/tiers", "challenges.manage", "Faixas de benefício"),
+    remove: r("DELETE", "/campaigns/:id", "challenges.manage", "Excluir campanha sem selos dados"),
+    duplicate: r(
+      "POST",
+      "/campaigns/:id/duplicate",
+      "challenges.manage",
+      "Duplicar campanha (faixas e desafios, sem QR) como rascunho",
+    ),
+    reorderChallenges: r(
+      "PUT",
+      "/campaigns/:id/challenge-order",
+      "challenges.manage",
+      "Reordenar os desafios da campanha",
+    ),
   },
   challenges: {
     list: r("GET", "/challenges", "challenges.view", "Desafios (?campaignId)"),
     get: r("GET", "/challenges/:id", "challenges.view", "Desafio"),
     create: r("POST", "/challenges", "challenges.manage", "Criar desafio"),
     update: r("PATCH", "/challenges/:id", "challenges.manage", "Editar desafio"),
-    remove: r("DELETE", "/challenges/:id", "challenges.manage", "Apagar desafio sem selos dados"),
+    remove: r("DELETE", "/challenges/:id", "challenges.manage", "Excluir desafio sem selos dados"),
   },
   qrCodes: {
     list: r("GET", "/challenges/:id/qr-codes", "challenges.view", "QR Codes do desafio"),
@@ -205,7 +255,10 @@ export const ROUTES = {
       "events.manage",
       "Editar / publicar / pausar / cancelar evento",
     ),
-    remove: r("DELETE", "/events/:id", "events.manage", "Apagar rascunho"),
+    remove: r("DELETE", "/events/:id", "events.manage", "Excluir evento sem interessados"),
+    archive: r("POST", "/events/:id/archive", "events.manage", "Arquivar evento"),
+    unarchive: r("POST", "/events/:id/unarchive", "events.manage", "Desarquivar evento"),
+    postpone: r("POST", "/events/:id/postpone", "events.manage", "Adiar evento (nova data)"),
     importSite: r("POST", "/events/import-site", "events.manage", "Importar eventos do site"),
   },
 
@@ -225,6 +278,13 @@ export const ROUTES = {
     update: r("PATCH", "/notifications/:id", "notifications.manage", "Editar rascunho"),
     schedule: r("POST", "/notifications/:id/schedule", "notifications.manage", "Agendar / enviar"),
     cancel: r("POST", "/notifications/:id/cancel", "notifications.manage", "Cancelar agendada"),
+    toDraft: r(
+      "POST",
+      "/notifications/:id/draft",
+      "notifications.manage",
+      "Cancelada volta para rascunho",
+    ),
+    remove: r("DELETE", "/notifications/:id", "notifications.manage", "Excluir rascunho"),
   },
 
   /* Conteúdo (Fase 2): textos, Circuito Cultural, Sustentarp e vagas. */
@@ -243,18 +303,26 @@ export const ROUTES = {
     create: r("POST", "/content/recycling-items", "content.manage", "Criar item do Sustentarp"),
     update: r("PATCH", "/content/recycling-items/:id", "content.manage", "Editar item"),
     remove: r("DELETE", "/content/recycling-items/:id", "content.manage", "Apagar item"),
+    reorder: r("PUT", "/content/recycling-items/order", "content.manage", "Reordenar itens"),
   },
   jobs: {
     list: r("GET", "/jobs", "jobs.view", "Vagas (?storeId&status)"),
     create: r("POST", "/jobs", "jobs.manage", "Publicar vaga"),
-    update: r("PATCH", "/jobs/:id", "jobs.manage", "Editar vaga"),
-    remove: r("DELETE", "/jobs/:id", "jobs.manage", "Tirar vaga do ar"),
+    update: r("PATCH", "/jobs/:id", "jobs.manage", "Editar vaga ({ days } republica)"),
+    close: r("POST", "/jobs/:id/close", "jobs.manage", "Encerrar vaga agora (vai para Encerradas)"),
+    remove: r("DELETE", "/jobs/:id", "jobs.manage", "Excluir vaga"),
   },
 
   visitors: {
     list: r("GET", "/visitors", "visitors.view", "Visitantes (paginado, filtros)"),
     get: r("GET", "/visitors/:id", "visitors.view", "Visitante com histórico"),
     updateStatus: r("PATCH", "/visitors/:id/status", "visitors.manage", "Bloquear / desbloquear"),
+    anonymize: r(
+      "POST",
+      "/visitors/:id/anonymize",
+      "visitors.manage",
+      "Anonimizar dados pessoais (LGPD, irreversível)",
+    ),
   },
 
   dashboard: r("GET", "/dashboard/overview", "dashboard.view", "Indicadores do período"),
@@ -264,7 +332,10 @@ export const ROUTES = {
     "dashboard.view",
     "De onde vem um indicador (?metric&period&storeId)",
   ),
+  /** Pendências da pessoa (cada bloco só com a permissão dele): Dashboard, menu e sino. */
+  dashboardPending: r("GET", "/dashboard/pending", null, "O que precisa da sua atenção agora"),
   auditLogs: r("GET", "/audit-logs", "audit.view", "Histórico de alterações"),
+  auditActors: r("GET", "/audit-logs/actors", "audit.view", "Pessoas da equipe no histórico"),
   settings: {
     get: r("GET", "/settings", "settings.manage", "Configurações do app"),
     update: r("PATCH", "/settings", "settings.manage", "Salvar configurações"),

@@ -66,7 +66,7 @@ export function FloorFormModal({
       footer={
         <>
           <Button variant="secondary" onClick={close} disabled={save.isPending}>
-            Cancelar
+            Voltar
           </Button>
           <Button type="submit" form="form-andar" loading={save.isPending}>
             {floor ? "Salvar" : "Criar andar"}

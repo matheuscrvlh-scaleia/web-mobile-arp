@@ -1,4 +1,5 @@
 import {
+  anonymizeVisitorBodySchema,
   idParamsSchema,
   listVisitorsQuerySchema,
   ROUTES,
@@ -11,6 +12,7 @@ import { VISITOR_STATUS_CACHE_PREFIX } from "../../../shared/application/ports/c
 import { orNotFound } from "../../../shared/domain/errors";
 import { staffOf } from "../../../shared/infra/http/auth";
 import { createRouter } from "../../../shared/infra/http/router";
+import type { AnonymizeVisitorUseCase } from "../application/anonymize-visitor.use-case";
 import {
   type UpdateVisitorStatusUseCase,
   VISITOR_NOT_FOUND,
@@ -20,6 +22,7 @@ import type { VisitorsQueries } from "../infra/visitors.queries";
 export interface VisitorsRoutesDeps {
   queries: VisitorsQueries;
   updateStatus: UpdateVisitorStatusUseCase;
+  anonymize: AnonymizeVisitorUseCase;
 }
 
 export function visitorsRoutes(deps: VisitorsRoutesDeps): FastifyPluginAsyncZod {
@@ -56,6 +59,22 @@ export function visitorsRoutes(deps: VisitorsRoutesDeps): FastifyPluginAsyncZod 
       async (request) => {
         await deps.updateStatus.execute(
           { id: request.params.id, ...request.body },
+          staffOf(request),
+        );
+        return detail(request.params.id);
+      },
+    );
+
+    r.route(
+      ROUTES.visitors.anonymize,
+      {
+        params: idParamsSchema,
+        body: anonymizeVisitorBodySchema,
+        response: { 200: visitorDetailSchema },
+      },
+      async (request) => {
+        await deps.anonymize.execute(
+          { id: request.params.id, reason: request.body.reason },
           staffOf(request),
         );
         return detail(request.params.id);

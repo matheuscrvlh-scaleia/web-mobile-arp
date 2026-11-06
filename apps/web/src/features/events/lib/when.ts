@@ -6,7 +6,9 @@ export interface WhenInput {
   recurrence: EventRecurrence;
   startsOn: string | null | undefined;
   endsOn?: string | null;
+  /** Legado (um dia só); `weekdays` tem prioridade. */
   weekday?: number | null;
+  weekdays?: number[] | null;
   startTime?: string | null;
   endTime?: string | null;
   isLongRunning?: boolean;
@@ -19,7 +21,7 @@ const TIME = /^\d{2}:\d{2}$/;
 export function describeTime(start?: string | null, end?: string | null): string {
   const s = start && TIME.test(start) ? formatTimeOfDay(start) : "";
   const e = end && TIME.test(end) ? formatTimeOfDay(end) : "";
-  if (s && e) return `${s} às ${e}`;
+  if (s && e) return `${s} às ${e}${end && start && end < start ? " (do dia seguinte)" : ""}`;
   return s || (e ? `até ${e}` : "");
 }
 
@@ -27,6 +29,32 @@ export function describeTime(start?: string | null, end?: string | null): string
 export function everyWeekday(weekday: number): string {
   const name = WEEKDAY_LABEL[weekday] ?? "";
   return `${weekday === 0 || weekday === 6 ? "Todo" : "Toda"} ${name.toLowerCase()}`;
+}
+
+/** Segunda primeiro (como se fala), domingo por último. */
+const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
+/** "Toda terça e quinta", "Todo sábado e domingo", "Toda semana" (os 7 dias: "Todos os dias"). */
+export function everyWeekdays(days: readonly number[]): string {
+  const sorted = WEEK_ORDER.filter((d) => days.includes(d));
+  if (sorted.length === 0) return "Toda semana";
+  if (sorted.length === 7) return "Todos os dias";
+  const [first] = sorted as [number];
+  if (sorted.length === 1) return everyWeekday(first);
+  const names = sorted.map((d) => (WEEKDAY_LABEL[d] ?? "").toLowerCase());
+  const list = `${names.slice(0, -1).join(", ")} e ${names.at(-1)}`;
+  return `${first === 0 || first === 6 ? "Todo" : "Toda"} ${list}`;
+}
+
+/** Dias da semana de um evento (novo `weekdays` ou o legado `weekday`). */
+export function weekdaysOf(v: Pick<WhenInput, "weekday" | "weekdays">): number[] {
+  if (v.weekdays?.length) return v.weekdays;
+  return v.weekday == null ? [] : [v.weekday];
+}
+
+/** Termina às 2h e começa às 22h: passa da meia-noite. */
+export function crossesMidnight(start?: string | null, end?: string | null): boolean {
+  return Boolean(start && end && TIME.test(start) && TIME.test(end) && end < start);
 }
 
 function parts(iso: string) {
@@ -52,14 +80,16 @@ export function describeDays(v: WhenInput): string {
   const start = v.startsOn && ISO_DAY.test(v.startsOn) ? v.startsOn : null;
   const end = v.endsOn && ISO_DAY.test(v.endsOn) ? v.endsOn : null;
   if (v.recurrence === "weekly") {
-    if (v.weekday == null) return "Toda semana";
+    const days = weekdaysOf(v);
+    if (days.length === 0) return "Toda semana";
     const extra = [start && `a partir de ${formatIsoDay(start)}`, end && `até ${formatIsoDay(end)}`]
       .filter(Boolean)
       .join(", ");
-    return extra ? `${everyWeekday(v.weekday)} (${extra})` : everyWeekday(v.weekday);
+    return extra ? `${everyWeekdays(days)} (${extra})` : everyWeekdays(days);
   }
   if (!start) return "Data a definir";
-  if (v.recurrence === "single" || !end || end === start) return longDay(start);
+  // Fim antes do início: o erro aparece no campo; a prévia não mostra "-4 dias".
+  if (v.recurrence === "single" || !end || end <= start) return longDay(start);
   const a = parts(start);
   const b = parts(end);
   const n = daysBetween(start, end) + 1;

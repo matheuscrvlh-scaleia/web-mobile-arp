@@ -59,7 +59,7 @@ export function EventCategoriesTab({ canEdit }: { canEdit: boolean }) {
                   label={
                     c.eventsCount > 0
                       ? `${c.name} tem eventos: mude-os de categoria antes`
-                      : `Apagar ${c.name}`
+                      : `Excluir ${c.name}`
                   }
                   disabled={c.eventsCount > 0}
                   onClick={() => setDeleting(c)}
@@ -114,16 +114,16 @@ export function EventCategoriesTab({ canEdit }: { canEdit: boolean }) {
           remove.reset();
         }}
         danger
-        title={`Apagar a categoria ${deleting?.name ?? ""}?`}
+        title={`Excluir a categoria “${deleting?.name ?? ""}”?`}
         description="Ela some dos filtros da agenda do app."
-        confirmLabel="Apagar"
+        confirmLabel="Excluir categoria"
         loading={remove.isPending}
         error={remove.error}
         onConfirm={() =>
           deleting &&
           remove.mutate(deleting.id, {
             onSuccess: () => {
-              toast.success("Categoria apagada.");
+              toast.success(`Categoria “${deleting.name}” excluída.`);
               setDeleting(null);
             },
           })

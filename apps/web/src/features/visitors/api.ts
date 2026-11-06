@@ -1,4 +1,5 @@
 import {
+  type AnonymizeVisitorBody,
   type ListVisitorsQuery,
   ROUTES,
   type UpdateVisitorStatusBody,
@@ -19,6 +20,9 @@ export const visitorsApi = {
   /** Bloqueia (motivo obrigatório) ou desbloqueia. */
   updateStatus: (id: string, body: UpdateVisitorStatusBody) =>
     apiRequest(ROUTES.visitors.updateStatus, visitorDetailSchema, { params: { id }, body }),
+  /** LGPD: apaga os dados pessoais (irreversível, motivo obrigatório). */
+  anonymize: (id: string, body: AnonymizeVisitorBody) =>
+    apiRequest(ROUTES.visitors.anonymize, visitorDetailSchema, { params: { id }, body }),
 };
 
 export const visitorKeys = {
@@ -45,16 +49,31 @@ export function useVisitor(id: string | undefined) {
   });
 }
 
-/** Bloqueia ou desbloqueia: o DTO vira o detalhe na hora; as listas (filtro por situação) recarregam. */
-export function useUpdateVisitorStatus(id: string) {
+/** O DTO novo vira o detalhe na hora; as listas (filtro por situação) recarregam. */
+function useApplyVisitor() {
   const qc = useQueryClient();
+  return (visitor: VisitorDetail) => {
+    qc.setQueryData(visitorKeys.detail(visitor.id), visitor);
+    const summary = visitorSummarySchema.parse(visitor);
+    updateListItem<VisitorSummary>(qc, visitorKeys.lists(), visitor.id, () => summary);
+    return qc.invalidateQueries({ queryKey: visitorKeys.lists() });
+  };
+}
+
+/** Bloqueia ou desbloqueia. */
+export function useUpdateVisitorStatus(id: string) {
+  const apply = useApplyVisitor();
   return useMutation({
     mutationFn: (body: UpdateVisitorStatusBody) => visitorsApi.updateStatus(id, body),
-    onSuccess: (visitor: VisitorDetail) => {
-      qc.setQueryData(visitorKeys.detail(visitor.id), visitor);
-      const summary = visitorSummarySchema.parse(visitor);
-      updateListItem<VisitorSummary>(qc, visitorKeys.lists(), visitor.id, () => summary);
-      return qc.invalidateQueries({ queryKey: visitorKeys.lists() });
-    },
+    onSuccess: apply,
+  });
+}
+
+/** LGPD: anonimiza (não tem volta). */
+export function useAnonymizeVisitor(id: string) {
+  const apply = useApplyVisitor();
+  return useMutation({
+    mutationFn: (body: AnonymizeVisitorBody) => visitorsApi.anonymize(id, body),
+    onSuccess: apply,
   });
 }

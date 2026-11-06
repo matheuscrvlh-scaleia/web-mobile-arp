@@ -1,6 +1,6 @@
-import { createRoleBodySchema, type Role } from "@arp/contracts";
+import { createRoleBodySchema, PERMISSIONS, type Role } from "@arp/contracts";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Lock, ShieldCheck, Trash2, Users } from "lucide-react";
+import { Copy, Lock, ShieldCheck, Trash2, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { Link, useNavigate, useParams } from "react-router";
@@ -9,12 +9,17 @@ import { PeopleTabs } from "@/features/users";
 import { applyApiErrors, errorMessage } from "@/shared/api";
 import { useAuth } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
-import { useUnsavedChangesGuard } from "@/shared/hooks";
+import {
+  copyName,
+  duplicateHref,
+  useDuplicateSource,
+  useUnsavedChangesGuard,
+} from "@/shared/hooks";
 import { plural } from "@/shared/lib/format";
 import { saveInput } from "@/shared/lib/forms";
 import { emptyToNull } from "@/shared/lib/text";
 import {
-  Button,
+  ActionMenu,
   Card,
   ConfirmDialog,
   EmptyState,
@@ -36,11 +41,24 @@ type Input_ = z.input<typeof createRoleBodySchema>;
 type Values = z.output<typeof createRoleBodySchema>;
 const FIELDS = ["name", "description", "permissions"];
 
-/** Criar (/cargos/novo) e editar (/cargos/:id) cargo. */
+/** Criar (/cargos/novo, ou ?de=<id> para duplicar) e editar (/cargos/:id) cargo. */
 export function RoleEditPage() {
   const { id } = useParams();
+  const sourceId = useDuplicateSource();
   const roles = useRoles();
-  if (!id) return <RoleForm />;
+  if (!id) {
+    const source = sourceId ? roles.data?.find((r) => r.id === sourceId) : undefined;
+    // Duplicar: espera a lista para o formulário já nascer preenchido.
+    if (sourceId && !roles.data && !roles.error) {
+      return (
+        <LoadingRegion>
+          <Skeleton className="h-14 w-72 rounded-full" />
+          <Skeleton className="h-[32rem] rounded-[1.75rem]" />
+        </LoadingRegion>
+      );
+    }
+    return <RoleForm key={source?.id ?? "novo"} source={source} />;
+  }
   if (roles.error) {
     return (
       <Card>
@@ -63,7 +81,7 @@ export function RoleEditPage() {
         <EmptyState
           icon={ShieldCheck}
           title="Cargo não encontrado"
-          description="Ele pode ter sido apagado."
+          description="Ele pode ter sido excluído."
         />
       </Card>
     );
@@ -71,24 +89,33 @@ export function RoleEditPage() {
   return <RoleForm key={role.id} role={role} />;
 }
 
-function RoleForm({ role }: { role?: Role }) {
+function RoleForm({ role, source }: { role?: Role; source?: Role }) {
   const navigate = useNavigate();
   const { can } = useAuth();
   const save = useSaveRole();
   const remove = useDeleteRole();
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const readOnly = !can("users.manage");
   const locked = Boolean(role?.isSystem);
+  // Cargo do sistema abre só para leitura: o TI vê o que ele libera.
+  const readOnly = !can("users.manage") || locked;
 
   const form = useForm<Input_, unknown, Values>({
     resolver: zodResolver(createRoleBodySchema),
     values: useMemo(
-      () => ({
-        name: role?.name ?? "",
-        description: role?.description ?? null,
-        permissions: role?.permissions ?? [],
-      }),
-      [role],
+      () =>
+        source
+          ? {
+              name: copyName(source.name),
+              description: source.description,
+              // Cópia do Administrador: tudo marcado, mas editável.
+              permissions: source.isSystem ? [...PERMISSIONS] : source.permissions,
+            }
+          : {
+              name: role?.name ?? "",
+              description: role?.description ?? null,
+              permissions: role?.permissions ?? [],
+            },
+      [role, source],
     ),
     resetOptions: { keepDirtyValues: true },
   });
@@ -120,23 +147,52 @@ function RoleForm({ role }: { role?: Role }) {
   return (
     <>
       <PageHeader
-        title={role ? role.name : "Novo cargo"}
+        title={role ? role.name : source ? "Duplicar cargo" : "Novo cargo"}
         description={
           role
             ? `${plural(role.usersCount, "pessoa tem", "pessoas têm")} este cargo.`
-            : "Dê um nome e marque o que o cargo pode ver e fazer."
+            : source
+              ? `Cópia de ${source.name}: mude o nome e o que precisar.`
+              : "Dê um nome e marque o que o cargo pode ver e fazer."
         }
         back={{ to: PATHS.roles, label: "Cargos" }}
         actions={
-          role &&
-          role.usersCount > 0 && (
-            <Link
-              to={`${PATHS.users}?roleId=${role.id}`}
-              className="inline-flex items-center gap-1.5 text-sm text-neutral-600 hover:text-neutral-900"
-            >
-              <Users className="size-4" aria-hidden />
-              Ver quem tem o cargo
-            </Link>
+          role && (
+            <div className="flex flex-wrap items-center gap-3">
+              {role.usersCount > 0 && (
+                <Link
+                  to={`${PATHS.users}?roleId=${role.id}`}
+                  className="inline-flex min-h-11 items-center gap-1.5 text-sm text-neutral-600 hover:text-neutral-900"
+                >
+                  <Users className="size-4" aria-hidden />
+                  Ver quem tem o cargo
+                </Link>
+              )}
+              {can("users.manage") && (
+                <ActionMenu
+                  label="Mais"
+                  ariaLabel={`Mais ações do cargo ${role.name}`}
+                  items={[
+                    {
+                      label: "Duplicar",
+                      icon: Copy,
+                      onSelect: () => navigate(duplicateHref(PATHS.roleNew, role.id)),
+                    },
+                    !locked && {
+                      label: "Excluir",
+                      icon: Trash2,
+                      danger: true,
+                      disabled: role.usersCount > 0,
+                      hint:
+                        role.usersCount > 0
+                          ? `${plural(role.usersCount, "pessoa tem", "pessoas têm")} este cargo: mude o cargo delas antes`
+                          : undefined,
+                      onSelect: () => setConfirmDelete(true),
+                    },
+                  ]}
+                />
+              )}
+            </div>
           )
         }
       />
@@ -144,7 +200,8 @@ function RoleForm({ role }: { role?: Role }) {
       {locked && (
         <p className="mb-5 flex items-start gap-2 rounded-2xl bg-neutral-900 px-4 py-3 text-sm text-white">
           <Lock className="mt-0.5 size-4 shrink-0" aria-hidden />
-          Cargo do sistema: tem todas as permissões e não pode ser apagado nem perder acesso.
+          Cargo do sistema: não pode ser editado nem excluído. Ele tem todas as permissões,
+          inclusive as que forem criadas depois.
         </p>
       )}
       <form onSubmit={onSubmit} noValidate>
@@ -174,11 +231,7 @@ function RoleForm({ role }: { role?: Role }) {
                 control={form.control}
                 name="permissions"
                 render={({ field }) => (
-                  <PermissionEditor
-                    value={field.value}
-                    onChange={field.onChange}
-                    locked={locked || readOnly}
-                  />
+                  <PermissionEditor value={field.value} onChange={field.onChange} locked={locked} />
                 )}
               />
               {errors.permissions?.message && (
@@ -190,21 +243,7 @@ function RoleForm({ role }: { role?: Role }) {
           </Card>
         </fieldset>
         {!readOnly && (
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            {role && !locked ? (
-              <Button
-                variant="ghost"
-                icon={Trash2}
-                className="mt-6"
-                disabled={role.usersCount > 0}
-                title={role.usersCount > 0 ? "Mude as pessoas de cargo antes de apagar" : undefined}
-                onClick={() => setConfirmDelete(true)}
-              >
-                Apagar cargo
-              </Button>
-            ) : (
-              <span />
-            )}
+          <div className="flex flex-wrap items-center justify-end gap-3">
             <SaveBar
               dirty={isDirty}
               saving={save.isPending}
@@ -223,15 +262,15 @@ function RoleForm({ role }: { role?: Role }) {
             remove.reset();
           }}
           danger
-          title={`Apagar o cargo ${role.name}?`}
-          description="Só cargos sem ninguém podem ser apagados."
-          confirmLabel="Apagar"
+          title={`Excluir o cargo ${role.name}?`}
+          description="Ninguém tem este cargo. Ele some da lista e não volta."
+          confirmLabel="Excluir cargo"
           loading={remove.isPending}
           error={remove.error}
           onConfirm={() =>
             remove.mutate(role.id, {
               onSuccess: () => {
-                toast.success("Cargo apagado.");
+                toast.success("Cargo excluído.");
                 allowLeave();
                 navigate(PATHS.roles);
               },

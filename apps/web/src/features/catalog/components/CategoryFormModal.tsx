@@ -9,21 +9,25 @@ import { Controller, useForm } from "react-hook-form";
 import type { z } from "zod";
 import { applyApiErrors, errorMessage } from "@/shared/api";
 import { saveInput } from "@/shared/lib/forms";
-import { Button, Field, FieldRow, IconPicker, Input, Modal, Segmented, toast } from "@/shared/ui";
+import { Button, Field, IconPicker, Input, Modal, Segmented, toast } from "@/shared/ui";
 import { useSaveStoreCategory } from "../api";
+import { confirmDiscard } from "./confirm-discard";
 
 type Values = z.output<typeof createStoreCategoryBodySchema>;
-const FIELDS = ["name", "kind", "icon", "sortOrder"];
+const FIELDS = ["name", "kind", "icon"];
 
 export function CategoryFormModal({
   open,
   category,
   defaultKind = "shop",
+  nextOrder = 0,
   onClose,
 }: {
   open: boolean;
   category?: StoreCategory;
   defaultKind?: StoreCategory["kind"];
+  /** Nova categoria entra no fim da lista do tipo (a ordem muda arrastando). */
+  nextOrder?: number;
   onClose: () => void;
 }) {
   const save = useSaveStoreCategory();
@@ -36,13 +40,18 @@ export function CategoryFormModal({
           icon: category.icon,
           sortOrder: category.sortOrder,
         }
-      : { name: "", kind: defaultKind, icon: "store", sortOrder: 0 },
+      : { name: "", kind: defaultKind, icon: "store", sortOrder: nextOrder },
   });
   const { errors } = form.formState;
   const close = () => {
     form.reset();
     save.reset();
     onClose();
+  };
+  // Fechar com algo digitado pergunta antes de descartar.
+  const tryClose = async () => {
+    if (form.formState.isDirty && !(await confirmDiscard())) return;
+    close();
   };
 
   const onSubmit = form.handleSubmit((values) =>
@@ -60,14 +69,14 @@ export function CategoryFormModal({
   return (
     <Modal
       open={open}
-      onClose={close}
+      onClose={() => void tryClose()}
       busy={save.isPending}
       title={category ? `Editar ${category.name}` : "Nova categoria"}
       description="Agrupa as lojas no guia e nos filtros do app."
       footer={
         <>
-          <Button variant="secondary" onClick={close} disabled={save.isPending}>
-            Cancelar
+          <Button variant="secondary" onClick={() => void tryClose()} disabled={save.isPending}>
+            Voltar
           </Button>
           <Button type="submit" form="form-categoria" loading={save.isPending}>
             {category ? "Salvar" : "Criar categoria"}
@@ -101,23 +110,13 @@ export function CategoryFormModal({
             )}
           />
         </Field>
-        <FieldRow>
-          <Field label="Ícone" required error={errors.icon?.message}>
-            <Controller
-              control={form.control}
-              name="icon"
-              render={({ field }) => <IconPicker value={field.value} onChange={field.onChange} />}
-            />
-          </Field>
-          <Field label="Ordem" hint="Menor aparece primeiro" error={errors.sortOrder?.message}>
-            <Input
-              type="number"
-              min={0}
-              max={999}
-              {...form.register("sortOrder", { valueAsNumber: true })}
-            />
-          </Field>
-        </FieldRow>
+        <Field label="Ícone" required error={errors.icon?.message}>
+          <Controller
+            control={form.control}
+            name="icon"
+            render={({ field }) => <IconPicker value={field.value} onChange={field.onChange} />}
+          />
+        </Field>
       </form>
     </Modal>
   );

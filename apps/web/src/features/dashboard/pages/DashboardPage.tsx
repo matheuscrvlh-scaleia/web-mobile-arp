@@ -1,7 +1,7 @@
 import { type DashboardPeriod, dashboardQuerySchema } from "@arp/contracts";
 import { CircleCheck, CircleX, Clock4, Copy, LineChart, Loader, QrCode } from "lucide-react";
 import { lazy, Suspense } from "react";
-import { useStoreOptions } from "@/features/stores";
+import { StoreSelect, useStoreOptions } from "@/features/stores";
 import { useAuth } from "@/shared/auth";
 import { useDocumentTitle, useUrlState } from "@/shared/hooks";
 import { formatNumber } from "@/shared/lib/format";
@@ -14,7 +14,6 @@ import {
   ErrorState,
   LoadingRegion,
   Segmented,
-  Select,
   Skeleton,
   SkeletonGrid,
 } from "@/shared/ui";
@@ -26,6 +25,7 @@ import {
   TopCouponsCard,
   TopStoresCard,
 } from "../components/DashboardRankings";
+import { PendingCard } from "../components/PendingCard";
 import { WelcomeBanner } from "../components/WelcomeBanner";
 
 const PERIODS: { value: DashboardPeriod; label: string }[] = [
@@ -65,6 +65,10 @@ export function DashboardPage() {
           ? `Como a ${user?.store?.name} está indo no app.`
           : "Como o app está sendo usado: cadastros, cupons, selos e leituras de QR."}
       </WelcomeBanner>
+      {/* Primeiro o que fazer agora; os números do período vêm depois. */}
+      <div className="mt-5">
+        <PendingCard />
+      </div>
       <div className="mt-5 mb-6 flex flex-wrap items-center justify-end gap-2">
         {/* Trocou loja ou período: os números antigos ficam até os novos chegarem. */}
         {overview.isPlaceholderData && (
@@ -74,19 +78,14 @@ export function DashboardPage() {
           </span>
         )}
         {!merchant && (
-          <Select
-            aria-label="Loja"
-            placeholder="Todas as lojas"
-            value={query.storeId ?? ""}
-            onChange={(e) => setQuery({ storeId: e.target.value || undefined })}
-            className="w-52"
-          >
-            {(stores.data ?? []).map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </Select>
+          <div className="w-full sm:w-64">
+            <StoreSelect
+              aria-label="Loja"
+              placeholder="Todas as lojas"
+              value={query.storeId ?? null}
+              onChange={(v) => setQuery({ storeId: v ?? undefined })}
+            />
+          </div>
         )}
         <Segmented
           label="Período"
@@ -135,7 +134,7 @@ export function DashboardPage() {
               <p className="py-10 text-center text-sm text-neutral-500">Sem dados no período.</p>
             ) : (
               <Suspense fallback={<Skeleton className="h-[260px] rounded-2xl" />}>
-                <DailyChart data={data.daily} />
+                <DailyChart data={data.daily} store={merchant || Boolean(query.storeId)} />
               </Suspense>
             )}
           </Card>

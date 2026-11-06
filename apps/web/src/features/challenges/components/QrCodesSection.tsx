@@ -1,10 +1,14 @@
-import type { Challenge, QrCode } from "@arp/contracts";
+import type { Campaign, Challenge, QrCode } from "@arp/contracts";
 import {
   Ban,
   CalendarClock,
+  CalendarRange,
   CircleCheck,
+  CirclePause,
   Clock,
   Copy,
+  EyeOff,
+  Flag,
   MonitorPlay,
   Pencil,
   Plus,
@@ -12,29 +16,38 @@ import {
   QrCode as QrIcon,
   RotateCcw,
   TimerOff,
+  TriangleAlert,
   Zap,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useState } from "react";
 import { useAuth } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
-import { formatNumber } from "@/shared/lib/format";
+import { formatDateTime, formatNumber } from "@/shared/lib/format";
 import {
   Button,
   ButtonLink,
   Can,
   Card,
   CardHeader,
-  ConfirmDialog,
   EmptyState,
   ErrorState,
   IconButton,
   Skeleton,
   StatusBadge,
+  type StatusTone,
   toast,
 } from "@/shared/ui";
 import { useQrCodes, useUpdateQrCode } from "../api";
-import { type QrState, qrState, qrWindowText } from "../lib/qr";
+import {
+  challengePeriod,
+  type QrContext,
+  type QrState,
+  qrCoverage,
+  qrState,
+  qrWindowText,
+} from "../lib/qr";
+import { QrBatchModal } from "./QrBatchModal";
 import { QrCodeFormModal } from "./QrCodeFormModal";
 import { QrPngButton } from "./QrPngButton";
 import { QrPrintModal } from "./QrPrintModal";
@@ -42,19 +55,29 @@ import { QrPrintModal } from "./QrPrintModal";
 type Dialog =
   | { kind: "create" }
   | { kind: "edit"; qr: QrCode }
-  | { kind: "revoke"; qr: QrCode }
   | { kind: "print"; qr: QrCode }
+  | { kind: "batch" }
   | null;
 
-/** QR Codes do desafio: gerar, imprimir, baixar, editar janela e revogar. */
-export function QrCodesSection({ challenge }: { challenge: Challenge }) {
+/**
+ * QR Codes do desafio: gerar, imprimir, baixar, editar e revogar. A
+ * situação de cada QR considera a campanha e o desafio (o que o app vai
+ * responder no scan). A equipe da ARP vê os QR de todos; o lojista, os seus.
+ */
+export function QrCodesSection({
+  challenge,
+  campaign,
+}: {
+  challenge: Challenge;
+  campaign?: Campaign;
+}) {
+  const { user } = useAuth();
   const qrCodes = useQrCodes(challenge.id);
   const update = useUpdateQrCode();
   const [dialog, setDialog] = useState<Dialog>(null);
-  const close = () => {
-    update.reset();
-    setDialog(null);
-  };
+  const close = () => setDialog(null);
+  const ctx: QrContext = { campaign, challenge };
+  const period = campaign ? challengePeriod({ campaign, challenge }) : null;
 
   if (challenge.validation === "auto") {
     return (
@@ -69,24 +92,91 @@ export function QrCodesSection({ challenge }: { challenge: Challenge }) {
     );
   }
 
+  const setStatus = (qr: QrCode, status: QrCode["status"], undo?: () => void) =>
+    update.mutate(
+      { id: qr.id, body: { status } },
+      {
+        onSuccess: () =>
+          toast.success(
+            status === "revoked"
+              ? `QR "${qr.label}" revogado: parou de dar selo.`
+              : `QR "${qr.label}" reativado.`,
+            undo ? { action: { label: "Desfazer", onClick: undo } } : undefined,
+          ),
+        onError: (e) => toast.fromError(e),
+      },
+    );
+
   const list = [...(qrCodes.data ?? [])].sort(
     (a, b) => Number(a.status === "revoked") - Number(b.status === "revoked"),
   );
+  // Cobertura: o QR fixo valendo que vai mais longe já cobre o fim do desafio?
+  const live = list.filter((q) => q.status === "active" && !q.rotating);
+  const lastUntil = Math.max(0, ...live.map((q) => new Date(q.validUntil ?? 0).getTime()));
+  const gap =
+    period && live.length > 0 && lastUntil < period.end && lastUntil > Date.now()
+      ? new Date(lastUntil).toISOString()
+      : null;
+  // Todos vencem antes de o desafio começar (cartaz feito cedo demais).
+  const allBefore = gap !== null && period !== null && lastUntil <= period.start;
+  // Cartazes do mês: campanha conhecida, fora do arquivo e com período pela frente.
+  const canBatch =
+    campaign !== undefined &&
+    campaign.status !== "archived" &&
+    period !== null &&
+    period.end > Date.now();
 
   return (
     <Card>
       <CardHeader
         title="QR Codes"
-        description="Todo QR Code tem prazo. Você vê só os que gerou. Fixo: imprima; telão: abra em tela cheia."
+        description={
+          user?.store
+            ? "Todo QR Code tem prazo. Você vê os que gerou. Fixo: imprima; telão: abra em tela cheia."
+            : "Todo QR Code tem prazo (o impresso vale até 7 dias). Fixo: imprima; telão: abra em tela cheia."
+        }
         icon={QrIcon}
         action={
           <Can permission="qr_codes.generate">
-            <Button size="sm" icon={Plus} onClick={() => setDialog({ kind: "create" })}>
-              Gerar QR Code
-            </Button>
+            <span className="flex flex-wrap gap-2">
+              {canBatch && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={CalendarRange}
+                  onClick={() => setDialog({ kind: "batch" })}
+                >
+                  Gerar cartazes do mês
+                </Button>
+              )}
+              <Button size="sm" icon={Plus} onClick={() => setDialog({ kind: "create" })}>
+                Gerar QR Code
+              </Button>
+            </span>
           </Can>
         }
       />
+      {gap && (
+        <p
+          aria-live="polite"
+          className="mb-3 flex gap-2 rounded-2xl bg-amber-500/15 px-4 py-3 text-sm text-amber-950"
+        >
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+          {allBefore && period ? (
+            <span>
+              Os QR impressos vencem em <strong>{formatDateTime(gap)}</strong>, antes de o desafio
+              começar ({formatDateTime(new Date(period.start))}). Gere um QR novo: ele já vem
+              começando junto com o desafio.
+            </span>
+          ) : (
+            <span>
+              Os QR impressos valem até <strong>{formatDateTime(gap)}</strong>, antes do fim do
+              desafio. Gere outro QR até lá e troque o cartaz, ou use "Gerar cartazes do mês" para
+              imprimir todas as semanas de uma vez.
+            </span>
+          )}
+        </p>
+      )}
       {qrCodes.error ? (
         <ErrorState compact error={qrCodes.error} onRetry={() => void qrCodes.refetch()} />
       ) : !qrCodes.data ? (
@@ -107,19 +197,13 @@ export function QrCodesSection({ challenge }: { challenge: Challenge }) {
             <QrCodeItem
               key={qr.id}
               qr={qr}
+              state={qrState(qr, ctx)}
+              coverage={period ? qrCoverage(qr, period) : "ok"}
               onPrint={() => setDialog({ kind: "print", qr })}
               onEdit={() => setDialog({ kind: "edit", qr })}
-              onRevoke={() => setDialog({ kind: "revoke", qr })}
-              onReactivate={() =>
-                update.mutate(
-                  { id: qr.id, body: { status: "active" } },
-                  {
-                    onSuccess: () => toast.success("QR Code reativado."),
-                    onError: (e) => toast.fromError(e),
-                  },
-                )
-              }
-              reactivating={update.isPending && update.variables?.id === qr.id}
+              onRevoke={() => setStatus(qr, "revoked", () => setStatus(qr, "active"))}
+              onReactivate={() => setStatus(qr, "active")}
+              busy={update.isPending && update.variables?.id === qr.id}
             />
           ))}
         </ul>
@@ -127,7 +211,8 @@ export function QrCodesSection({ challenge }: { challenge: Challenge }) {
 
       {(dialog?.kind === "create" || dialog?.kind === "edit") && (
         <QrCodeFormModal
-          challengeId={challenge.id}
+          challenge={challenge}
+          campaign={campaign}
           qrCode={dialog.kind === "edit" ? dialog.qr : undefined}
           onClose={close}
           onCreated={(qr) =>
@@ -142,64 +227,46 @@ export function QrCodesSection({ challenge }: { challenge: Challenge }) {
         challenge={challenge}
         onClose={close}
       />
-      <ConfirmDialog
-        open={dialog?.kind === "revoke"}
-        onClose={close}
-        danger
-        title="Revogar este QR Code?"
-        description={
-          dialog?.kind === "revoke"
-            ? `"${dialog.qr.label}" para de dar selo na hora. Cartazes impressos com ele deixam de valer. Dá para reativar depois.`
-            : undefined
-        }
-        confirmLabel="Revogar"
-        loading={update.isPending}
-        error={update.error}
-        onConfirm={() => {
-          if (dialog?.kind !== "revoke") return;
-          update.mutate(
-            { id: dialog.qr.id, body: { status: "revoked" } },
-            {
-              onSuccess: () => {
-                toast.success("QR Code revogado.");
-                close();
-              },
-            },
-          );
-        }}
-      />
+      {dialog?.kind === "batch" && campaign && (
+        <QrBatchModal campaign={campaign} challenges={[challenge]} onClose={close} />
+      )}
     </Card>
   );
 }
 
-const STATE_BADGE: Record<
-  QrState,
-  { tone: "success" | "info" | "warning" | "neutral"; label: string; icon: typeof Ban }
-> = {
+const STATE_BADGE: Record<QrState, { tone: StatusTone; label: string; icon: typeof Ban }> = {
   active: { tone: "success", label: "Valendo", icon: CircleCheck },
   scheduled: { tone: "info", label: "Ainda não começou", icon: CalendarClock },
-  expired: { tone: "warning", label: "Fora da janela", icon: TimerOff },
+  expired: { tone: "warning", label: "Vencido", icon: TimerOff },
   revoked: { tone: "neutral", label: "Revogado", icon: Ban },
+  paused: { tone: "warning", label: "Parado: desafio pausado", icon: CirclePause },
+  unpublished: { tone: "neutral", label: "Parado: campanha arquivada", icon: EyeOff },
+  awaiting: { tone: "info", label: "Aguardando publicação", icon: CalendarClock },
+  waiting: { tone: "info", label: "Aguardando o desafio começar", icon: CalendarClock },
+  ended: { tone: "neutral", label: "Desafio encerrado", icon: Flag },
 };
 
 function QrCodeItem({
   qr,
+  state,
+  coverage,
   onPrint,
   onEdit,
   onRevoke,
   onReactivate,
-  reactivating,
+  busy,
 }: {
   qr: QrCode;
+  state: QrState;
+  coverage: "before" | "partial" | "ok";
   onPrint: () => void;
   onEdit: () => void;
   onRevoke: () => void;
   onReactivate: () => void;
-  reactivating: boolean;
+  busy: boolean;
 }) {
   const { can } = useAuth();
   const manage = can("challenges.manage");
-  const state = qrState(qr);
   const badge = STATE_BADGE[state];
   const revoked = state === "revoked";
   return (
@@ -217,6 +284,11 @@ function QrCodeItem({
           <StatusBadge tone={badge.tone} icon={badge.icon}>
             {badge.label}
           </StatusBadge>
+          {!revoked && state !== "expired" && coverage === "before" && (
+            <StatusBadge tone="warning" icon={TriangleAlert}>
+              Vence antes do desafio começar
+            </StatusBadge>
+          )}
         </div>
         <p className="mt-1 flex items-center gap-1.5 text-xs text-neutral-500">
           <Clock className="size-3.5 shrink-0" aria-hidden />
@@ -224,9 +296,17 @@ function QrCodeItem({
           {qr.createdBy && ` · gerado por ${qr.createdBy.name}`}
         </p>
         <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600">
-          <Scan label="selos dados" value={qr.scans.awarded} icon={CircleCheck} />
-          <Scan label="leituras repetidas" value={qr.scans.duplicate} icon={Copy} />
-          <Scan label="fora do prazo" value={qr.scans.expired} icon={TimerOff} />
+          <Scan label={["selo dado", "selos dados"]} value={qr.scans.awarded} icon={CircleCheck} />
+          <Scan
+            label={["leitura repetida", "leituras repetidas"]}
+            value={qr.scans.duplicate}
+            icon={Copy}
+          />
+          <Scan
+            label={["fora do prazo", "fora do prazo"]}
+            value={qr.scans.expired}
+            icon={TimerOff}
+          />
         </dl>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
@@ -235,7 +315,7 @@ function QrCodeItem({
             Abrir telão<span className="sr-only"> {qr.label}</span>
           </ButtonLink>
         )}
-        {!revoked && !qr.rotating && (
+        {!revoked && !qr.rotating && state !== "expired" && (
           <>
             <Button size="sm" icon={Printer} onClick={onPrint}>
               Imprimir<span className="sr-only"> {qr.label}</span>
@@ -251,19 +331,15 @@ function QrCodeItem({
                 size="sm"
                 variant="ghost"
                 icon={RotateCcw}
-                loading={reactivating}
+                loading={busy}
                 onClick={onReactivate}
               >
-                Reativar
+                Reativar<span className="sr-only"> {qr.label}</span>
               </Button>
             ) : (
-              <IconButton
-                icon={Ban}
-                variant="danger"
-                label={`Revogar ${qr.label}`}
-                size="sm"
-                onClick={onRevoke}
-              />
+              <Button size="sm" variant="ghost" icon={Ban} loading={busy} onClick={onRevoke}>
+                Revogar<span className="sr-only"> {qr.label}</span>
+              </Button>
             )}
           </>
         )}
@@ -272,11 +348,20 @@ function QrCodeItem({
   );
 }
 
-function Scan({ label, value, icon: Icon }: { label: string; value: number; icon: typeof Ban }) {
+function Scan({
+  label: [one, many],
+  value,
+  icon: Icon,
+}: {
+  label: [string, string];
+  value: number;
+  icon: typeof Ban;
+}) {
+  const label = value === 1 ? one : many;
   return (
     <div className="flex items-center gap-1">
       <Icon className="size-3.5" aria-hidden />
-      <dt className="sr-only">{label}</dt>
+      <dt className="sr-only">{many}</dt>
       <dd>
         <b className="font-semibold tabular-nums">{formatNumber(value)}</b>{" "}
         <span aria-hidden>{label}</span>

@@ -9,6 +9,18 @@ export interface CouponRepository {
   save(coupon: Coupon): Promise<void>;
   /** Unidades ocupadas agora: ativos dentro do prazo + usados. */
   countTaken(couponId: string, now: Date): Promise<number>;
+  /** O que ainda prende o cupom (excluir só sem nada disso). */
+  usage(couponId: string): Promise<CouponUsage>;
+  remove(couponId: string): Promise<void>;
+}
+
+export interface CouponUsage {
+  /** Cupons pegos, em qualquer situação (histórico). */
+  claims: number;
+  /** Desafios automáticos que dão selo na baixa deste cupom. */
+  challenges: number;
+  /** Destaques do carrossel que levam a este cupom. */
+  highlights: number;
 }
 
 export interface ClaimWithStore {

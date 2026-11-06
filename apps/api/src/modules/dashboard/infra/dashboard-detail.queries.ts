@@ -3,7 +3,7 @@ import type { Database } from "../../../shared/infra/database/database";
 import { sql } from "../../../shared/infra/database/sql";
 import type { OverviewRequest } from "../application/get-dashboard-overview.use-case";
 import { redemptionRate } from "../domain/period";
-import { endOf, startOf, TZ, UPCOMING_EVENT_DAYS } from "./period-sql";
+import { endOf, startOf, TZ, UPCOMING_EVENT_DAYS, visitorBase } from "./period-sql";
 
 // Linhas do modal "de onde vem este número" do dashboard. Cada indicador usa
 // o MESMO filtro do cartão (janela, loja, status), para a soma das linhas
@@ -98,7 +98,7 @@ export async function metricDetail(db: Database, req: Request): Promise<Dashboar
         with m as (
           select to_char(date_trunc('month', v.created_at at time zone ${TZ}), 'YYYY-MM') as month,
                  count(*)::int as n
-          from visitors.visitors v
+          from ${visitorBase(storeId)} v
           where v.created_at < ${end}
           group by 1
         )
@@ -107,7 +107,7 @@ export async function metricDetail(db: Database, req: Request): Promise<Dashboar
       `);
       return [
         table(
-          "Cadastros por mês",
+          storeId ? "Clientes novos da loja por mês" : "Cadastros por mês",
           [
             ["Mês", "month"],
             ["Novos no mês", "int"],
@@ -124,7 +124,7 @@ export async function metricDetail(db: Database, req: Request): Promise<Dashboar
         from generate_series(${range.from}::date, ${range.to}::date, interval '1 day') d
         left join (
           select (v.created_at at time zone ${TZ})::date as day, count(*) as n
-          from visitors.visitors v
+          from ${visitorBase(storeId)} v
           where v.created_at >= ${start} and v.created_at < ${end}
           group by 1
         ) x on x.day = d::date
@@ -132,10 +132,10 @@ export async function metricDetail(db: Database, req: Request): Promise<Dashboar
       `);
       return [
         table(
-          "Cadastros por dia",
+          storeId ? "Clientes novos da loja por dia" : "Cadastros por dia",
           [
             ["Dia", "day"],
-            ["Novos cadastros", "int"],
+            [storeId ? "Novos clientes" : "Novos cadastros", "int"],
           ],
           rows.map((r) => ({ id: r.day, cells: [r.day, r.n] })),
         ),

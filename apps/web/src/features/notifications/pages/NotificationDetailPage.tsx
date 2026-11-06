@@ -1,11 +1,11 @@
 import type { PushNotification } from "@arp/contracts";
-import { Bell, CalendarX, Link2, Send, UserRound, Users } from "lucide-react";
-import { useState } from "react";
-import { useParams } from "react-router";
+import { Bell, Link2, Send, UserRound, Users } from "lucide-react";
+import { useNavigate, useParams } from "react-router";
 import { useAuth } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
 import { formatDateTime, formatNumber } from "@/shared/lib/format";
 import {
+  ActionMenu,
   Button,
   Card,
   CardHeader,
@@ -17,7 +17,7 @@ import {
   Skeleton,
 } from "@/shared/ui";
 import { useNotification } from "../api";
-import { CancelNotificationDialog } from "../components/CancelNotificationDialog";
+import { DeepLinkIssue, useDeepLinkIssue, useDeepLinkSummary } from "../components/DeepLinkField";
 import {
   AUDIENCE,
   audienceText,
@@ -26,12 +26,12 @@ import {
 } from "../components/NotificationBadges";
 import { NotificationForm } from "../components/NotificationForm";
 import { PushPreview } from "../components/PushPreview";
+import { useNotificationActions } from "../components/useNotificationActions";
 
 const BACK = { to: PATHS.notifications, label: "Notificações" };
 
 export function NotificationDetailPage() {
   const { id = "" } = useParams();
-  const { can } = useAuth();
   const notification = useNotification(id);
 
   if (notification.error && !notification.data) {
@@ -43,7 +43,7 @@ export function NotificationDetailPage() {
           onRetry={() => void notification.refetch()}
           icon={Bell}
           title="Notificação não encontrada"
-          description="Ela pode ter sido apagada ou o endereço está errado."
+          description="Ela pode ter sido excluída ou o endereço está errado."
           back={{ to: PATHS.notifications, label: "Ver notificações" }}
         />
       </>
@@ -62,8 +62,18 @@ export function NotificationDetailPage() {
     );
   }
 
-  const n = notification.data;
-  const editable = n.status === "draft" && can("notifications.manage");
+  return <NotificationDetail notification={notification.data} />;
+}
+
+function NotificationDetail({ notification: n }: { notification: PushNotification }) {
+  const navigate = useNavigate();
+  const { can } = useAuth();
+  const canManage = can("notifications.manage");
+  const editable = n.status === "draft" && canManage;
+  const { primary, menu, dialogs, busy } = useNotificationActions(n, {
+    onDeleted: () => navigate(PATHS.notifications),
+  });
+
   return (
     <>
       <PageHeader
@@ -77,40 +87,49 @@ export function NotificationDetailPage() {
           )
         }
         documentTitle={n.title}
-        description={editable ? "Ajuste o texto e o público; depois envie ou agende." : undefined}
+        description={
+          <span className="flex flex-wrap items-center gap-2">
+            <NotificationStatusBadge status={n.status} scheduledAt={n.scheduledAt} />
+            {editable
+              ? "Ajuste o texto e o público; depois agende ou envie."
+              : (notificationWhen(n) ?? undefined)}
+          </span>
+        }
         back={BACK}
-        actions={<NotificationStatusBadge status={n.status} />}
+        actions={
+          canManage && (
+            <>
+              {primary && (
+                <Button
+                  variant={primary.danger ? "secondary" : "brand"}
+                  icon={primary.icon}
+                  loading={busy}
+                  onClick={primary.run}
+                >
+                  {primary.label}
+                </Button>
+              )}
+              <ActionMenu items={menu} label="Mais" ariaLabel={`Mais ações de ${n.title}`} />
+            </>
+          )
+        }
       />
       {editable ? <NotificationForm notification={n} /> : <NotificationSummary notification={n} />}
+      {dialogs}
     </>
   );
 }
 
-/** Notificação que já saiu do rascunho: só leitura (e cancelar, se agendada). */
+/** Notificação que já saiu do rascunho: só leitura. */
 function NotificationSummary({ notification: n }: { notification: PushNotification }) {
-  const [cancelling, setCancelling] = useState(false);
-  const { can } = useAuth();
   const sent = n.status === "sent";
+  const link = useDeepLinkSummary(n.deepLink);
+  const linkIssue = useDeepLinkIssue(sent ? null : n.deepLink);
   return (
     <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
       <div className="flex min-w-0 flex-col gap-5">
         <Card>
-          <CardHeader
-            title="Mensagem"
-            icon={Bell}
-            action={
-              n.status === "scheduled" && can("notifications.manage") ? (
-                <Button
-                  variant="danger"
-                  size="sm"
-                  icon={CalendarX}
-                  onClick={() => setCancelling(true)}
-                >
-                  Cancelar envio
-                </Button>
-              ) : undefined
-            }
-          />
+          <CardHeader title="Mensagem" icon={Bell} />
           <p className="font-semibold text-neutral-900">{n.title}</p>
           <p className="mt-1 text-sm whitespace-pre-line text-neutral-600">{n.body}</p>
         </Card>
@@ -128,25 +147,22 @@ function NotificationSummary({ notification: n }: { notification: PushNotificati
               {notificationWhen(n) ?? "Não enviada"}
             </InfoItem>
             <InfoItem label="Ao tocar" icon={Link2}>
-              {n.deepLink ? (
-                <code className="font-mono text-xs">{n.deepLink}</code>
-              ) : (
-                "Abre o início"
-              )}
+              <span className="whitespace-normal">{link}</span>
             </InfoItem>
             <InfoItem label="Criada por" icon={UserRound}>
               {n.createdBy.name} · {formatDateTime(n.createdAt)}
             </InfoItem>
           </div>
+          {linkIssue && (
+            <div className="mt-5">
+              <DeepLinkIssue text={linkIssue} />
+            </div>
+          )}
         </Card>
       </div>
       <aside aria-label="Prévia da notificação" className="xl:sticky xl:top-4">
         <PushPreview title={n.title} body={n.body} />
       </aside>
-      <CancelNotificationDialog
-        notification={cancelling ? n : null}
-        onClose={() => setCancelling(false)}
-      />
     </div>
   );
 }

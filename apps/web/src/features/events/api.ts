@@ -10,6 +10,7 @@ import {
   type ImportSiteEventsBody,
   importSiteEventsResultSchema,
   type ListEventsQuery,
+  type PostponeEventBody,
   ROUTES,
   type UpdateEventBody,
   type UpdateEventCategoryBody,
@@ -36,6 +37,10 @@ export const eventsApi = {
   update: (id: string, body: UpdateEventBody) =>
     apiRequest(ROUTES.events.update, eventSchema, { params: { id }, body }),
   remove: (id: string) => apiCall(ROUTES.events.remove, { params: { id } }),
+  archive: (id: string) => apiRequest(ROUTES.events.archive, eventSchema, { params: { id } }),
+  unarchive: (id: string) => apiRequest(ROUTES.events.unarchive, eventSchema, { params: { id } }),
+  postpone: (id: string, body: PostponeEventBody) =>
+    apiRequest(ROUTES.events.postpone, eventSchema, { params: { id }, body }),
   /** Traz do site os eventos novos (de hoje em diante) como rascunho. */
   importSite: (body: ImportSiteEventsBody) =>
     apiRequest(ROUTES.events.importSite, importSiteEventsResultSchema, { body }),
@@ -128,10 +133,29 @@ export function useUpdateEvent(id: string) {
   });
 }
 
-/** Só rascunho pode ser apagado (publicado se cancela). */
+/** Exclui evento sem interessados (com interessados, a API pede para arquivar). */
 export function useDeleteEvent() {
   const qc = useQueryClient();
   return useMutation({ mutationFn: eventsApi.remove, onSuccess: () => invalidateRelated(qc) });
+}
+
+/** Arquivar / desarquivar (some das listas e do calendário; volta pausado ou como estava). */
+export function useArchiveEvent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, archived }: { id: string; archived: boolean }) =>
+      archived ? eventsApi.archive(id) : eventsApi.unarchive(id),
+    onSuccess: (event) => eventSaved(qc, event),
+  });
+}
+
+/** Adiar: nova data de início (o fim anda junto). */
+export function usePostponeEvent(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: PostponeEventBody) => eventsApi.postpone(id, body),
+    onSuccess: (event) => eventSaved(qc, event),
+  });
 }
 
 export function useImportSiteEvents() {

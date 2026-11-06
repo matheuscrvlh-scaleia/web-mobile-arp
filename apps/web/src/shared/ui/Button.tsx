@@ -132,6 +132,8 @@ export function IconButton({
       className={cn(
         "inline-grid shrink-0 cursor-pointer place-items-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-50",
         size === "sm" ? "size-8" : "size-10",
+        // Alvo de toque de 44px no celular (PLAN).
+        "pointer-coarse:size-11",
         variant === "ghost" &&
           "text-neutral-500 hover:bg-neutral-900/[0.07] hover:text-neutral-900",
         variant === "secondary" &&

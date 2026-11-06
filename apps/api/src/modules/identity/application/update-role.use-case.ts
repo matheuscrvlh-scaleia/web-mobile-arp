@@ -1,3 +1,4 @@
+import { withImpliedPermissions } from "@arp/contracts";
 import type { StaffActor } from "../../../shared/application/actor";
 import { diff, hasChanges } from "../../../shared/application/audit-changes";
 import { NotFoundError } from "../../../shared/domain/errors";
@@ -12,7 +13,12 @@ export class UpdateRoleUseCase {
       const role = await this.deps.roles.findById(input.id);
       if (!role) throw new NotFoundError(ROLE_NOT_FOUND);
       const before = role.toState();
-      role.update(input.changes);
+      const { permissions } = input.changes;
+      role.update(
+        permissions
+          ? { ...input.changes, permissions: withImpliedPermissions(permissions) }
+          : input.changes,
+      );
       const changes = diff(before, role.toState());
       if (!hasChanges(changes)) return;
       await this.deps.roles.save(role);

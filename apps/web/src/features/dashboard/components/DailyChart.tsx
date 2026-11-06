@@ -20,12 +20,16 @@ const dayTitle = (iso: string) => formatDateShort(`${iso}T12:00:00Z`);
  * Movimento por dia (recharts). Fica num módulo próprio para a tela abrir
  * com os indicadores enquanto a biblioteca de gráficos ainda chega.
  */
-export function DailyChart({ data }: { data: DailyRow[] }) {
+export function DailyChart({ data, store = false }: { data: DailyRow[]; store?: boolean }) {
+  // Com loja, "cadastros" são os clientes novos da loja (1º cupom pego nela).
+  const series = store
+    ? DAILY_SERIES.map((s) => (s.key === "signups" ? { ...s, label: "Novos clientes" } : s))
+    : DAILY_SERIES;
   return (
     <LineSeriesChart
       data={data}
       xKey="date"
-      series={DAILY_SERIES}
+      series={series}
       formatX={(d) => formatIsoDay(String(d))}
       formatTitle={(d) => dayTitle(String(d))}
       description="Cupons pegos, cupons usados, cadastros e selos por dia"

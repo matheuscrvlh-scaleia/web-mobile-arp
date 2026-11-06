@@ -1,19 +1,22 @@
-import type {
-  Block,
-  Floor,
-  ListStoresQuery,
-  MapPoint,
-  MapShape,
-  MetricsPeriod,
-  StoreCategory,
-  StoreCategoryRef,
-  StoreDetail,
-  StoreKind,
-  StoreMetrics,
-  StoreOption,
-  StorePin,
-  StoreStatus,
-  StoreSummary,
+import {
+  type Block,
+  type Floor,
+  type ListStoresQuery,
+  type MapPoint,
+  type MapShape,
+  type MetricsPeriod,
+  type StoreCategory,
+  type StoreCategoryRef,
+  type StoreDetail,
+  type StoreGap,
+  type StoreKind,
+  type StoreMetrics,
+  type StoreOption,
+  type StorePin,
+  type StoreSort,
+  type StoreStatus,
+  type StoreSummary,
+  storeGapSchema,
 } from "@arp/contracts";
 import { offsetOf, type Page, toPage } from "../../../shared/application/pagination";
 import type { Clock } from "../../../shared/application/ports/clock";
@@ -26,7 +29,12 @@ import {
 } from "../../../shared/infra/database/store-categories";
 import { iso } from "../../../shared/infra/presenters";
 import { type DailyHours, isOpenNow } from "../domain/opening-hours";
-import { STORE_HOURS_JSON } from "./fragments";
+import {
+  STORE_HOURS_JSON,
+  STORE_USAGE_COLUMNS,
+  type StoreUsageRow,
+  toStoreUsage,
+} from "./fragments";
 
 interface StoreSummaryRow {
   id: string;
@@ -50,11 +58,70 @@ interface StoreSummaryRow {
   map_y: number | null;
   active_coupons_count: number;
   hours: DailyHours[];
+  missing: StoreGap[];
+  updated_at: Date;
+}
+
+/**
+ * Pendências do cadastro da loja `s`, na ordem do contrato. Cada uma tem a
+ * condição SQL (filtro "Pendências") e entra na lista `missing` do resumo.
+ */
+const GAP_CONDITIONS: Record<StoreGap, SqlFragment> = {
+  hours: sql`not exists (select 1 from directory.store_hours h where h.store_id = s.id)`,
+  cover: sql`s.cover_image_url is null`,
+  logo: sql`s.logo_url is null`,
+  map: sql`(s.map_x is null or s.map_y is null)`,
+  description: sql`btrim(s.description) = ''`,
+};
+const GAPS = storeGapSchema.options;
+
+const MISSING_COLUMN = sql`array_remove(array[${sql.join(
+  GAPS.map((g) => sql`case when ${GAP_CONDITIONS[g]} then ${sql.raw(`'${g}'`)} end`),
+)}]::text[], null)`;
+
+/** Ordem da lista; o nome desempata (e o id, para a paginação ser estável). */
+const SORT_COLUMN: Record<StoreSort, string> = {
+  name: "s.name",
+  category: "c.name",
+  block: "b.sort_order",
+  floor: "f.level",
+  updated: "s.updated_at",
+};
+
+function orderBy(query: ListStoresQuery): SqlFragment {
+  const sort = query.sort ?? "name";
+  const dir = query.order === "desc" ? "desc" : "asc";
+  const tie = sort === "block" ? ", b.name" : "";
+  return sql.raw(`order by ${SORT_COLUMN[sort]} ${dir}${tie}, s.name, s.id`);
+}
+
+/**
+ * Busca por palavras em qualquer ordem ("pontal cerv" acha "Cervejaria
+ * Pontal"): cada palavra precisa estar no nome, na categoria (principal ou
+ * extra) ou na descrição.
+ */
+function searchCondition(q: string): SqlFragment | undefined {
+  const words = q.split(/\s+/).filter(Boolean).slice(0, 6);
+  if (words.length === 0) return undefined;
+  return sql.and(
+    words.map((w) => {
+      const p = sql.containsPattern(w);
+      return sql.or([
+        sql`public.f_unaccent(lower(s.name)) like ${p}`,
+        sql`public.f_unaccent(lower(c.name)) like ${p}`,
+        sql`public.f_unaccent(lower(s.description)) like ${p}`,
+        sql`exists (select 1 from directory.store_extra_categories xc
+                    join directory.store_categories xcat on xcat.id = xc.category_id
+                    where xc.store_id = s.id and public.f_unaccent(lower(xcat.name)) like ${p})`,
+      ]);
+    }),
+  );
 }
 
 /** Colunas e joins do resumo da loja (lista e detalhe), com horários e cupons no ar. */
 const SUMMARY_COLUMNS = sql`
   s.id, s.slug, s.name, s.icon, s.brand_color, s.cover_image_url, s.status, s.map_x, s.map_y,
+  s.updated_at, ${MISSING_COLUMN} as missing,
   c.id as category_id, c.name as category_name, c.kind as category_kind,
   ${STORE_EXTRA_CATEGORIES_JSON} as extra_categories,
   b.id as block_id, b.name as block_name,
@@ -108,8 +175,11 @@ export class DirectoryQueries {
       status: r.status,
       activeCouponsCount: r.active_coupons_count,
       isOpenNow: r.status === "active" && isOpenNow(r.hours, now),
+      hasHours: r.hours.length > 0,
+      missing: r.missing,
       mapX: r.map_x,
       mapY: r.map_y,
+      updatedAt: iso(r.updated_at),
     };
   }
 
@@ -125,9 +195,13 @@ export class DirectoryQueries {
         query.blockId && sql`s.block_id = ${query.blockId}`,
         query.floorId && sql`s.floor_id = ${query.floorId}`,
         query.status && sql`s.status = ${query.status}`,
-        query.q && sql`public.f_unaccent(lower(s.name)) like ${sql.containsPattern(query.q)}`,
+        query.missing &&
+          (query.missing === "any"
+            ? sql.or(GAPS.map((g) => GAP_CONDITIONS[g]))
+            : GAP_CONDITIONS[query.missing]),
+        query.q && searchCondition(query.q),
       ])}
-      order by s.name, s.id
+      ${orderBy(query)}
       limit ${query.pageSize} offset ${offsetOf(query)}
     `);
     const now = this.clock.now();
@@ -136,22 +210,22 @@ export class DirectoryQueries {
 
   async getStore(id: string): Promise<StoreDetail | null> {
     const row = await this.db.maybeOne<
-      StoreSummaryRow & {
-        description: string;
-        logo_url: string | null;
-        phone: string | null;
-        whatsapp: string | null;
-        instagram: string | null;
-        website: string | null;
-        followers_count: number;
-        favorites_count: number;
-        created_at: Date;
-        updated_at: Date;
-      }
+      StoreSummaryRow &
+        StoreUsageRow & {
+          description: string;
+          logo_url: string | null;
+          phone: string | null;
+          whatsapp: string | null;
+          instagram: string | null;
+          website: string | null;
+          followers_count: number;
+          favorites_count: number;
+          created_at: Date;
+        }
     >(sql`
       select ${SUMMARY_COLUMNS},
              s.description, s.logo_url, s.phone, s.whatsapp, s.instagram, s.website,
-             s.created_at, s.updated_at,
+             s.created_at, ${STORE_USAGE_COLUMNS},
              (select count(*) from visitors.store_follows sf where sf.store_id = s.id) as followers_count,
              (select count(*) from visitors.favorite_stores fs where fs.store_id = s.id) as favorites_count
       ${SUMMARY_FROM}
@@ -169,8 +243,8 @@ export class DirectoryQueries {
       hours: row.hours,
       followersCount: row.followers_count,
       favoritesCount: row.favorites_count,
+      usage: toStoreUsage(row),
       createdAt: iso(row.created_at),
-      updatedAt: iso(row.updated_at),
     };
   }
 
@@ -222,9 +296,12 @@ export class DirectoryQueries {
 
   async storeOptions(): Promise<StoreOption[]> {
     return this.db.many<StoreOption>(sql`
-      select s.id, s.name, s.icon, s.brand_color as "brandColor", c.kind
+      select s.id, s.name, s.icon, s.brand_color as "brandColor", c.kind,
+             f.label as "floorLabel", b.name as "blockName"
       from directory.stores s
       join directory.store_categories c on c.id = s.category_id
+      join directory.floors f on f.id = s.floor_id
+      join directory.blocks b on b.id = s.block_id
       where s.status = 'active'
       order by s.name
     `);
@@ -237,11 +314,13 @@ export class DirectoryQueries {
       label: string;
       short_label: string;
       layout: MapShape[];
+      background_url: string | null;
       stores_count: number;
       created_at: Date;
       updated_at: Date;
     }>(sql`
-      select f.id, f.level, f.label, f.short_label, f.layout, f.created_at, f.updated_at,
+      select f.id, f.level, f.label, f.short_label, f.layout, f.background_url,
+             f.created_at, f.updated_at,
              (select count(*) from directory.stores s where s.floor_id = f.id) as stores_count
       from directory.floors f
       ${sql.where([id && sql`f.id = ${id}`])}
@@ -253,6 +332,7 @@ export class DirectoryQueries {
       label: r.label,
       shortLabel: r.short_label,
       layout: r.layout,
+      backgroundImageUrl: r.background_url,
       storesCount: r.stores_count,
       createdAt: iso(r.created_at),
       updatedAt: iso(r.updated_at),

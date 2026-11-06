@@ -1,5 +1,5 @@
 import type { ChallengeAutoTrigger, ChallengeValidation } from "@arp/contracts";
-import { CircleOff, type LucideIcon, Plug, QrCode, TicketCheck, Zap } from "lucide-react";
+import { CirclePause, type LucideIcon, Plug, QrCode, TicketCheck, Zap } from "lucide-react";
 import { cn } from "@/shared/lib/cn";
 import { StatusBadge } from "@/shared/ui";
 
@@ -64,8 +64,8 @@ export function ValidationPill({
 
 export function ChallengeInactiveBadge() {
   return (
-    <StatusBadge tone="neutral" icon={CircleOff}>
-      Inativo (fora do app)
+    <StatusBadge tone="warning" icon={CirclePause}>
+      Pausado (fora do app)
     </StatusBadge>
   );
 }

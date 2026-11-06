@@ -15,6 +15,7 @@ import {
 } from "../domain/push-notification";
 import type {
   AudienceDirectory,
+  AudienceTarget,
   HighlightRepository,
   MarketingReferences,
   NewPushNotification,
@@ -105,9 +106,25 @@ export class PgHighlightRepository implements HighlightRepository {
 
   async lockAllIds(): Promise<string[]> {
     const rows = await this.db.many<{ id: string }>(
-      sql`select id from marketing.highlights order by sort_order, id for update`,
+      sql`select id from marketing.highlights where status <> 'archived' order by sort_order, id for update`,
     );
     return rows.map((r) => r.id);
+  }
+
+  async moveToEnd(id: string): Promise<void> {
+    await this.db.query(sql`
+      update marketing.highlights
+      set sort_order = (select coalesce(max(sort_order), 0) + 1 from marketing.highlights)
+      where id = ${id}
+    `);
+  }
+
+  async impressions(id: string): Promise<number> {
+    const { n } = await this.db.one<{ n: number }>(sql`
+      select coalesce(sum(impressions), 0)::int8 as n
+      from marketing.highlight_daily_metrics where highlight_id = ${id}
+    `);
+    return n;
   }
 
   async applyOrder(ids: readonly string[]): Promise<void> {
@@ -138,6 +155,12 @@ export class PgMarketingReferences implements MarketingReferences {
   storeExists(id: string): Promise<boolean> {
     return this.targetExists("store", id);
   }
+
+  storeLinkExists(idOrSlug: string): Promise<boolean> {
+    return this.db.exists(
+      sql`select 1 from directory.stores where id::text = ${idOrSlug} or slug = ${idOrSlug}`,
+    );
+  }
 }
 
 /* Notificações ----------------------------------------------------------- */
@@ -148,6 +171,7 @@ interface NotificationRow {
   body: string;
   audience: NotificationAudience;
   store_id: string | null;
+  event_id: string | null;
   deep_link: string | null;
   scheduled_at: Date | null;
   sent_at: Date | null;
@@ -156,7 +180,7 @@ interface NotificationRow {
   created_by: string;
 }
 
-const NOTIFICATION_COLUMNS = sql.raw(`id, title, body, audience, store_id, deep_link,
+const NOTIFICATION_COLUMNS = sql.raw(`id, title, body, audience, store_id, event_id, deep_link,
   scheduled_at, sent_at, status, recipients_count, created_by`);
 
 const notificationToDomain = (r: NotificationRow) =>
@@ -166,6 +190,7 @@ const notificationToDomain = (r: NotificationRow) =>
     body: r.body,
     audience: r.audience,
     storeId: r.store_id,
+    eventId: r.event_id,
     deepLink: r.deep_link,
     scheduledAt: r.scheduled_at,
     sentAt: r.sent_at,
@@ -186,8 +211,10 @@ export class PgPushNotificationRepository implements PushNotificationRepository 
 
   async create(d: NewPushNotification): Promise<PushNotification> {
     const row = await this.db.one<NotificationRow>(sql`
-      insert into marketing.push_notifications (title, body, audience, store_id, deep_link, created_by)
-      values (${d.title}, ${d.body}, ${d.audience}, ${d.storeId}, ${d.deepLink}, ${d.createdBy})
+      insert into marketing.push_notifications
+        (title, body, audience, store_id, event_id, deep_link, created_by)
+      values (${d.title}, ${d.body}, ${d.audience}, ${d.storeId}, ${d.eventId}, ${d.deepLink},
+        ${d.createdBy})
       returning ${NOTIFICATION_COLUMNS}
     `);
     return notificationToDomain(row);
@@ -198,10 +225,15 @@ export class PgPushNotificationRepository implements PushNotificationRepository 
     await this.db.query(sql`
       update marketing.push_notifications
       set title = ${s.title}, body = ${s.body}, audience = ${s.audience}, store_id = ${s.storeId},
+          event_id = ${s.eventId},
           deep_link = ${s.deepLink}, scheduled_at = ${s.scheduledAt}, sent_at = ${s.sentAt},
           status = ${s.status}, recipients_count = ${s.recipientsCount}
       where id = ${s.id}
     `);
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.db.query(sql`delete from marketing.push_notifications where id = ${id}`);
   }
 
   async lockDue(now: Date, limit: number): Promise<PushNotification[]> {
@@ -220,7 +252,7 @@ export class PgPushNotificationRepository implements PushNotificationRepository 
 /* Público ---------------------------------------------------------------- */
 
 /** Condição do público sobre visitors.visitors v (só visitantes ativos e reais: fictício não recebe). */
-function audienceCondition(audience: NotificationAudience, storeId: string | null): SqlFragment {
+function audienceCondition({ audience, storeId, eventId }: AudienceTarget): SqlFragment {
   switch (audience) {
     case "all":
       return sql`v.status = 'active' and not v.is_demo`;
@@ -231,31 +263,34 @@ function audienceCondition(audience: NotificationAudience, storeId: string | nul
       return sql`v.status = 'active' and not v.is_demo and exists (
         select 1 from visitors.store_follows f where f.visitor_id = v.id and f.store_id = ${storeId}
       )`;
+    case "event_interested":
+      // Aviso de serviço (adiado, cancelado): não depende do aceite de ofertas.
+      if (!eventId) return sql`false`;
+      return sql`v.status = 'active' and not v.is_demo and exists (
+        select 1 from agenda.event_interests i where i.visitor_id = v.id and i.event_id = ${eventId}
+      )`;
   }
 }
 
 export class PgAudienceDirectory implements AudienceDirectory {
   constructor(private readonly db: Database) {}
 
-  async count(audience: NotificationAudience, storeId: string | null): Promise<number> {
+  async count(target: AudienceTarget): Promise<number> {
     const { n } = await this.db.one<{ n: number }>(sql`
       select count(*) as n
       from visitors.visitors v
-      where ${audienceCondition(audience, storeId)}
+      where ${audienceCondition(target)}
         and exists (select 1 from visitors.push_tokens t where t.visitor_id = v.id)
     `);
     return n;
   }
 
-  async recipients(
-    audience: NotificationAudience,
-    storeId: string | null,
-  ): Promise<PushRecipient[]> {
+  async recipients(target: AudienceTarget): Promise<PushRecipient[]> {
     const rows = await this.db.many<{ visitor_id: string; token: string }>(sql`
       select t.visitor_id, t.token
       from visitors.visitors v
       join visitors.push_tokens t on t.visitor_id = v.id
-      where ${audienceCondition(audience, storeId)}
+      where ${audienceCondition(target)}
       order by t.visitor_id
     `);
     return rows.map((r) => ({ visitorId: r.visitor_id, token: r.token }));

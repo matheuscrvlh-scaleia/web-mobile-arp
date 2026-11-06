@@ -1,7 +1,14 @@
 import { type AuthUser, type Permission, ROUTES, type SessionResponse } from "@arp/contracts";
 import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
-import { apiCall, onSessionEvent, refreshSession, setSession, signedOut } from "@/shared/api";
+import {
+  apiCall,
+  onSessionEvent,
+  refreshSession,
+  refreshWasDisabled,
+  setSession,
+  signedOut,
+} from "@/shared/api";
 import {
   AuthContext,
   type AuthContextValue,
@@ -27,6 +34,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUserState(session.user);
         setStatus("authenticated");
       } else {
+        // Abriu o painel com a conta já desativada: o login diz o motivo.
+        if (refreshWasDisabled()) setReason("disabled");
         setStatus("anonymous");
       }
     });
@@ -39,7 +48,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setUserState(null);
       setStatus("anonymous");
-      setReason(event.type === "expired" ? "expired" : "signed-out");
+      setReason(
+        event.type === "expired" ? (event.disabled ? "disabled" : "expired") : "signed-out",
+      );
       queryClient.clear();
     });
     return () => {

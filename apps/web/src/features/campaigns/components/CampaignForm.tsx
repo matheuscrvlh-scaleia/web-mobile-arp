@@ -1,4 +1,4 @@
-import { type Campaign, type CampaignStatus, createCampaignBodySchema } from "@arp/contracts";
+import { type Campaign, createCampaignBodySchema } from "@arp/contracts";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMemo } from "react";
 import { Controller, type UseFormReturn, useForm, useWatch } from "react-hook-form";
@@ -15,10 +15,8 @@ import {
   FormSection,
   Input,
   SaveBar,
-  Segmented,
   Textarea,
 } from "@/shared/ui";
-import { CAMPAIGN_STATUS_LABEL } from "./CampaignBadges";
 
 export const campaignFormSchema = createCampaignBodySchema;
 export type CampaignFormInput = z.input<typeof campaignFormSchema>;
@@ -75,11 +73,6 @@ export function CampaignForm({
   const { errors, isDirty } = formState;
   const { allowLeave } = useUnsavedChangesGuard(isDirty && !saving);
   const description = useWatch({ control, name: "description" });
-
-  // Arquivar só faz sentido para o que já existe.
-  const statuses: CampaignStatus[] = creating
-    ? ["draft", "published"]
-    : ["draft", "published", "archived"];
 
   return (
     <form onSubmit={form.handleSubmit((v) => onSubmit(v, { form, allowLeave }))} noValidate>
@@ -144,25 +137,6 @@ export function CampaignForm({
                 />
               </Field>
             </FieldRow>
-          </FormSection>
-          <FormSection
-            title="Publicação"
-            description="Rascunho não aparece no app. Arquivada sai das listas, mas o histórico fica."
-          >
-            <Field label="Situação" error={errors.status?.message}>
-              <Controller
-                control={control}
-                name="status"
-                render={({ field }) => (
-                  <Segmented
-                    label="Situação da campanha"
-                    value={field.value ?? "draft"}
-                    onChange={field.onChange}
-                    options={statuses.map((s) => ({ value: s, label: CAMPAIGN_STATUS_LABEL[s] }))}
-                  />
-                )}
-              />
-            </Field>
           </FormSection>
         </Card>
       </fieldset>

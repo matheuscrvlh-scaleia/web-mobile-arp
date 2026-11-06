@@ -30,6 +30,10 @@ import type { CreateHighlightUseCase } from "../application/create-highlight.use
 import type { CreateNotificationUseCase } from "../application/create-notification.use-case";
 import type { DeleteHighlightUseCase } from "../application/delete-highlight.use-case";
 import { HIGHLIGHT_NOT_FOUND, NOTIFICATION_NOT_FOUND } from "../application/marketing-deps";
+import type {
+  DeleteNotificationUseCase,
+  NotificationBackToDraftUseCase,
+} from "../application/notification-draft.use-case";
 import type { ReorderHighlightsUseCase } from "../application/reorder-highlights.use-case";
 import type { ScheduleNotificationUseCase } from "../application/schedule-notification.use-case";
 import type { UpdateHighlightUseCase } from "../application/update-highlight.use-case";
@@ -48,6 +52,8 @@ export interface MarketingRoutesDeps {
   updateNotification: UpdateNotificationUseCase;
   scheduleNotification: ScheduleNotificationUseCase;
   cancelNotification: CancelNotificationUseCase;
+  notificationToDraft: NotificationBackToDraftUseCase;
+  deleteNotification: DeleteNotificationUseCase;
 }
 
 function toNewHighlight(body: CreateHighlightBody): NewHighlight {
@@ -151,7 +157,11 @@ export function marketingRoutes(deps: MarketingRoutesDeps): FastifyPluginAsyncZo
       ROUTES.notifications.estimate,
       { querystring: audienceEstimateQuerySchema, response: { 200: audienceEstimateSchema } },
       async (request) => ({
-        recipientsCount: await queries.estimate(request.query.audience, request.query.storeId),
+        recipientsCount: await queries.estimate(
+          request.query.audience,
+          request.query.storeId,
+          request.query.eventId,
+        ),
       }),
     );
 
@@ -165,9 +175,14 @@ export function marketingRoutes(deps: MarketingRoutesDeps): FastifyPluginAsyncZo
       ROUTES.notifications.create,
       { body: createNotificationBodySchema, response: { 201: pushNotificationSchema } },
       async (request, reply) => {
-        const { storeId, deepLink, ...content } = request.body;
+        const { storeId, eventId, deepLink, ...content } = request.body;
         const id = await deps.createNotification.execute(
-          { ...content, storeId: storeId ?? null, deepLink: deepLink ?? null },
+          {
+            ...content,
+            storeId: storeId ?? null,
+            eventId: eventId ?? null,
+            deepLink: deepLink || null,
+          },
           staffOf(request),
         );
         return reply.status(201).send(await notification(id));
@@ -182,8 +197,12 @@ export function marketingRoutes(deps: MarketingRoutesDeps): FastifyPluginAsyncZo
         response: { 200: pushNotificationSchema },
       },
       async (request) => {
+        const { deepLink, ...changes } = request.body;
         await deps.updateNotification.execute(
-          { id: request.params.id, changes: request.body },
+          {
+            id: request.params.id,
+            changes: deepLink === undefined ? changes : { ...changes, deepLink: deepLink || null },
+          },
           staffOf(request),
         );
         return notification(request.params.id);
@@ -214,5 +233,19 @@ export function marketingRoutes(deps: MarketingRoutesDeps): FastifyPluginAsyncZo
         return notification(request.params.id);
       },
     );
+
+    r.route(
+      ROUTES.notifications.toDraft,
+      { params: idParamsSchema, response: { 200: pushNotificationSchema } },
+      async (request) => {
+        await deps.notificationToDraft.execute({ id: request.params.id }, staffOf(request));
+        return notification(request.params.id);
+      },
+    );
+
+    r.route(ROUTES.notifications.remove, { params: idParamsSchema }, async (request, reply) => {
+      await deps.deleteNotification.execute({ id: request.params.id }, staffOf(request));
+      return reply.status(204).send();
+    });
   };
 }

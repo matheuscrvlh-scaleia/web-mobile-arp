@@ -2,11 +2,11 @@ import type { Floor } from "@arp/contracts";
 import { Layers, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { plural } from "@/shared/lib/format";
-import { Button, Card, CardHeader, ConfirmDialog, IconButton, toast } from "@/shared/ui";
+import { ActionMenu, Button, Card, CardHeader, ConfirmDialog, toast } from "@/shared/ui";
 import { useDeleteFloor } from "../api";
 import { FloorFormModal } from "./FloorFormModal";
 
-/** Cadastro de andares (criar, renomear, apagar andar sem lojas). */
+/** Cadastro de andares (criar, renomear, excluir andar sem lojas), com ⋯ por linha. */
 export function FloorsPanel({
   floors,
   currentId,
@@ -56,26 +56,24 @@ export function FloorsPanel({
               </span>
             </button>
             {canEdit && (
-              <>
-                <IconButton
-                  icon={Pencil}
-                  label={`Editar ${f.label}`}
-                  size="sm"
-                  onClick={() => setEditing(f)}
-                />
-                <IconButton
-                  icon={Trash2}
-                  label={
-                    f.storesCount > 0
-                      ? `${f.label} tem lojas: mude-as de andar antes`
-                      : `Apagar ${f.label}`
-                  }
-                  size="sm"
-                  variant="danger"
-                  disabled={f.storesCount > 0}
-                  onClick={() => setDeleting(f)}
-                />
-              </>
+              <ActionMenu
+                size="sm"
+                ariaLabel={`Mais ações de ${f.label}`}
+                items={[
+                  { label: "Editar", icon: Pencil, onSelect: () => setEditing(f) },
+                  {
+                    label: "Excluir andar",
+                    icon: Trash2,
+                    danger: true,
+                    disabled: f.storesCount > 0,
+                    hint:
+                      f.storesCount > 0
+                        ? `Tem ${plural(f.storesCount, "loja", "lojas")}: mude-as de andar antes.`
+                        : undefined,
+                    onSelect: () => setDeleting(f),
+                  },
+                ]}
+              />
             )}
           </li>
         ))}
@@ -93,16 +91,16 @@ export function FloorsPanel({
           remove.reset();
         }}
         danger
-        title={`Apagar ${deleting?.label ?? "andar"}?`}
+        title={`Excluir ${deleting?.label ?? "andar"}?`}
         description="O desenho e os pontos de referência deste andar também saem do app."
-        confirmLabel="Apagar andar"
+        confirmLabel="Excluir andar"
         loading={remove.isPending}
         error={remove.error}
         onConfirm={() =>
           deleting &&
           remove.mutate(deleting.id, {
             onSuccess: () => {
-              toast.success("Andar apagado.");
+              toast.success("Andar excluído.");
               setDeleting(null);
             },
           })

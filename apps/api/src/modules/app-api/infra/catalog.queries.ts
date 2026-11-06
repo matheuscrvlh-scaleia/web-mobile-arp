@@ -97,7 +97,7 @@ const storeSummarySelect = (
            select jsonb_agg(jsonb_build_object(
                     'weekday', h.weekday,
                     'opensAt', to_char(h.opens_at, 'HH24:MI'),
-                    'closesAt', to_char(h.closes_at, 'HH24:MI')) order by h.weekday)
+                    'closesAt', to_char(h.closes_at, 'HH24:MI')) order by h.weekday, h.opens_at)
            from directory.store_hours h where h.store_id = s.id
          ), '[]'::jsonb) as hours,
          (select count(*) from promotions.coupons c

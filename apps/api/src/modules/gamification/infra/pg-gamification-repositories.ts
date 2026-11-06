@@ -131,6 +131,17 @@ export class PgSealRepository implements SealRepository {
       SEAL_ERRORS,
     );
   }
+
+  async usage(id: string): Promise<{ earned: number; challenges: number }> {
+    return this.db.one<{ earned: number; challenges: number }>(sql`
+      select (select count(*) from gamification.earned_seals where seal_id = ${id}) as earned,
+             (select count(*) from gamification.challenges where seal_id = ${id}) as challenges
+    `);
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.db.query(sql`delete from gamification.seals where id = ${id}`);
+  }
 }
 
 /* Campanhas -------------------------------------------------------------- */
@@ -196,6 +207,27 @@ export class PgCampaignRepository implements CampaignRepository {
       values ${sql.join(values)}
     `);
   }
+
+  tiersOf(campaignId: string): Promise<TierInput[]> {
+    return this.db.many<TierInput>(sql`
+      select threshold, label, icon from gamification.reward_tiers
+      where campaign_id = ${campaignId}
+      order by threshold
+    `);
+  }
+
+  async countEarned(campaignId: string): Promise<number> {
+    const { n } = await this.db.one<{ n: number }>(
+      sql`select count(*) as n from gamification.earned_seals where campaign_id = ${campaignId}`,
+    );
+    return n;
+  }
+
+  async delete(campaignId: string): Promise<void> {
+    // QR Codes saem em cascata com os desafios; faixas, com a campanha.
+    await this.db.query(sql`delete from gamification.challenges where campaign_id = ${campaignId}`);
+    await this.db.query(sql`delete from gamification.campaigns where id = ${campaignId}`);
+  }
 }
 
 /* Desafios --------------------------------------------------------------- */
@@ -253,6 +285,15 @@ export class PgChallengeRepository implements ChallengeRepository {
     return row ? challengeToDomain(row) : null;
   }
 
+  async listByCampaign(campaignId: string): Promise<Challenge[]> {
+    const rows = await this.db.many<ChallengeRow>(sql`
+      select ${CHALLENGE_COLUMNS} from gamification.challenges
+      where campaign_id = ${campaignId}
+      order by sort_order, title, id
+    `);
+    return rows.map(challengeToDomain);
+  }
+
   async create(d: NewChallenge): Promise<Challenge> {
     const row = await this.db.one<ChallengeRow>(sql`
       insert into gamification.challenges
@@ -288,6 +329,33 @@ export class PgChallengeRepository implements ChallengeRepository {
       sql`select count(*) as n from gamification.earned_seals where challenge_id = ${challengeId}`,
     );
     return n;
+  }
+
+  async nextSortOrder(campaignId: string): Promise<number> {
+    const { next } = await this.db.one<{ next: number }>(sql`
+      select least(coalesce(max(sort_order) + 1, 0), 999) as next
+      from gamification.challenges where campaign_id = ${campaignId}
+    `);
+    return next;
+  }
+
+  async lockCampaignIds(campaignId: string): Promise<string[]> {
+    const rows = await this.db.many<{ id: string }>(sql`
+      select id from gamification.challenges
+      where campaign_id = ${campaignId}
+      order by sort_order, id
+      for update
+    `);
+    return rows.map((r) => r.id);
+  }
+
+  async applyOrder(ids: readonly string[]): Promise<void> {
+    await this.db.query(sql`
+      update gamification.challenges ch
+      set sort_order = o.position - 1
+      from unnest(${[...ids]}::uuid[]) with ordinality as o(id, position)
+      where ch.id = o.id and ch.sort_order is distinct from o.position - 1
+    `);
   }
 }
 

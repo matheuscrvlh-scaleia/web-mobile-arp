@@ -1,9 +1,35 @@
-import { PERMISSION_CATALOG, PERMISSIONS, type Permission } from "@arp/contracts";
+import {
+  IMPLIED_PERMISSIONS,
+  PERMISSION_CATALOG,
+  PERMISSIONS,
+  type Permission,
+  withImpliedPermissions,
+} from "@arp/contracts";
 import { Check, Lock } from "lucide-react";
+// Atalho: a lista de telas vem do menu (fonte única); só leitura, sem React.
+import { screensByPermission } from "@/app/navigation";
 import { cn } from "@/shared/lib/cn";
 import { CountPill } from "@/shared/ui";
 
 const ALL = new Set<string>(PERMISSIONS);
+const SCREENS = screensByPermission();
+
+/** Quem inclui esta permissão (ex.: club.redeem vem com club.manage). */
+function impliedBy(p: Permission, selected: ReadonlySet<Permission>): Permission | null {
+  for (const [parent, children] of Object.entries(IMPLIED_PERMISSIONS)) {
+    if (children?.includes(p) && selected.has(parent as Permission)) return parent as Permission;
+  }
+  return null;
+}
+
+const LABEL = new Map<string, string>(
+  PERMISSION_CATALOG.flatMap((g) => g.items.map((i) => [i.key, i.label] as const)),
+);
+
+/** Telas do menu que o grupo libera ("Libera: Lojas, Mapa"). */
+function screensOf(keys: readonly Permission[]): string[] {
+  return [...new Set(keys.flatMap((k) => SCREENS.get(k) ?? []))];
+}
 
 /** "stores.manage" → "stores.view" (gerenciar sem ver não faz sentido). */
 function viewOf(p: Permission): Permission | null {
@@ -44,7 +70,7 @@ export function PermissionEditor({
       const m = manageOf(p);
       if (m) next.delete(m);
     }
-    onChange(PERMISSIONS.filter((x) => next.has(x)));
+    onChange(PERMISSIONS.filter((x) => withImpliedPermissions([...next]).includes(x)));
   };
 
   const setGroup = (keys: Permission[], on: boolean) => {
@@ -53,7 +79,7 @@ export function PermissionEditor({
       if (on) next.add(k);
       else next.delete(k);
     }
-    onChange(PERMISSIONS.filter((x) => next.has(x)));
+    onChange(PERMISSIONS.filter((x) => withImpliedPermissions([...next]).includes(x)));
   };
 
   return (
@@ -62,13 +88,14 @@ export function PermissionEditor({
         const keys = group.items.map((i) => i.key) as Permission[];
         const count = keys.filter((k) => locked || selected.has(k)).length;
         const all = count === keys.length;
+        const screens = screensOf(keys);
         return (
           <fieldset
             key={group.group}
             className="min-w-0 rounded-3xl border border-neutral-200 bg-white/60 p-4"
           >
             <legend className="sr-only">{group.group}</legend>
-            <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2 px-2">
+            <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-2 px-2">
               <span aria-hidden className="text-sm font-semibold">
                 {group.group}
               </span>
@@ -86,23 +113,29 @@ export function PermissionEditor({
                 </button>
               )}
             </div>
+            <p className="mb-3 px-2 text-xs text-neutral-500">
+              {screens.length > 0
+                ? `Libera: ${screens.join(", ")}`
+                : "Libera ações dentro de outras telas"}
+            </p>
             <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2">
               {group.items.map((item) => {
                 const key = item.key as Permission;
                 const on = locked || selected.has(key);
+                const parent = locked ? null : impliedBy(key, selected);
                 return (
                   <li key={key} className="min-w-0">
                     <label
                       className={cn(
                         "flex h-full items-start gap-3 rounded-2xl px-2 py-2 text-sm transition",
-                        locked ? "cursor-default" : "cursor-pointer hover:bg-neutral-100",
+                        locked || parent ? "cursor-default" : "cursor-pointer hover:bg-neutral-100",
                         on && "bg-neutral-100/60",
                       )}
                     >
                       <input
                         type="checkbox"
                         checked={on}
-                        disabled={locked}
+                        disabled={locked || Boolean(parent)}
                         onChange={(e) => toggle(key, e.target.checked)}
                         className="peer sr-only"
                       />
@@ -113,7 +146,7 @@ export function PermissionEditor({
                           on
                             ? "border-neutral-900 bg-neutral-900 text-white"
                             : "border-neutral-300 bg-white",
-                          locked && "opacity-60",
+                          (locked || parent) && "opacity-60",
                         )}
                       >
                         {locked ? (
@@ -123,9 +156,16 @@ export function PermissionEditor({
                         ) : null}
                       </span>
                       <span className="min-w-0">
-                        <span className="block text-neutral-800">{item.label}</span>
+                        {/* O código técnico (ex.: stores.view) fica só no tooltip, para o TI. */}
+                        <span className="block text-neutral-800" title={key}>
+                          {item.label}
+                        </span>
                         <span className="block text-xs text-neutral-500">{item.description}</span>
-                        <span className="block font-mono text-[10px] text-neutral-400">{key}</span>
+                        {parent && (
+                          <span className="block text-xs text-neutral-500">
+                            Vem junto com “{LABEL.get(parent)}”.
+                          </span>
+                        )}
                       </span>
                     </label>
                   </li>

@@ -1,6 +1,7 @@
 import type { ClaimStatus, CouponClaim } from "@arp/contracts";
 import {
   Ban,
+  CalendarX,
   CircleCheckBig,
   CircleX,
   Clock4,
@@ -21,6 +22,7 @@ export type RedeemProblem =
   | "CLAIM_EXPIRED"
   | "CLAIM_CANCELLED"
   | "CLAIM_WRONG_STORE"
+  | "CLAIM_WRONG_DAY"
   | "NOT_FOUND"
   | "OTHER";
 
@@ -47,6 +49,11 @@ const PROBLEMS: Record<
     title: "Cupom de outra loja",
     text: "Este código só pode ser validado na loja da promoção.",
     icon: Store,
+  },
+  CLAIM_WRONG_DAY: {
+    title: "Hoje este cupom não vale",
+    text: "Ele só vale nos dias marcados nas condições. Peça para o visitante voltar num desses dias.",
+    icon: CalendarX,
   },
   NOT_FOUND: {
     title: "Código não encontrado",

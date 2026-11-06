@@ -44,13 +44,29 @@ export function MerchantSignupPage() {
     );
   }
   if (signup.isSuccess) {
+    const panel = window.location.host;
     return (
       <AccessScreen
         documentTitle="Cadastro enviado"
         title="Cadastro enviado"
-        subtitle="A ARP vai conferir e aprovar o seu acesso. Você recebe um aviso por e-mail e, depois disso, entra na Área do lojista do app ARP com este e-mail e senha."
+        subtitle="A ARP vai conferir e aprovar o seu acesso. Você recebe um aviso por e-mail."
       >
-        <CircleCheck className="size-10 text-emerald-600" aria-hidden />
+        <div className="flex flex-col items-center gap-3 text-center">
+          <CircleCheck className="size-10 text-emerald-600" aria-hidden />
+          <p className="text-sm text-neutral-700">
+            Depois da aprovação, entre no painel em{" "}
+            <a
+              href={window.location.origin}
+              className="font-semibold text-neutral-900 underline underline-offset-2"
+            >
+              {panel}
+            </a>{" "}
+            com o e-mail <strong>{form.getValues("email")}</strong> e a senha que você criou.
+          </p>
+          <p className="text-xs text-neutral-500">
+            Dica: salve esse endereço nos favoritos do navegador.
+          </p>
+        </div>
       </AccessScreen>
     );
   }
@@ -59,7 +75,7 @@ export function MerchantSignupPage() {
     <AccessScreen
       documentTitle="Cadastro de lojista"
       title={`Lojista da ${invitation.data.store.name}`}
-      subtitle="Crie o seu acesso. Ele começa a valer depois que a ARP aprovar."
+      subtitle="Crie o seu acesso ao painel da ARP. Ele começa a valer depois que a ARP aprovar."
     >
       <form onSubmit={onSubmit} className="flex flex-col gap-5" noValidate>
         <Field label="Seu nome" error={errors.name?.message}>
@@ -71,7 +87,7 @@ export function MerchantSignupPage() {
         <Field
           label="WhatsApp"
           optional
-          hint="Para o aviso de aprovação"
+          hint="Para a ARP falar com você, se precisar"
           error={errors.phone?.message}
         >
           <Input
@@ -83,7 +99,11 @@ export function MerchantSignupPage() {
             })}
           />
         </Field>
-        <Field label="Senha" error={errors.password?.message}>
+        <Field
+          label="Senha"
+          hint="Pelo menos 8 caracteres, com uma letra e um número."
+          error={errors.password?.message}
+        >
           <PasswordInput autoComplete="new-password" {...form.register("password")} />
         </Field>
         <FormError message={signup.error && !errors.email ? errorMessage(signup.error) : null} />

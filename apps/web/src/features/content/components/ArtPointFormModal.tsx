@@ -5,12 +5,14 @@ import {
   createArtPointBodySchema,
 } from "@arp/contracts";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Controller, useForm } from "react-hook-form";
+import { MapPinOff } from "lucide-react";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import type { z } from "zod";
 import { applyApiErrors, errorMessage } from "@/shared/api";
 import { saveInput } from "@/shared/lib/forms";
 import {
   Button,
+  confirmar,
   Field,
   FieldRow,
   ImageUpload,
@@ -22,6 +24,7 @@ import {
   toast,
 } from "@/shared/ui";
 import { useSaveArtPoint } from "../api";
+import { CircuitMap, type MapPoint, NoMapImage } from "./CircuitMap";
 
 type Input_ = z.input<typeof createArtPointBodySchema>;
 type Values = z.output<typeof createArtPointBodySchema>;
@@ -38,8 +41,6 @@ const FIELDS = [
   "mapY",
 ] as const;
 
-const optionalNumber = { setValueAs: (v: unknown) => (v === "" || v === null ? null : Number(v)) };
-
 function toValues(p?: ArtPoint): Input_ {
   return {
     number: p?.number ?? 1,
@@ -55,16 +56,37 @@ function toValues(p?: ArtPoint): Input_ {
   };
 }
 
-/** Ponto do Circuito Cultural: número, nome, artista, local, tipo e posição no mapa. */
+/** Perguntar antes de fechar um modal com algo digitado (Esc, clique fora, X, Voltar). */
+export async function confirmDiscard(dirty: boolean, what: string): Promise<boolean> {
+  if (!dirty) return true;
+  return confirmar({
+    title: `Descartar ${what}?`,
+    description: "O que você digitou neste formulário se perde.",
+    confirmLabel: "Descartar",
+    cancelLabel: "Continuar editando",
+    danger: true,
+  });
+}
+
+/**
+ * Ponto do Circuito Cultural: número, nome, artista, local, tipo e a posição,
+ * marcada clicando (ou arrastando o pino) no mapa do Circuito.
+ */
 export function ArtPointFormModal({
   open,
   point,
   nextNumber,
+  mapUrl,
+  others,
   onClose,
 }: {
   open: boolean;
   point?: ArtPoint;
   nextNumber: number;
+  /** Imagem do mapa (Textos → Circuito Cultural); null = ainda não enviada. */
+  mapUrl: string | null;
+  /** Os outros pontos já posicionados (referência no mapa). */
+  others: MapPoint[];
   onClose: () => void;
 }) {
   const save = useSaveArtPoint();
@@ -72,11 +94,15 @@ export function ArtPointFormModal({
     resolver: zodResolver(createArtPointBodySchema),
     values: point ? toValues(point) : { ...toValues(), number: nextNumber },
   });
-  const { errors } = form.formState;
+  const { errors, isDirty } = form.formState;
+  const [mapX, mapY, name] = useWatch({ control: form.control, name: ["mapX", "mapY", "name"] });
   const close = () => {
     form.reset();
     save.reset();
     onClose();
+  };
+  const requestClose = async () => {
+    if (await confirmDiscard(isDirty, point ? "as alterações" : "o novo ponto")) close();
   };
   const onSubmit = form.handleSubmit((values) =>
     save.mutate(saveInput(point?.id, values, form.formState.dirtyFields), {
@@ -89,18 +115,24 @@ export function ArtPointFormModal({
       },
     }),
   );
+  const setPos = (pos: { x: number; y: number } | null) => {
+    form.setValue("mapX", pos?.x ?? null, { shouldDirty: true });
+    form.setValue("mapY", pos?.y ?? null, { shouldDirty: true });
+  };
+  const hasPos = typeof mapX === "number" && typeof mapY === "number";
 
   return (
     <Modal
       open={open}
-      onClose={close}
+      onClose={() => void requestClose()}
       busy={save.isPending}
+      size="lg"
       title={point ? `Editar ${point.name}` : "Novo ponto do Circuito"}
       description="Aparece no mapa e na lista do Circuito Cultural no app."
       footer={
         <>
-          <Button variant="secondary" onClick={close} disabled={save.isPending}>
-            Cancelar
+          <Button variant="secondary" onClick={() => void requestClose()} disabled={save.isPending}>
+            Voltar
           </Button>
           <Button type="submit" form="form-ponto-arte" loading={save.isPending}>
             {point ? "Salvar" : "Criar ponto"}
@@ -139,6 +171,44 @@ export function ArtPointFormModal({
             <Input placeholder="Praça dos Contêineres" {...form.register("place")} />
           </Field>
         </FieldRow>
+        <Field
+          label="Posição no mapa"
+          optional
+          hint={
+            !mapUrl
+              ? undefined
+              : hasPos
+                ? "Arraste o pino (ou use as setas do teclado) para ajustar."
+                : "Clique no mapa onde o ponto fica."
+          }
+          action={
+            hasPos ? (
+              <button
+                type="button"
+                onClick={() => setPos(null)}
+                className="inline-flex items-center gap-1 text-neutral-500 underline-offset-2 hover:text-neutral-900 hover:underline"
+              >
+                <MapPinOff className="size-3.5" aria-hidden />
+                Limpar posição
+              </button>
+            ) : (
+              "Sem posição"
+            )
+          }
+          error={errors.mapX?.message ?? errors.mapY?.message}
+        >
+          {mapUrl ? (
+            <CircuitMap
+              imageUrl={mapUrl}
+              points={others}
+              value={hasPos ? { x: mapX, y: mapY } : null}
+              onChange={setPos}
+              label={name || "Ponto"}
+            />
+          ) : (
+            <NoMapImage />
+          )}
+        </Field>
         <Field label="Descrição" optional error={errors.description?.message}>
           <Textarea rows={3} maxLength={600} {...form.register("description")} />
         </Field>
@@ -151,36 +221,6 @@ export function ArtPointFormModal({
             )}
           />
         </Field>
-        <FieldRow>
-          <Field
-            label="Posição X (%)"
-            optional
-            hint="0 = esquerda, 100 = direita do mapa"
-            error={errors.mapX?.message}
-          >
-            <Input
-              type="number"
-              min={0}
-              max={100}
-              step={0.1}
-              {...form.register("mapX", optionalNumber)}
-            />
-          </Field>
-          <Field
-            label="Posição Y (%)"
-            optional
-            hint="0 = topo, 100 = base do mapa"
-            error={errors.mapY?.message}
-          >
-            <Input
-              type="number"
-              min={0}
-              max={100}
-              step={0.1}
-              {...form.register("mapY", optionalNumber)}
-            />
-          </Field>
-        </FieldRow>
         <Controller
           control={form.control}
           name="active"

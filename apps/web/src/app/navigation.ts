@@ -1,4 +1,4 @@
-import { type AuthUser, type Permission, ROUTES } from "@arp/contracts";
+import { type AuthUser, type PendingKind, type Permission, ROUTES } from "@arp/contracts";
 import {
   ArrowRightLeft,
   Award,
@@ -18,7 +18,6 @@ import {
   Settings,
   Store,
   Tags,
-  Target,
   TicketPercent,
   Trophy,
   UserPlus,
@@ -27,6 +26,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { PATHS } from "@/shared/config/paths";
+import { normalize } from "@/shared/lib/text";
 
 export interface NavItem {
   label: string;
@@ -36,6 +36,10 @@ export interface NavItem {
   permission: Permission | null;
   /** Outras telas que também acendem este item (ex.: abas em rotas próprias). */
   also?: string[];
+  /** Outras palavras que acham a tela na busca (Ctrl+K): sinônimos, nome antigo. */
+  keywords?: string[];
+  /** Contador de pendências ao lado do nome (ex.: cupons para aprovar). */
+  badge?: PendingKind;
 }
 
 export interface NavSection {
@@ -43,92 +47,183 @@ export interface NavSection {
   items: NavItem[];
 }
 
+type ItemExtras = Pick<NavItem, "also" | "keywords" | "badge">;
+
 const item = (
   label: string,
   to: string,
   icon: LucideIcon,
   permission: Permission | null,
-  also?: string[],
-): NavItem => ({ label, to, icon, permission, ...(also && { also }) });
+  extras: ItemExtras = {},
+): NavItem => ({ label, to, icon, permission, ...extras });
 
-/** Menu completo da equipe da ARP. */
+/*
+ * Menu da equipe da ARP, agrupado pela tarefa (o h1 de cada tela é o rótulo
+ * do item). Balcão vem logo depois do Início: para quem só atende (sem
+ * Dashboard), é a primeira tela depois do login.
+ */
 const STAFF_NAV: NavSection[] = [
   {
-    title: "Gestão",
-    items: [item("Dashboard", PATHS.dashboard, LayoutDashboard, ROUTES.dashboard.permission)],
-  },
-  {
-    title: "Guia",
+    title: "Início",
     items: [
-      item("Lojas", PATHS.stores, Store, ROUTES.stores.list.permission),
-      item("Mapa", PATHS.map(), MapIcon, ROUTES.floors.list.permission),
-      item("Categorias e blocos", PATHS.catalog(), Tags, ROUTES.storeCategories.list.permission),
+      item("Dashboard", PATHS.dashboard, LayoutDashboard, ROUTES.dashboard.permission, {
+        keywords: ["início", "inicio", "painel", "indicadores", "pendências", "resumo"],
+      }),
     ],
   },
   {
-    title: "Cupons",
+    title: "Balcão",
     items: [
-      item("Promoções", PATHS.coupons, TicketPercent, ROUTES.coupons.list.permission),
-      item(
-        "Aprovar cupons",
-        `${PATHS.coupons}?review=pending`,
-        Hourglass,
-        ROUTES.coupons.review.permission,
-      ),
-      item("Validar cupom", PATHS.redeem, ClipboardCheck, ROUTES.claims.redeem.permission),
-      item("Cupons pegos", PATHS.claims, Wallet, ROUTES.claims.list.permission),
-    ],
-  },
-  {
-    title: "Selos",
-    items: [
-      item("Campanhas", PATHS.campaigns, Trophy, ROUTES.campaigns.list.permission),
-      item("Desafios", PATHS.challenges, Target, ROUTES.challenges.list.permission),
-      item("Selos", PATHS.seals, Award, ROUTES.seals.list.permission),
-      item("Clube ARP", PATHS.club(), Gift, ROUTES.prizes.list.permission),
+      item("Validar cupom", PATHS.redeem, ClipboardCheck, ROUTES.claims.redeem.permission, {
+        keywords: ["caixa", "código", "qr", "usar cupom", "baixa"],
+      }),
       item(
         "Trocar pontos",
         PATHS.prizeExchange,
         ArrowRightLeft,
         ROUTES.prizeRedemptions.create.permission,
+        {
+          keywords: [
+            "trocar prêmio",
+            "validar troca",
+            "entregar prêmio",
+            "troca",
+            "pontos",
+            "clube",
+            "brinde",
+            "desfazer troca",
+          ],
+        },
       ),
-      item("Relatórios", PATHS.reports, BarChart3, ROUTES.clubReports.coupons.permission),
     ],
   },
   {
-    title: "Agenda",
-    items: [item("Eventos", PATHS.events, CalendarDays, ROUTES.events.list.permission)],
+    title: "Lojas",
+    items: [
+      item("Lojas", PATHS.stores, Store, ROUTES.stores.list.permission, {
+        keywords: ["guia", "loja", "restaurante", "alimentação", "horário"],
+      }),
+      item("Mapa", PATHS.map(), MapIcon, ROUTES.floors.list.permission, {
+        keywords: ["andar", "planta", "referência", "localização"],
+      }),
+      item("Categorias e blocos", PATHS.catalog(), Tags, ROUTES.storeCategories.list.permission, {
+        keywords: ["categoria", "bloco", "segmento"],
+      }),
+      item("Lojistas", PATHS.merchants, UserPlus, ROUTES.merchantSignups.list.permission, {
+        keywords: ["cadastro de lojista", "link de cadastro", "aprovar lojista", "parceiro"],
+        badge: "merchantSignups",
+      }),
+    ],
+  },
+  {
+    title: "Promoções",
+    items: [
+      item("Promoções", PATHS.coupons, TicketPercent, ROUTES.coupons.list.permission, {
+        keywords: ["cupom", "oferta", "desconto", "estoque"],
+      }),
+      item(
+        "Aprovar cupons",
+        `${PATHS.coupons}?review=pending`,
+        Hourglass,
+        ROUTES.coupons.review.permission,
+        { keywords: ["revisão", "aprovação", "aguardando", "lojista"], badge: "couponsToReview" },
+      ),
+      item("Cupons pegos", PATHS.claims, Wallet, ROUTES.claims.list.permission, {
+        keywords: ["cupom", "resgate", "usados", "código"],
+      }),
+    ],
+  },
+  {
+    title: "Selos",
+    items: [
+      // Os desafios são uma aba da campanha; /desafios continua acendendo aqui.
+      item("Campanhas", PATHS.campaigns, Trophy, ROUTES.campaigns.list.permission, {
+        also: [PATHS.challenges],
+        keywords: ["desafio", "qr", "missão", "mês", "faixa", "recompensa"],
+      }),
+      item("Selos", PATHS.seals, Award, ROUTES.seals.list.permission, {
+        keywords: ["selo", "conquista", "medalha", "conquistados"],
+      }),
+    ],
+  },
+  {
+    title: "Clube ARP",
+    items: [
+      item("Clube ARP", PATHS.club(), Gift, ROUTES.prizes.list.permission, {
+        keywords: ["pontos", "prêmio", "lojinha", "trocas", "ranking", "fidelidade"],
+      }),
+    ],
   },
   {
     title: "Comunicação",
     items: [
-      item("Destaques", PATHS.highlights, Megaphone, ROUTES.highlights.list.permission),
-      item("Notificações", PATHS.notifications, Bell, ROUTES.notifications.list.permission),
+      item("Destaques", PATHS.highlights, Megaphone, ROUTES.highlights.list.permission, {
+        keywords: ["banner", "carrossel", "patrocinado", "home do app", "vitrine"],
+      }),
+      item("Notificações", PATHS.notifications, Bell, ROUTES.notifications.list.permission, {
+        keywords: ["push", "aviso", "mensagem", "disparo", "enviar"],
+      }),
+      item("Eventos", PATHS.events, CalendarDays, ROUTES.events.list.permission, {
+        keywords: ["agenda", "show", "calendário", "programação"],
+      }),
     ],
   },
   {
     title: "Conteúdo",
     items: [
-      item(
-        "Textos, Circuito e Sustentarp",
-        PATHS.content(),
-        Palette,
-        ROUTES.contentPages.list.permission,
-      ),
-      item("Vagas", PATHS.jobs, BriefcaseBusiness, ROUTES.jobs.list.permission),
+      item("Conteúdo do app", PATHS.content(), Palette, ROUTES.contentPages.list.permission, {
+        keywords: [
+          "textos",
+          "circuito",
+          "sustentarp",
+          "regulamento",
+          "regras",
+          "história",
+          "reciclagem",
+          "arte",
+        ],
+      }),
+      item("Vagas", PATHS.jobs, BriefcaseBusiness, ROUTES.jobs.list.permission, {
+        keywords: ["emprego", "trabalhe conosco", "currículo"],
+      }),
     ],
   },
   {
-    title: "Visitantes",
-    items: [item("Visitantes", PATHS.visitors, UserRound, ROUTES.visitors.list.permission)],
+    title: "Pessoas",
+    items: [
+      item("Visitantes", PATHS.visitors, UserRound, ROUTES.visitors.list.permission, {
+        keywords: ["cliente", "conta do app", "bloquear", "lgpd", "anonimizar"],
+      }),
+      item("Usuários e cargos", PATHS.users, Users, ROUTES.users.list.permission, {
+        also: [PATHS.roles],
+        keywords: ["equipe", "acesso", "permissão", "senha", "cargo", "login"],
+      }),
+    ],
   },
   {
-    title: "Administração",
+    title: "Sistema",
     items: [
-      item("Usuários e cargos", PATHS.users, Users, ROUTES.users.list.permission, [PATHS.roles]),
-      item("Lojistas", PATHS.merchants, UserPlus, ROUTES.merchantSignups.list.permission),
-      item("Histórico", PATHS.audit, History, ROUTES.auditLogs.permission),
-      item("Configurações", PATHS.settings, Settings, ROUTES.settings.get.permission),
+      item("Relatórios", PATHS.reports, BarChart3, ROUTES.clubReports.coupons.permission, {
+        keywords: ["relatório", "cobrança", "cupons por loja", "selos por loja", "exportar"],
+      }),
+      item("Histórico", PATHS.audit, History, ROUTES.auditLogs.permission, {
+        keywords: ["auditoria", "log", "quem alterou", "alterações"],
+      }),
+      item("Configurações", PATHS.settings, Settings, ROUTES.settings.get.permission, {
+        keywords: [
+          "ajustes",
+          "suporte",
+          "contato",
+          "whatsapp",
+          "validade dos pontos",
+          "prazo padrão",
+          "estacionamento",
+          "tour",
+          "sobre a arp",
+          "termos",
+          "privacidade",
+        ],
+      }),
     ],
   },
 ];
@@ -146,21 +241,39 @@ function merchantNav(storeId: string): NavSection[] {
           PATHS.store(storeId, "desempenho"),
           Store,
           ROUTES.stores.get.permission,
-          [PATHS.store(storeId)],
+          {
+            also: [PATHS.store(storeId)],
+            keywords: ["loja", "horário", "desempenho", "dados"],
+          },
         ),
       ],
     },
     {
-      title: "Cupons",
+      title: "Balcão",
       items: [
-        item("Validar cupom", PATHS.redeem, ClipboardCheck, ROUTES.claims.redeem.permission),
-        item("Promoções", PATHS.coupons, TicketPercent, ROUTES.coupons.list.permission),
-        item("Cupons pegos", PATHS.claims, Wallet, ROUTES.claims.list.permission),
+        item("Validar cupom", PATHS.redeem, ClipboardCheck, ROUTES.claims.redeem.permission, {
+          keywords: ["caixa", "código", "qr"],
+        }),
+      ],
+    },
+    {
+      title: "Promoções",
+      items: [
+        item("Promoções", PATHS.coupons, TicketPercent, ROUTES.coupons.list.permission, {
+          keywords: ["cupom", "oferta", "desconto"],
+        }),
+        item("Cupons pegos", PATHS.claims, Wallet, ROUTES.claims.list.permission, {
+          keywords: ["cupom", "usados", "código"],
+        }),
       ],
     },
     {
       title: "Vagas",
-      items: [item("Vagas", PATHS.jobs, BriefcaseBusiness, ROUTES.jobs.list.permission)],
+      items: [
+        item("Vagas", PATHS.jobs, BriefcaseBusiness, ROUTES.jobs.list.permission, {
+          keywords: ["emprego", "currículo"],
+        }),
+      ],
     },
   ];
 }
@@ -180,6 +293,74 @@ export function navigationFor(user: AuthUser): NavSection[] {
 /** Primeira tela depois do login: a primeira do menu da pessoa. */
 export function homePathFor(user: AuthUser): string | null {
   return navigationFor(user)[0]?.items[0]?.to ?? null;
+}
+
+/**
+ * Telas do menu da equipe que cada permissão libera ("Libera: Lojas, Mapa"),
+ * para a tela de cargos falar a língua do menu.
+ */
+export function screensByPermission(): Map<Permission, string[]> {
+  const map = new Map<Permission, string[]>();
+  for (const section of STAFF_NAV) {
+    for (const it of section.items) {
+      if (!it.permission) continue;
+      map.set(it.permission, [...(map.get(it.permission) ?? []), it.label]);
+    }
+  }
+  return map;
+}
+
+/** Rótulo do menu da tela que usa a permissão (ex.: tela de acesso negado). */
+export function screenOfPermission(permission: Permission): string | null {
+  return screensByPermission().get(permission)?.[0] ?? null;
+}
+
+/* Busca de telas (Ctrl+K) ------------------------------------------------- */
+
+/** Palavra sem acento e sem plural simples ("promoções" → "promoco", "cupons" → "cupom"). */
+function stem(word: string): string {
+  let w = normalize(word);
+  if (w.length > 4 && w.endsWith("oes")) w = `${w.slice(0, -3)}ao`;
+  else if (w.length > 4 && w.endsWith("aes")) w = `${w.slice(0, -3)}ao`;
+  else if (w.length > 3 && w.endsWith("ns")) w = `${w.slice(0, -2)}m`;
+  else if (w.length > 4 && /[rsz]es$/.test(w)) w = w.slice(0, -2);
+  else if (w.length > 3 && w.endsWith("is")) w = `${w.slice(0, -2)}l`;
+  else if (w.length > 3 && w.endsWith("s")) w = w.slice(0, -1);
+  return w;
+}
+
+const words = (text: string) =>
+  text
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean)
+    .map(stem);
+
+/**
+ * A tela casa quando cada palavra digitada começa alguma palavra do rótulo,
+ * da seção ou das palavras-chave (sem acento e sem plural). Rótulo pesa mais.
+ */
+export function searchScreens<T extends NavItem & { section: string }>(
+  all: T[],
+  term: string,
+): T[] {
+  const typed = words(term);
+  if (typed.length === 0) return all;
+  const scored: { it: T; score: number }[] = [];
+  for (const it of all) {
+    const label = words(it.label);
+    const rest = words([it.section, ...(it.keywords ?? [])].join(" "));
+    let score = 0;
+    for (const t of typed) {
+      if (label.some((w) => w.startsWith(t))) score += 2;
+      else if (rest.some((w) => w.startsWith(t))) score += 1;
+      else {
+        score = -1;
+        break;
+      }
+    }
+    if (score > 0) scored.push({ it, score });
+  }
+  return scored.sort((a, b) => b.score - a.score).map((s) => s.it);
 }
 
 /** Item do menu da tela atual: o de caminho mais longo que casa com a URL. */

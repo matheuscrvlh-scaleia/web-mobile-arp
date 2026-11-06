@@ -17,16 +17,31 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { apiRequest, updateListItem } from "@/shared/api";
+import { apiCall, apiRequest, updateListItem } from "@/shared/api";
+
+/** Público para estimar: a loja (seguidores) ou o evento (interessados) quando o público pede. */
+export type AudienceQuery = {
+  audience: NotificationAudience;
+  storeId?: string;
+  eventId?: string;
+};
+
+/** O público está completo (tem a loja ou o evento que ele pede). */
+export const audienceReady = ({ audience, storeId, eventId }: AudienceQuery) =>
+  audience === "store_followers"
+    ? Boolean(storeId)
+    : audience === "event_interested"
+      ? Boolean(eventId)
+      : true;
 
 export const notificationsApi = {
   list: (query: Partial<ListNotificationsQuery>, signal?: AbortSignal) =>
     apiRequest(ROUTES.notifications.list, pushNotificationPageSchema, { query, signal }),
   get: (id: string, signal?: AbortSignal) =>
     apiRequest(ROUTES.notifications.get, pushNotificationSchema, { params: { id }, signal }),
-  estimate: (audience: NotificationAudience, storeId: string | undefined, signal?: AbortSignal) =>
+  estimate: (target: AudienceQuery, signal?: AbortSignal) =>
     apiRequest(ROUTES.notifications.estimate, audienceEstimateSchema, {
-      query: { audience, storeId },
+      query: target,
       signal,
     }),
   create: (body: CreateNotificationBody) =>
@@ -41,6 +56,9 @@ export const notificationsApi = {
     }),
   cancel: (id: string) =>
     apiRequest(ROUTES.notifications.cancel, pushNotificationSchema, { params: { id } }),
+  toDraft: (id: string) =>
+    apiRequest(ROUTES.notifications.toDraft, pushNotificationSchema, { params: { id } }),
+  remove: (id: string) => apiCall(ROUTES.notifications.remove, { params: { id } }),
 };
 
 export const notificationKeys = {
@@ -48,8 +66,8 @@ export const notificationKeys = {
   lists: () => [...notificationKeys.all, "list"] as const,
   list: (query: Partial<ListNotificationsQuery>) => [...notificationKeys.lists(), query] as const,
   detail: (id: string) => [...notificationKeys.all, "detail", id] as const,
-  estimate: (audience: NotificationAudience, storeId: string | undefined) =>
-    [...notificationKeys.all, "estimate", audience, storeId ?? null] as const,
+  estimate: ({ audience, storeId, eventId }: AudienceQuery) =>
+    [...notificationKeys.all, "estimate", audience, storeId ?? null, eventId ?? null] as const,
 };
 
 export function useNotifications(query: Partial<ListNotificationsQuery>) {
@@ -82,13 +100,12 @@ function findInLists(qc: QueryClient, id: string): PushNotification | undefined 
 }
 
 /** Quantas pessoas recebem (só calcula quando o público está completo). */
-export function useAudienceEstimate(audience: NotificationAudience, storeId: string | undefined) {
-  const ready = audience !== "store_followers" || Boolean(storeId);
+export function useAudienceEstimate(target: AudienceQuery) {
   return useQuery({
-    queryKey: notificationKeys.estimate(audience, storeId),
-    queryFn: ({ signal }) => notificationsApi.estimate(audience, storeId, signal),
+    queryKey: notificationKeys.estimate(target),
+    queryFn: ({ signal }) => notificationsApi.estimate(target, signal),
     select: (r) => r.recipientsCount,
-    enabled: ready,
+    enabled: audienceReady(target),
     staleTime: 60_000,
     placeholderData: keepPreviousData,
   });
@@ -137,5 +154,26 @@ export function useCancelNotification() {
   return useMutation({
     mutationFn: notificationsApi.cancel,
     onSuccess: (n) => notificationSaved(qc, n),
+  });
+}
+
+/** Cancelada volta para rascunho (editar e agendar de novo). */
+export function useNotificationToDraft() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: notificationsApi.toDraft,
+    onSuccess: (n) => notificationSaved(qc, n),
+  });
+}
+
+/** Exclui rascunho ou cancelada (enviada fica no histórico). */
+export function useDeleteNotification() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: notificationsApi.remove,
+    onSuccess: (_, id) => {
+      qc.removeQueries({ queryKey: notificationKeys.detail(id) });
+      return qc.invalidateQueries({ queryKey: notificationKeys.lists() });
+    },
   });
 }

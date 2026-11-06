@@ -5,6 +5,7 @@ export const PATHS = {
   home: "/",
   login: "/login",
   changePassword: "/trocar-senha",
+  account: "/minha-conta",
 
   dashboard: "/dashboard",
 
@@ -25,6 +26,8 @@ export const PATHS = {
   coupon: (id: string) => `/cupons/${id}`,
   couponEdit: (id: string) => `/cupons/${id}/editar`,
   redeem: "/cupons/validar",
+  /** Validar já com o código preenchido (ação "Validar" em Cupons pegos). */
+  redeemCode: (code: string) => `/cupons/validar${toQuery({ codigo: code })}`,
   claims: "/cupons/pegos",
   /** Cupons pegos já filtrados (por promoção, loja, visitante ou situação). */
   claimsWith: (filters: ClaimFilters) => `/cupons/pegos${toQuery(filters)}`,
@@ -36,7 +39,9 @@ export const PATHS = {
   challenges: "/desafios",
   /** Desafios de uma campanha (seletor da lista). */
   challengesOf: (campaignId: string) => `/desafios${toQuery({ campaignId })}`,
-  challengeNew: (campaignId?: string) => `/desafios/novo${toQuery({ campaignId })}`,
+  /** `de` = duplicar este desafio (o formulário vem preenchido). */
+  challengeNew: (campaignId?: string, de?: string) =>
+    `/desafios/novo${toQuery({ campaignId, de })}`,
   challenge: (id: string) => `/desafios/${id}`,
   /** QR em modo telão, em tela cheia (abre em outra aba). */
   qrScreen: (id: string) => `/telao/${id}`,
@@ -74,8 +79,14 @@ export const PATHS = {
   settings: "/configuracoes",
 } as const;
 
-export type StoreTab = "dados" | "horarios" | "localizacao" | "desempenho";
-export const STORE_TABS: readonly StoreTab[] = ["dados", "horarios", "localizacao", "desempenho"];
+export type StoreTab = "dados" | "horarios" | "localizacao" | "equipe" | "desempenho";
+export const STORE_TABS: readonly StoreTab[] = [
+  "dados",
+  "horarios",
+  "localizacao",
+  "equipe",
+  "desempenho",
+];
 
 export type ClaimFilters = {
   couponId?: string;
@@ -90,8 +101,8 @@ export type EarnedSealFilters = {
   visitorId?: string;
 };
 
-export type CampaignTab = "resumo" | "faixas" | "dados";
-export const CAMPAIGN_TABS: readonly CampaignTab[] = ["resumo", "faixas", "dados"];
+export type CampaignTab = "resumo" | "desafios" | "faixas" | "dados";
+export const CAMPAIGN_TABS: readonly CampaignTab[] = ["resumo", "desafios", "faixas", "dados"];
 
 export type EventsTab = "lista" | "calendario" | "categorias";
 export const EVENTS_TABS: readonly EventsTab[] = ["lista", "calendario", "categorias"];

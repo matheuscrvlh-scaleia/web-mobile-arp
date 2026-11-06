@@ -4,7 +4,6 @@ import {
   Clock,
   Fingerprint,
   type LucideIcon,
-  Pencil,
   PiggyBank,
   RotateCcw,
   Store,
@@ -12,16 +11,15 @@ import {
   Timer,
   Wallet,
 } from "lucide-react";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { CouponChallengesCard } from "@/features/challenges";
 import { ClaimsTable, useClaims } from "@/features/claims";
 import { useAuth } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
 import { useDocumentTitle, useUrlState } from "@/shared/hooks";
-import { formatCents, formatDateTime, formatHours, formatNumber } from "@/shared/lib/format";
+import { formatCents, formatDateTime, formatNumber } from "@/shared/lib/format";
 import {
   ButtonLink,
-  Can,
   Card,
   CardHeader,
   DemoMark,
@@ -35,12 +33,13 @@ import {
   SkeletonGrid,
 } from "@/shared/ui";
 import { useCoupon } from "../api";
+import { CouponHeaderActions } from "../components/CouponActions";
 import { CouponReviewBadge, CouponStatusBadge } from "../components/CouponBadges";
 import { CouponCard, couponCardData } from "../components/CouponCard";
 import { CouponLoadError } from "../components/CouponLoadError";
 import { CouponReviewCard } from "../components/CouponReviewActions";
-import { CouponStatusActions } from "../components/CouponStatusActions";
 import { StockGrid } from "../components/StockGrid";
+import { deadlineModeOf, deadlineRule } from "../lib/deadline";
 import { couponPeriodLong } from "../lib/period";
 
 const pageSchema = paginationQuerySchema.pick({ page: true });
@@ -48,6 +47,7 @@ const HIDE_COLUMNS: ("coupon" | "store")[] = ["coupon", "store"];
 
 export function CouponDetailPage() {
   const { id = "" } = useParams();
+  const navigate = useNavigate();
   const coupon = useCoupon(id);
   useDocumentTitle(coupon.data?.title ?? "Promoção");
 
@@ -75,21 +75,12 @@ export function CouponDetailPage() {
         back={{ to: PATHS.coupons, label: "Promoções" }}
         description={
           <span className="inline-flex flex-wrap items-center gap-2">
-            <CouponStatusBadge status={c.status} />
+            <CouponStatusBadge coupon={c} withHint />
             <CouponReviewBadge review={c.review} />
             {c.store.name}
           </span>
         }
-        actions={
-          <>
-            <CouponStatusActions coupon={c} size="md" />
-            <Can permission="coupons.manage">
-              <ButtonLink to={PATHS.couponEdit(c.id)} icon={Pencil} variant="secondary">
-                Editar
-              </ButtonLink>
-            </Can>
-          </>
-        }
+        actions={<CouponHeaderActions coupon={c} onDeleted={() => navigate(PATHS.coupons)} />}
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
@@ -113,7 +104,11 @@ export function CouponDetailPage() {
                   "Esgotado por enquanto"
                 )
               }
-              description="Cada quadrado é um cupom. Se o prazo de alguém vence sem uso, ele volta."
+              description={
+                deadlineModeOf(c) === "hours"
+                  ? "Cada quadrado é um cupom. Se o prazo de alguém vence sem uso, ele volta."
+                  : "Cada quadrado é um cupom. O prazo é o mesmo para todos: depois dele, ninguém pega mais."
+              }
             />
             <StockGrid stock={c.stock} />
           </Card>
@@ -167,23 +162,19 @@ function CouponInfo({ coupon: c }: { coupon: Coupon }) {
 
 /** As regras que o visitante lê no app antes de pegar. */
 function CouponRules({ coupon: c }: { coupon: Coupon }) {
+  const fixed = deadlineModeOf(c) !== "hours";
   const rules: { icon: LucideIcon; title: string; text: string }[] = [
-    {
-      icon: Timer,
-      title: c.useUntil
-        ? `Usar até ${formatDateTime(c.useUntil)}`
-        : `${formatHours(c.redeemWindowHours)} para usar`,
-      text: c.useUntil
-        ? "Data fixa: quem pegar o cupom pode usar até essa data. Depois dela, ninguém pega mais."
-        : c.expiresWithPromotion && c.endsAt
-          ? `O prazo começa quando o visitante pega o cupom e para no fim da promoção (${formatDateTime(c.endsAt)}).`
-          : "O prazo começa quando o visitante pega o cupom.",
-    },
-    {
-      icon: RotateCcw,
-      title: "Não usou? Ele volta",
-      text: "Depois do prazo, o cupom volta para outra pessoa pegar.",
-    },
+    { icon: Timer, ...deadlineRule(c) },
+    // Com data fixa (ou até o fim), o prazo de todos acaba junto: não há "volta" depois.
+    ...(fixed
+      ? []
+      : [
+          {
+            icon: RotateCcw,
+            title: "Não usou? Ele volta",
+            text: "Se o prazo de alguém acabar sem uso, o cupom volta para outra pessoa pegar.",
+          },
+        ]),
     {
       icon: Fingerprint,
       title: "Código único",
@@ -247,7 +238,7 @@ function CouponClaims({ coupon: c }: { coupon: Coupon }) {
                 description={
                   c.status === "active"
                     ? "Assim que um visitante pegar no app, o código aparece aqui."
-                    : "Ative a promoção para ela aparecer no app."
+                    : "Publique a promoção para ela aparecer no app."
                 }
               />
             }

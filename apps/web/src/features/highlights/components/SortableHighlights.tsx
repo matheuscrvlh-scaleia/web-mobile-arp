@@ -8,7 +8,7 @@ import { useSortable } from "../lib/useSortable";
 import { HighlightItem } from "./HighlightItem";
 
 /**
- * O carrossel na ordem do app. Quem pode editar arrasta (mouse), usa o
+ * O carrossel na ordem do app (só os não arquivados: arquivado não tem posição). Quem pode editar arrasta (mouse), usa o
  * teclado na alça (Espaço pega, setas movem, Espaço solta, Esc cancela) ou
  * os botões subir/descer. Salva a ordem inteira a cada soltura.
  */
@@ -27,11 +27,24 @@ export function SortableHighlights({
     ids,
     enabled: canReorder,
     labelOf: (id) => byId.get(id)?.title ?? "Destaque",
-    onCommit: (next) =>
-      reorder.mutate(next, {
-        onSuccess: () => toast.success("Ordem do carrossel salva."),
-        onError: (e) => toast.fromError(e),
-      }),
+    // Desfazer devolve a ordem de antes (ids = a ordem que estava na tela).
+    onCommit: (next) => {
+      const before = ids;
+      reorder.mutateAsync(next).then(
+        () =>
+          toast.success("Ordem do carrossel salva.", {
+            action: {
+              label: "Desfazer",
+              onClick: () =>
+                reorder.mutateAsync(before).then(
+                  () => toast.success("Ordem anterior de volta."),
+                  (e) => toast.fromError(e),
+                ),
+            },
+          }),
+        (e) => toast.fromError(e),
+      );
+    },
   });
 
   return (
@@ -57,7 +70,7 @@ export function SortableHighlights({
                 active
                   ? "border-neutral-900/30 bg-white shadow-xl ring-4 ring-marca/30"
                   : "hover:bg-white/50",
-                h.status !== "published" && !active && "opacity-75",
+                h.status !== "published" && !active && "[&_img]:opacity-60",
               )}
             >
               {canReorder && (
@@ -93,6 +106,7 @@ export function SortableHighlights({
               )}
               <HighlightItem
                 highlight={h}
+                canManage={canReorder}
                 lead={
                   <span
                     aria-hidden

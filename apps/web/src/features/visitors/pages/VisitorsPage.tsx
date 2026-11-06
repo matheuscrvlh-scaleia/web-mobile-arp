@@ -1,7 +1,6 @@
 import { listVisitorsQuerySchema, type VisitorSummary, visitorStatusSchema } from "@arp/contracts";
 import { Award, ChevronRight, FilterX, SearchX, UserRound } from "lucide-react";
 import { useCallback } from "react";
-import { Link } from "react-router";
 import { PATHS } from "@/shared/config/paths";
 import { useSearchText, useUrlState } from "@/shared/hooks";
 import { formatDateTime, formatNumber, formatRelative } from "@/shared/lib/format";
@@ -33,17 +32,21 @@ const COLUMNS: Column<VisitorSummary>[] = [
   {
     key: "name",
     header: "Visitante",
+    primary: true,
     cell: (v) => (
-      <Link to={PATHS.visitor(v.id)} className="flex items-center gap-3 hover:underline">
+      <span className="flex items-center gap-3">
         <VisitorAvatar name={v.name} url={v.avatarUrl} muted={v.status === "blocked"} />
         <span className="min-w-0">
           <span className="flex items-center gap-1.5 font-medium text-neutral-900">
             {v.name}
             <DemoMark show={v.isDemo} />
           </span>
-          <span className="block text-xs text-neutral-500">{v.email}</span>
+          {/* Anonimizado: o e-mail é um marcador técnico, nunca vai para a tela. */}
+          <span className="block text-xs font-normal break-all text-neutral-500">
+            {v.anonymizedAt ? "Visitante anonimizado" : v.email}
+          </span>
         </span>
-      </Link>
+      </span>
     ),
   },
   {
@@ -51,6 +54,7 @@ const COLUMNS: Column<VisitorSummary>[] = [
     header: "Entra com",
     cell: (v) => <span className="text-neutral-600">{PROVIDER_LABEL[v.authProvider]}</span>,
     className: "hidden xl:table-cell",
+    hideOnMobile: true,
   },
   {
     key: "optIn",
@@ -102,20 +106,19 @@ const COLUMNS: Column<VisitorSummary>[] = [
       ),
     className: "hidden lg:table-cell",
   },
-  { key: "status", header: "Situação", cell: (v) => <VisitorStatusBadge status={v.status} /> },
+  {
+    key: "status",
+    header: "Situação",
+    status: true,
+    cell: (v) => <VisitorStatusBadge status={v.status} anonymized={Boolean(v.anonymizedAt)} />,
+  },
   {
     key: "open",
     header: <span className="sr-only">Abrir</span>,
     numeric: true,
-    cell: (v) => (
-      <Link
-        to={PATHS.visitor(v.id)}
-        aria-label={`Abrir ${v.name}`}
-        className="inline-grid size-8 place-items-center rounded-full text-neutral-400 hover:bg-neutral-900/[0.06] hover:text-neutral-900"
-      >
-        <ChevronRight className="size-4" aria-hidden />
-      </Link>
-    ),
+    hideOnMobile: true,
+    // Só a seta: a linha inteira abre o visitante.
+    cell: () => <ChevronRight className="inline size-4 text-neutral-400" aria-hidden />,
   },
 ];
 
@@ -187,6 +190,8 @@ export function VisitorsPage() {
               columns={COLUMNS}
               rows={visitors.data?.data}
               rowKey={(v) => v.id}
+              rowHref={(v) => PATHS.visitor(v.id)}
+              mobile="cards"
               loading={visitors.isLoading}
               empty={
                 filtered ? (

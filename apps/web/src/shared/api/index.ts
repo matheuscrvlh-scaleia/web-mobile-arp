@@ -5,6 +5,8 @@ export {
   errorMessage,
   type FieldErrors,
   isApiError,
+  isNetworkError,
+  OFFLINE_SAVE_MESSAGE,
 } from "./errors";
 export { applyApiErrors } from "./form-errors";
 export {
@@ -20,6 +22,7 @@ export {
   getAccessToken,
   onSessionEvent,
   refreshSession,
+  refreshWasDisabled,
   type SessionEvent,
   setSession,
   signedOut,

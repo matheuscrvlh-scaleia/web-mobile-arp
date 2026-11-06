@@ -12,7 +12,7 @@ import { ValidationError } from "../../../shared/domain/errors";
 import { addDaysToDate, daysBetween } from "../../../shared/domain/time";
 import type { Database } from "../../../shared/infra/database/database";
 import { type SqlFragment, sql } from "../../../shared/infra/database/sql";
-import { hhmmOrNull, iso } from "../../../shared/infra/presenters";
+import { hhmmOrNull, iso, isoOrNull } from "../../../shared/infra/presenters";
 import { EventSchedule } from "../domain/event-schedule";
 
 /** Maior intervalo do calendário (dois meses cheios e um pouco). */
@@ -38,6 +38,7 @@ interface EventRow {
   starts_on: string;
   ends_on: string | null;
   weekday: number | null;
+  weekdays: number[] | null;
   start_time: string | null;
   end_time: string | null;
   is_long_running: boolean;
@@ -45,6 +46,7 @@ interface EventRow {
   status: EventStatus;
   site_url: string | null;
   interests_count: number;
+  archived_at: Date | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -53,8 +55,9 @@ const EVENT_COLUMNS = sql`
   e.id, e.title, e.category_id, c.name as category_name, c.icon as category_icon,
          e.description, e.image_url, e.tone, e.icon, e.place,
          e.floor_id, f.label as floor_label, e.store_id, s.name as store_name,
-         e.recurrence, e.starts_on, e.ends_on, e.weekday, e.start_time, e.end_time,
+         e.recurrence, e.starts_on, e.ends_on, e.weekday, e.weekdays, e.start_time, e.end_time,
          e.is_long_running, e.awards_seal, e.status, si.site_url, e.created_at, e.updated_at, e.is_demo,
+         e.archived_at,
          (select count(*) from agenda.event_interests i where i.event_id = e.id) as interests_count
 `;
 
@@ -82,6 +85,7 @@ function toEvent(r: EventRow): Event {
     startsOn: r.starts_on,
     endsOn: r.ends_on,
     weekday: r.weekday,
+    weekdays: r.weekdays,
     startTime: hhmmOrNull(r.start_time),
     endTime: hhmmOrNull(r.end_time),
     isLongRunning: r.is_long_running,
@@ -89,6 +93,7 @@ function toEvent(r: EventRow): Event {
     status: r.status,
     siteUrl: r.site_url,
     interestsCount: r.interests_count,
+    archivedAt: isoOrNull(r.archived_at),
     isDemo: r.is_demo,
     createdAt: iso(r.created_at),
     updatedAt: iso(r.updated_at),
@@ -109,7 +114,7 @@ function happensBetween(from: string | undefined, to: string | undefined): SqlFr
       e.recurrence <> 'weekly'
       or exists (
         select 1 from generate_series(${lo}, least(${hi}, ${lo} + 6), interval '1 day') d
-        where extract(dow from d)::int = e.weekday
+        where extract(dow from d)::smallint = any(e.weekdays)
       )
     )
   `;
@@ -158,6 +163,7 @@ export class AgendaQueries {
         query.recurrence && sql`e.recurrence = ${query.recurrence}`,
         (query.from || query.to) && happensBetween(query.from, query.to),
         query.q && sql`public.f_unaccent(lower(e.title)) like ${sql.containsPattern(query.q)}`,
+        query.archived ? sql`e.archived_at is not null` : sql`e.archived_at is null`,
       ])}
       order by e.starts_on desc, e.title, e.id
       limit ${query.pageSize} offset ${offsetOf(query)}
@@ -185,15 +191,16 @@ export class AgendaQueries {
       recurrence: EventRecurrence;
       starts_on: string;
       ends_on: string | null;
-      weekday: number | null;
+      weekdays: number[] | null;
       start_time: string | null;
       is_long_running: boolean;
       status: EventStatus;
     }>(sql`
-      select e.id, e.title, e.recurrence, e.starts_on, e.ends_on, e.weekday, e.start_time,
+      select e.id, e.title, e.recurrence, e.starts_on, e.ends_on, e.weekdays, e.start_time,
              e.is_long_running, e.status
       from agenda.events e
       where e.active_period && daterange(${from}::date, ${to}::date, '[]')
+        and e.archived_at is null
       order by e.is_long_running desc, e.start_time nulls first, e.title
     `);
 
@@ -204,7 +211,7 @@ export class AgendaQueries {
         recurrence: r.recurrence,
         startsOn: r.starts_on,
         endsOn: r.ends_on,
-        weekday: r.weekday,
+        weekdays: r.weekdays,
         startTime: hhmmOrNull(r.start_time),
         endTime: null,
       });

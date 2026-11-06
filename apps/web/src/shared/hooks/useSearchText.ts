@@ -10,7 +10,7 @@ export function useSearchText(
   urlValue: string | undefined,
   commit: (value: string) => void,
   ms = 350,
-): [string, (value: string) => void] {
+): [string, (value: string) => void, () => string] {
   const [text, setText] = useState(urlValue ?? "");
   const committed = useRef(urlValue ?? "");
 
@@ -31,5 +31,13 @@ export function useSearchText(
     }
   }, [debounced, commit]);
 
-  return [text, setText];
+  // Grava agora o que está no campo (ex.: junto com a troca de um filtro) e
+  // cancela a gravação que ainda esperava; devolve o texto limpo.
+  const flush = () => {
+    const v = text.trim();
+    committed.current = v;
+    return v;
+  };
+
+  return [text, setText, flush];
 }

@@ -8,7 +8,7 @@ import {
   paginated,
   paginationQuerySchema,
 } from "./common";
-import { sealRefSchema } from "./gamification";
+import { prizeRedemptionStatusSchema, sealRefSchema } from "./gamification";
 import { couponClaimSchema } from "./promotions";
 
 /* Visitantes: contas do app (não acessam o painel). --------------------- */
@@ -31,6 +31,8 @@ export const visitorSummarySchema = z.object({
   activeClaimsCount: z.number().int(),
   redeemedClaimsCount: z.number().int(),
   lastSeenAt: isoDateTimeSchema.nullable(),
+  /** Dados pessoais apagados a pedido (LGPD): nome, e-mail e telefone não existem mais. */
+  anonymizedAt: isoDateTimeSchema.nullable(),
   isDemo: demoFlagSchema,
   createdAt: isoDateTimeSchema,
 });
@@ -67,6 +69,24 @@ export const visitorDetailSchema = visitorSummarySchema.extend({
       createdAt: isoDateTimeSchema,
     }),
   ),
+  /** Clube ARP: saldo de pontos e últimas trocas. */
+  club: z.object({
+    points: z.number().int(),
+    /** Pontos que vencem nos próximos 30 dias e quando vence o primeiro. */
+    expiringPoints: z.number().int(),
+    nextExpiryAt: isoDateTimeSchema.nullable(),
+    /** Últimas 10 trocas. */
+    redemptions: z.array(
+      z.object({
+        id: idSchema,
+        prize: z.object({ id: idSchema, name: z.string() }),
+        points: z.number().int(),
+        status: prizeRedemptionStatusSchema,
+        createdAt: isoDateTimeSchema,
+        deliveredAt: isoDateTimeSchema.nullable(),
+      }),
+    ),
+  }),
 });
 export type VisitorDetail = z.infer<typeof visitorDetailSchema>;
 
@@ -86,3 +106,13 @@ export const updateVisitorStatusBodySchema = z
     path: ["reason"],
   });
 export type UpdateVisitorStatusBody = z.infer<typeof updateVisitorStatusBodySchema>;
+
+/** LGPD: apaga nome, e-mail, telefone, foto e apelido. Irreversível; os números agregados ficam. */
+export const anonymizeVisitorBodySchema = z.object({
+  reason: z
+    .string()
+    .trim()
+    .min(3, "Escreva o motivo (ex.: pedido do titular por e-mail)")
+    .max(240, "Use até 240 caracteres"),
+});
+export type AnonymizeVisitorBody = z.infer<typeof anonymizeVisitorBodySchema>;

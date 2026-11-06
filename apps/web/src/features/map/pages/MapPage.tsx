@@ -1,7 +1,7 @@
 import { Layers, MapPin, PencilRuler, RotateCcw, Save } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
-import { useSetStoreLocation } from "@/features/stores";
+import { usePatchStore, useSetStoreLocation } from "@/features/stores";
 import { errorMessage } from "@/shared/api";
 import { useAuth } from "@/shared/auth";
 import { useSearchParamOption, useUnsavedChangesGuard } from "@/shared/hooks";
@@ -56,19 +56,52 @@ export function MapPage() {
   const points = useMapPoints(floorId);
   const stores = useFloorPins(floorId);
   const moveStore = useSetStoreLocation();
+  const updateStoreBlock = usePatchStore();
   const movePoint = useUpdateMapPoint(floorId ?? "");
   const saveLayout = useSaveFloorLayout();
 
   const svgRef = useRef<SVGSVGElement>(null);
   const savedLayout = useMemo(() => floor?.layout ?? [], [floor?.layout]);
 
+  // Posição antes da mudança, para o "Desfazer" do aviso.
+  const pinsRef = useRef(stores.pins);
+  pinsRef.current = stores.pins;
+  const { mutate: mutateLocation } = moveStore;
+  const relocate = useCallback(
+    (id: string, pos: { x: number; y: number } | null, message: string, undoable = true) => {
+      const before = pinsRef.current.find((p) => p.store.id === id);
+      const previous = before ? { x: before.x, y: before.y } : null;
+      mutateLocation(
+        { id, body: { mapX: pos?.x ?? null, mapY: pos?.y ?? null } },
+        {
+          onSuccess: () =>
+            toast.success(
+              message,
+              undoable
+                ? {
+                    action: {
+                      label: "Desfazer",
+                      onClick: () =>
+                        mutateLocation(
+                          { id, body: { mapX: previous?.x ?? null, mapY: previous?.y ?? null } },
+                          {
+                            onSuccess: () => toast.info("Posição anterior de volta."),
+                            onError: (e) => toast.error(errorMessage(e)),
+                          },
+                        ),
+                    },
+                  }
+                : undefined,
+            ),
+          onError: (e) => toast.error(`Não deu para salvar a posição: ${errorMessage(e)}`),
+        },
+      );
+    },
+    [mutateLocation],
+  );
   const onMoveStore = useCallback(
-    (id: string, pos: { x: number; y: number }) =>
-      moveStore.mutate(
-        { id, body: { mapX: pos.x, mapY: pos.y } },
-        { onError: (e) => toast.error(`Não deu para mover a loja: ${errorMessage(e)}`) },
-      ),
-    [moveStore],
+    (id: string, pos: { x: number; y: number }) => relocate(id, pos, "Posição salva."),
+    [relocate],
   );
   const onMovePoint = useCallback(
     (id: string, pos: { x: number; y: number }) =>
@@ -119,6 +152,93 @@ export function MapPage() {
       { replace: true },
     );
   };
+
+  /**
+   * Leva a loja para outro andar: sai deste mapa, abre o outro andar e já
+   * espera o clique para posicionar lá.
+   */
+  const [placeAfterSwitch, setPlaceAfterSwitch] = useState<{
+    floorId: string;
+    storeId: string;
+  } | null>(null);
+  const changeFloor = (storeId: string, targetId: string) => {
+    if (targetId === floorId) return;
+    const target = list.find((f) => f.id === targetId);
+    // Andar e pino de antes, para o "Desfazer" devolver a loja ao lugar exato.
+    const fromFloor = floor;
+    const before = pinsRef.current.find((p) => p.store.id === storeId);
+    const undo = () => {
+      if (!fromFloor) return;
+      setPlaceAfterSwitch(null);
+      editor.setPlacing(null);
+      mutateLocation(
+        {
+          id: storeId,
+          body: { floorId: fromFloor.id, mapX: before?.x ?? null, mapY: before?.y ?? null },
+        },
+        {
+          onSuccess: () => {
+            toast.info(`Loja de volta ao ${fromFloor.label}.`);
+            // Direto na URL: o selectFloor desta renderização ainda acha que está neste andar.
+            setParams(
+              (prev) => {
+                const next = new URLSearchParams(prev);
+                next.set("andar", fromFloor.id);
+                return next;
+              },
+              { replace: true },
+            );
+          },
+          onError: (e) => toast.error(errorMessage(e)),
+        },
+      );
+    };
+    mutateLocation(
+      { id: storeId, body: { floorId: targetId, mapX: null, mapY: null } },
+      {
+        onSuccess: () => {
+          toast.success(
+            `Loja levada para o ${target?.label ?? "outro andar"}. Clique no mapa para posicionar.`,
+            { action: { label: "Desfazer", onClick: undo } },
+          );
+          editor.setSelection(null);
+          setPlaceAfterSwitch({ floorId: targetId, storeId });
+          void selectFloor(targetId);
+        },
+        onError: (e) => toast.error(errorMessage(e)),
+      },
+    );
+  };
+  const waitingStore = placeAfterSwitch?.storeId;
+  const arrived =
+    placeAfterSwitch?.floorId === floorId && stores.unplaced.some((s) => s.id === waitingStore);
+  useEffect(() => {
+    if (!arrived || !waitingStore) return;
+    editor.setPlacing({ type: "store", id: waitingStore });
+    setPlaceAfterSwitch(null);
+  }, [arrived, waitingStore, editor.setPlacing]);
+
+  /** O pino caiu no desenho de outro bloco: corrige o bloco do cadastro da loja. */
+  const fixBlock = (storeId: string, blockId: string, blockName: string) =>
+    updateStoreBlock.mutate(
+      { id: storeId, body: { blockId } },
+      {
+        onSuccess: () => toast.success(`Loja agora é do ${blockName || "bloco do desenho"}.`),
+        onError: (e) => toast.error(errorMessage(e)),
+      },
+    );
+
+  // Escolheu uma loja na lista e o mapa está fora da tela (celular): rola até ele.
+  const selectedStore = editor.selection?.type === "store" ? editor.selection.id : null;
+  useEffect(() => {
+    if (!selectedStore) return;
+    const svg = svgRef.current;
+    if (!svg) return;
+    const r = svg.getBoundingClientRect();
+    if (r.bottom < 80 || r.top > window.innerHeight - 80) {
+      svg.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [selectedStore]);
 
   const save = () => {
     if (!floorId) return;
@@ -207,6 +327,7 @@ export function MapPage() {
               floorLabel={floor.label}
               canMoveStores={canMoveStores}
               canEditMap={canEditMap}
+              backgroundUrl={floor.backgroundImageUrl}
             />
           </Card>
           {mode === "desenho" && canEditMap && (
@@ -272,21 +393,19 @@ export function MapPage() {
                 pins={stores.pins}
                 unplaced={stores.unplaced}
                 points={points.data ?? []}
+                floors={list}
+                floorId={floor.id}
                 canMoveStores={canMoveStores}
                 canEditMap={canEditMap}
                 onRemoveStore={(id) => {
-                  moveStore.mutate(
-                    { id, body: { mapX: null, mapY: null } },
-                    {
-                      onSuccess: () => toast.success("Loja tirada do mapa."),
-                      onError: (e) => toast.error(errorMessage(e)),
-                    },
-                  );
+                  relocate(id, null, "Loja tirada do mapa.");
                   editor.setSelection(null);
                 }}
+                onChangeFloor={changeFloor}
+                onFixBlock={can("stores.manage") ? fixBlock : undefined}
               />
             ) : (
-              <LayoutPanel editor={editor} readOnly={!canEditMap} />
+              <LayoutPanel editor={editor} floor={floor} readOnly={!canEditMap} />
             )}
           </div>
           <FloorsPanel

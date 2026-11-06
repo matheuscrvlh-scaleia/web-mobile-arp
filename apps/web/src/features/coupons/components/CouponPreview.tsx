@@ -1,4 +1,4 @@
-import { CalendarDays, Fingerprint, RotateCcw, Timer } from "lucide-react";
+import { CalendarDays, CalendarX, Fingerprint, RotateCcw, Timer } from "lucide-react";
 import type { ReactNode } from "react";
 import { formatDateShort, formatNumber } from "@/shared/lib/format";
 import { PhoneFrame } from "@/shared/ui";
@@ -53,9 +53,19 @@ export function CouponPreview({
                   ? "Não importa quando pega o cupom"
                   : "O prazo começa quando pega o cupom"}
               </Rule>
-              <Rule icon={<RotateCcw className="size-4" />} title="Não usou? Ele volta">
-                Depois do prazo, volta pra outra pessoa
-              </Rule>
+              {/* Data fixa: o prazo de todos acaba junto, não há "volta" depois. */}
+              {data.useUntil ? (
+                <Rule
+                  icon={<CalendarX className="size-4" />}
+                  title={`Depois de ${formatDateShort(data.useUntil)}, acabou`}
+                >
+                  O cupom some do app e ninguém pega mais
+                </Rule>
+              ) : (
+                <Rule icon={<RotateCcw className="size-4" />} title="Não usou? Ele volta">
+                  Depois do prazo, volta pra outra pessoa
+                </Rule>
+              )}
               <Rule icon={<Fingerprint className="size-4" />} title="Código único">
                 Vale uma vez, um por pessoa
               </Rule>

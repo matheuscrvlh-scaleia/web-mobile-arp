@@ -1,14 +1,16 @@
 import { type NotificationAudience, notificationAudienceSchema } from "@arp/contracts";
-import { Users } from "lucide-react";
+import { TriangleAlert, Users } from "lucide-react";
 import { useId } from "react";
-import { useStoreOptions } from "@/features/stores";
+import { useEvent } from "@/features/events";
+import { EventPicker } from "@/features/highlights";
+import { StoreSelect } from "@/features/stores";
 import { cn } from "@/shared/lib/cn";
 import { formatNumber, plural } from "@/shared/lib/format";
-import { Field, Select, Spinner } from "@/shared/ui";
-import { useAudienceEstimate } from "../api";
+import { Field, Spinner } from "@/shared/ui";
+import { type AudienceQuery, audienceReady, useAudienceEstimate } from "../api";
 import { AUDIENCE } from "./NotificationBadges";
 
-/** Público: três opções com explicação (rádios nativos em cartões). */
+/** Público: as opções com explicação (rádios nativos em cartões). */
 export function AudiencePicker({
   value,
   onChange,
@@ -20,7 +22,7 @@ export function AudiencePicker({
 }) {
   const name = useId();
   return (
-    <fieldset className="grid grid-cols-1 gap-2 sm:grid-cols-3" disabled={disabled}>
+    <fieldset className="grid grid-cols-1 gap-2 sm:grid-cols-2" disabled={disabled}>
       <legend className="sr-only">Público</legend>
       {notificationAudienceSchema.options.map((a) => {
         const { label, description, icon: Icon } = AUDIENCE[a];
@@ -53,7 +55,7 @@ export function AudiencePicker({
   );
 }
 
-/** Loja do público "seguidores" (só lojas ativas). */
+/** Loja do público "seguidores" (só lojas ativas, com busca). */
 export function AudienceStoreSelect({
   value,
   onChange,
@@ -65,35 +67,90 @@ export function AudienceStoreSelect({
   error?: string;
   disabled?: boolean;
 }) {
-  const stores = useStoreOptions();
   return (
     <Field label="Loja" required error={error}>
-      <Select
-        placeholder={stores.isLoading ? "Carregando lojas…" : "Escolha a loja"}
-        value={value ?? ""}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.value || null)}
-      >
-        {(stores.data ?? []).map((s) => (
-          <option key={s.id} value={s.id}>
-            {s.name}
-          </option>
-        ))}
-      </Select>
+      <StoreSelect value={value} onChange={onChange} disabled={disabled} />
     </Field>
   );
 }
+
+/** Evento do público "interessados no evento" (busca na agenda). */
+export function AudienceEventSelect({
+  value,
+  onChange,
+  error,
+  disabled = false,
+}: {
+  value: string | null | undefined;
+  onChange: (id: string | null) => void;
+  error?: string;
+  disabled?: boolean;
+}) {
+  const event = useEvent(value ?? undefined);
+  return (
+    <Field
+      label="Evento"
+      required
+      hint="Recebe quem marcou “Tenho interesse” neste evento no app."
+      error={error}
+    >
+      <EventPicker
+        value={value}
+        selectedLabel={event.data?.title}
+        onChange={onChange}
+        disabled={disabled}
+      />
+    </Field>
+  );
+}
+
+/** O público do formulário no formato da estimativa: só a loja ou o evento que ele usa. */
+const queryOf = (
+  audience: NotificationAudience,
+  storeId: string | null | undefined,
+  eventId: string | null | undefined,
+): AudienceQuery => ({
+  audience,
+  storeId: audience === "store_followers" ? (storeId ?? undefined) : undefined,
+  eventId: audience === "event_interested" ? (eventId ?? undefined) : undefined,
+});
+
+const WAITING: Partial<Record<NotificationAudience, string>> = {
+  store_followers: "Escolha a loja para estimar o público.",
+  event_interested: "Escolha o evento para estimar o público.",
+};
 
 /** Quantas pessoas recebem, calculado pela API para o público escolhido. */
 export function AudienceEstimate({
   audience,
   storeId,
+  eventId,
 }: {
   audience: NotificationAudience;
   storeId: string | null | undefined;
+  eventId: string | null | undefined;
 }) {
-  const estimate = useAudienceEstimate(audience, storeId ?? undefined);
-  const waitingStore = audience === "store_followers" && !storeId;
+  const target = queryOf(audience, storeId, eventId);
+  const estimate = useAudienceEstimate(target);
+  const waiting = !audienceReady(target);
+  const nobody = !waiting && estimate.data === 0;
+  if (nobody) {
+    return (
+      <p
+        aria-live="polite"
+        className="flex items-start gap-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800"
+      >
+        <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+        <span>
+          <b className="font-semibold">Ninguém vai receber com esse público.</b>{" "}
+          {audience === "event_interested"
+            ? "Ninguém com notificações ligadas marcou interesse neste evento. Escolha outro público: "
+            : "Escolha outro público: "}
+          enviar e agendar ficam bloqueados até alguém poder receber.
+        </span>
+      </p>
+    );
+  }
   return (
     <div
       aria-live="polite"
@@ -103,8 +160,8 @@ export function AudienceEstimate({
         <Users className="size-4" aria-hidden />
       </span>
       <p className="text-sm text-neutral-600">
-        {waitingStore ? (
-          "Escolha a loja para estimar o público."
+        {waiting ? (
+          WAITING[audience]
         ) : estimate.isLoading ? (
           <span className="inline-flex items-center gap-2">
             <Spinner /> Calculando o público…
@@ -126,13 +183,18 @@ export function AudienceEstimate({
   );
 }
 
-/** Texto para a confirmação de envio ("cerca de 1.234 pessoas"). */
-export function useAudienceSummary(
+/** Quantas pessoas recebem (undefined = ainda calculando ou falta a loja/o evento). */
+export function useAudienceCount(
   audience: NotificationAudience,
   storeId: string | null | undefined,
-): string {
-  const estimate = useAudienceEstimate(audience, storeId ?? undefined);
-  return estimate.data === undefined
-    ? "o público escolhido"
-    : `cerca de ${plural(estimate.data, "pessoa", "pessoas")}`;
+  eventId: string | null | undefined,
+): number | undefined {
+  const target = queryOf(audience, storeId, eventId);
+  const estimate = useAudienceEstimate(target);
+  if (!audienceReady(target)) return undefined;
+  return estimate.data;
 }
+
+/** "1.234 pessoas" / "1 pessoa" / "o público escolhido" (sem estimativa). */
+export const peopleText = (n: number | undefined) =>
+  n === undefined ? "o público escolhido" : plural(n, "pessoa", "pessoas");

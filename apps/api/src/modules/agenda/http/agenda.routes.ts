@@ -12,7 +12,9 @@ import {
   importSiteEventsBodySchema,
   importSiteEventsResultSchema,
   listEventsQuerySchema,
+  postponeEventBodySchema,
   ROUTES,
+  type UpdateEventBody,
   updateEventBodySchema,
   updateEventCategoryBodySchema,
 } from "@arp/contracts";
@@ -26,10 +28,11 @@ import type { CreateEventUseCase } from "../application/create-event.use-case";
 import type { CreateEventCategoryUseCase } from "../application/create-event-category.use-case";
 import type { DeleteEventUseCase } from "../application/delete-event.use-case";
 import type { DeleteEventCategoryUseCase } from "../application/delete-event-category.use-case";
+import type { EventLifecycleUseCase } from "../application/event-lifecycle.use-case";
 import type { ImportSiteEventsUseCase } from "../application/import-site-events.use-case";
 import type { UpdateEventUseCase } from "../application/update-event.use-case";
 import type { UpdateEventCategoryUseCase } from "../application/update-event-category.use-case";
-import type { NewAgendaEvent } from "../domain/agenda-event";
+import type { AgendaEventChanges, NewAgendaEvent } from "../domain/agenda-event";
 import type { AgendaQueries } from "../infra/agenda.queries";
 
 export interface AgendaRoutesDeps {
@@ -40,7 +43,21 @@ export interface AgendaRoutesDeps {
   createEvent: CreateEventUseCase;
   updateEvent: UpdateEventUseCase;
   deleteEvent: DeleteEventUseCase;
+  lifecycle: EventLifecycleUseCase;
   importSiteEvents: ImportSiteEventsUseCase;
+}
+
+/** weekdays (novo) ou weekday (cliente antigo, um dia só). undefined = não mexe. */
+function weekdaysOf(body: { weekday?: number | null; weekdays?: number[] | null }) {
+  if (body.weekdays !== undefined) return body.weekdays;
+  if (body.weekday === undefined) return undefined;
+  return body.weekday === null ? null : [body.weekday];
+}
+
+function toEventChanges(body: UpdateEventBody): AgendaEventChanges {
+  const { weekday: _legacy, weekdays: _days, ...rest } = body;
+  const weekdays = weekdaysOf(body);
+  return weekdays === undefined ? rest : { ...rest, weekdays };
 }
 
 function toNewEvent(body: CreateEventBody): NewAgendaEvent {
@@ -57,7 +74,7 @@ function toNewEvent(body: CreateEventBody): NewAgendaEvent {
     recurrence: body.recurrence,
     startsOn: body.startsOn,
     endsOn: body.endsOn ?? null,
-    weekday: body.weekday ?? null,
+    weekdays: weekdaysOf(body) ?? null,
     startTime: body.startTime ?? null,
     endTime: body.endTime ?? null,
     isLongRunning: body.isLongRunning,
@@ -150,7 +167,43 @@ export function agendaRoutes(deps: AgendaRoutesDeps): FastifyPluginAsyncZod {
       { params: idParamsSchema, body: updateEventBodySchema, response: { 200: eventSchema } },
       async (request) => {
         await deps.updateEvent.execute(
-          { id: request.params.id, changes: request.body },
+          { id: request.params.id, changes: toEventChanges(request.body) },
+          staffOf(request),
+        );
+        return event(request.params.id);
+      },
+    );
+
+    r.route(
+      ROUTES.events.archive,
+      { params: idParamsSchema, response: { 200: eventSchema } },
+      async (request) => {
+        await deps.lifecycle.execute(
+          { id: request.params.id, action: { type: "archive" } },
+          staffOf(request),
+        );
+        return event(request.params.id);
+      },
+    );
+
+    r.route(
+      ROUTES.events.unarchive,
+      { params: idParamsSchema, response: { 200: eventSchema } },
+      async (request) => {
+        await deps.lifecycle.execute(
+          { id: request.params.id, action: { type: "unarchive" } },
+          staffOf(request),
+        );
+        return event(request.params.id);
+      },
+    );
+
+    r.route(
+      ROUTES.events.postpone,
+      { params: idParamsSchema, body: postponeEventBodySchema, response: { 200: eventSchema } },
+      async (request) => {
+        await deps.lifecycle.execute(
+          { id: request.params.id, action: { type: "postpone", startsOn: request.body.startsOn } },
           staffOf(request),
         );
         return event(request.params.id);

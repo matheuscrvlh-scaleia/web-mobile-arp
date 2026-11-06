@@ -1,16 +1,19 @@
-import { claimStatusSchema, listClaimsQuerySchema } from "@arp/contracts";
-import { ClipboardCheck, FilterX, SearchX, UserRound, Wallet, X } from "lucide-react";
-import { useCallback } from "react";
-import { useCoupons } from "@/features/coupons";
-import { useStoreOptions } from "@/features/stores";
+import { type CouponClaim, claimStatusSchema, listClaimsQuerySchema } from "@arp/contracts";
+import { ClipboardCheck, Download, FilterX, SearchX, UserRound, Wallet, X } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { type CsvColumn, downloadCsv, PeriodFilter, useCoupons } from "@/features/coupons";
+import { storeComboboxOptions, useStoreOptions } from "@/features/stores";
 import { useAuth } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
-import { useSearchText, useUrlState } from "@/shared/hooks";
+import { useDebouncedValue, useSearchText, useUrlState } from "@/shared/hooks";
+import { todayIso } from "@/shared/lib/dates";
+import { formatDateTime, formatNumber } from "@/shared/lib/format";
 import {
   Button,
   ButtonLink,
   Can,
   Card,
+  Combobox,
   EmptyState,
   ErrorState,
   FilterBar,
@@ -18,13 +21,27 @@ import {
   Pagination,
   SearchInput,
   Select,
+  toast,
 } from "@/shared/ui";
-import { useClaims } from "../api";
+import { CLAIMS_EXPORT_MAX, fetchAllClaims, useClaims } from "../api";
 import { CLAIM_STATUS } from "../components/ClaimStatusBadge";
 import { ClaimsTable, type HideableColumn } from "../components/ClaimsTable";
 
 const HIDE_STORE: HideableColumn[] = ["store"];
 const HIDE_NONE: HideableColumn[] = [];
+
+const CSV_COLUMNS: CsvColumn<CouponClaim>[] = [
+  { header: "Código", value: (c) => c.code },
+  { header: "Situação", value: (c) => CLAIM_STATUS[c.status].label },
+  { header: "Promoção", value: (c) => c.coupon.title },
+  { header: "Destaque", value: (c) => c.coupon.headline },
+  { header: "Loja", value: (c) => c.store.name },
+  { header: "Visitante", value: (c) => c.visitor.name },
+  { header: "Pegou em", value: (c) => formatDateTime(c.claimedAt) },
+  { header: "Prazo", value: (c) => formatDateTime(c.expiresAt) },
+  { header: "Usado em", value: (c) => (c.redeemedAt ? formatDateTime(c.redeemedAt) : "") },
+  { header: "Validado por", value: (c) => c.redeemedBy?.name ?? "" },
+];
 
 export function ClaimsPage() {
   const { user } = useAuth();
@@ -34,15 +51,63 @@ export function ClaimsPage() {
   const [search, setSearch] = useSearchText(query.q, commit);
   const claims = useClaims(query);
   const stores = useStoreOptions({ enabled: !merchant });
-  // Promoções para o filtro (as da loja escolhida; o lojista só vê as dele).
-  const coupons = useCoupons({ storeId: query.storeId, pageSize: 100, page: 1 });
+  const storeOptions = useMemo(() => storeComboboxOptions(stores.data ?? []), [stores.data]);
+  // Promoção com busca no servidor (as da loja escolhida; o lojista só vê as dele).
+  const [couponTerm, setCouponTerm] = useState("");
+  const couponQ = useDebouncedValue(couponTerm, 300);
+  const coupons = useCoupons({
+    storeId: query.storeId,
+    q: couponQ || undefined,
+    pageSize: 30,
+    page: 1,
+  });
+  const couponOptions = useMemo(
+    () =>
+      (coupons.data?.data ?? []).map((c) => ({
+        value: c.id,
+        label: c.title,
+        description: merchant || query.storeId ? c.headline : c.store.name,
+      })),
+    [coupons.data, merchant, query.storeId],
+  );
+  const [exporting, setExporting] = useState(false);
   const filtered = Boolean(
-    query.q || query.couponId || query.storeId || query.status || query.visitorId,
+    query.q ||
+      query.couponId ||
+      query.storeId ||
+      query.status ||
+      query.visitorId ||
+      query.from ||
+      query.to,
   );
   // O nome do visitante filtrado vem das próprias linhas (todas são dele).
   const visitorName = query.visitorId
     ? claims.data?.data.find((c) => c.visitor.id === query.visitorId)?.visitor.name
     : undefined;
+  const couponName = query.couponId
+    ? claims.data?.data.find((c) => c.coupon.id === query.couponId)?.coupon.title
+    : undefined;
+
+  const exportCsv = async () => {
+    setExporting(true);
+    try {
+      const { rows, truncated } = await fetchAllClaims(query);
+      if (rows.length === 0) {
+        toast.info("Nada para exportar com esses filtros.");
+        return;
+      }
+      downloadCsv(`cupons-pegos-${todayIso()}.csv`, rows, CSV_COLUMNS);
+      toast.success(
+        truncated
+          ? `Exportados os ${formatNumber(CLAIMS_EXPORT_MAX)} mais recentes. Filtre por período para pegar o resto.`
+          : `${formatNumber(rows.length)} cupons pegos exportados.`,
+      );
+    } catch (e) {
+      toast.fromError(e);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <>
@@ -54,11 +119,21 @@ export function ClaimsPage() {
             : "Quem pegou cada cupom, quando e se já usou no caixa."
         }
         actions={
-          <Can permission="coupons.redeem">
-            <ButtonLink to={PATHS.redeem} icon={ClipboardCheck}>
-              Validar cupom
-            </ButtonLink>
-          </Can>
+          <>
+            <Button
+              variant="secondary"
+              icon={Download}
+              loading={exporting}
+              onClick={() => void exportCsv()}
+            >
+              Exportar CSV
+            </Button>
+            <Can permission="coupons.redeem">
+              <ButtonLink to={PATHS.redeem} icon={ClipboardCheck}>
+                Validar cupom
+              </ButtonLink>
+            </Can>
+          </>
         }
       />
       <FilterBar>
@@ -70,40 +145,35 @@ export function ClaimsPage() {
           className="w-full sm:w-72"
         />
         {!merchant && (
-          <Select
+          <Combobox
             aria-label="Loja"
             placeholder="Todas as lojas"
-            value={query.storeId ?? ""}
-            onChange={(e) => setQuery({ storeId: e.target.value, couponId: undefined })}
-            className="w-full sm:w-52"
-          >
-            {(stores.data ?? []).map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </Select>
+            emptyText="Nenhuma loja com esse nome"
+            options={storeOptions}
+            loading={stores.isLoading}
+            value={query.storeId ?? null}
+            onChange={(v) => setQuery({ storeId: v ?? undefined, couponId: undefined })}
+            className="w-full sm:w-56"
+          />
         )}
-        <Select
+        <Combobox
           aria-label="Promoção"
           placeholder="Todas as promoções"
-          value={query.couponId ?? ""}
-          onChange={(e) => setQuery({ couponId: e.target.value })}
+          emptyText="Nenhuma promoção com esse nome"
+          options={couponOptions}
+          loading={coupons.isFetching}
+          onSearch={setCouponTerm}
+          selectedLabel={couponName}
+          value={query.couponId ?? null}
+          onChange={(v) => setQuery({ couponId: v ?? undefined })}
           className="w-full sm:w-64"
-        >
-          {(coupons.data?.data ?? []).map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.title}
-              {merchant || query.storeId ? "" : ` · ${c.store.name}`}
-            </option>
-          ))}
-        </Select>
+        />
         <Select
           aria-label="Situação"
           placeholder="Todas as situações"
           value={query.status ?? ""}
           onChange={(e) => setQuery({ status: e.target.value })}
-          className="w-full sm:w-48"
+          className="w-full sm:w-44"
         >
           {claimStatusSchema.options.map((s) => (
             <option key={s} value={s}>
@@ -111,6 +181,11 @@ export function ClaimsPage() {
             </option>
           ))}
         </Select>
+        <PeriodFilter
+          allowAll
+          value={{ from: query.from, to: query.to }}
+          onChange={(p) => setQuery({ from: p.from, to: p.to })}
+        />
         {query.visitorId && (
           <span className="inline-flex h-10 items-center gap-2 rounded-full border border-neutral-200 bg-white pr-1 pl-3 text-sm text-neutral-800">
             <UserRound className="size-4 text-neutral-500" aria-hidden />
@@ -138,6 +213,8 @@ export function ClaimsPage() {
                 storeId: undefined,
                 status: undefined,
                 visitorId: undefined,
+                from: undefined,
+                to: undefined,
               });
             }}
           >

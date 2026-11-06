@@ -28,7 +28,7 @@ export interface RecyclingItemProps {
   active: boolean;
 }
 
-/** Vaga de emprego de uma loja. Tirar do ar antes do prazo = apagar. */
+/** Vaga de emprego de uma loja. Encerrar antes do prazo = vencer agora (fica em "Encerradas"). */
 export interface JobProps {
   id: string;
   storeId: string;

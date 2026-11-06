@@ -121,7 +121,11 @@ export function clubRoutes(deps: ClubRoutesDeps): FastifyPluginAsyncZod {
     r.route(
       ROUTES.clubReports.coupons,
       { querystring: couponsByStoreQuerySchema, response: { 200: couponsByStoreSchema } },
-      async (request) => ({ data: await queries.couponsByStore(request.query) }),
+      async (request) => {
+        // Lojista vê só a própria loja (o CSV sai destes mesmos dados).
+        const storeId = scopedStoreId(staffOf(request), request.query.storeId);
+        return { data: await queries.couponsByStore({ ...request.query, storeId }) };
+      },
     );
     r.route(
       ROUTES.clubReports.seals,

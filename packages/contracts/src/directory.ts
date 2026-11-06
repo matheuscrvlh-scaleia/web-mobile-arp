@@ -70,6 +70,8 @@ export const mapShapeSchema = z.object({
   y: mapY,
   w: z.number().min(1).max(MAP_VIEWBOX.width),
   h: z.number().min(1).max(MAP_VIEWBOX.height),
+  /** Forma "Bloco" ligada ao cadastro de blocos (lojas do bloco, sugestão ao posicionar). */
+  blockId: idSchema.nullable().optional(),
 });
 export type MapShape = z.infer<typeof mapShapeSchema>;
 
@@ -80,6 +82,8 @@ export const floorSchema = z.object({
   label: z.string(),
   shortLabel: z.string(),
   layout: z.array(mapShapeSchema),
+  /** Planta do andar (só no painel, de fundo para desenhar por cima). */
+  backgroundImageUrl: z.string().nullable(),
   storesCount: z.number().int(),
   createdAt: isoDateTimeSchema,
   updatedAt: isoDateTimeSchema,
@@ -92,6 +96,7 @@ export const createFloorBodySchema = z.object({
   label: z.string().trim().min(1).max(40),
   shortLabel: z.string().trim().min(1).max(3),
   layout: z.array(mapShapeSchema).max(60).default([]),
+  backgroundImageUrl: mediaUrlSchema.nullable().optional(),
 });
 export type CreateFloorBody = z.infer<typeof createFloorBodySchema>;
 export const updateFloorBodySchema = z.object(patchOf(createFloorBodySchema.shape));
@@ -115,6 +120,20 @@ export const createBlockBodySchema = z.object({
 export type CreateBlockBody = z.infer<typeof createBlockBodySchema>;
 export const updateBlockBodySchema = z.object(patchOf(createBlockBodySchema.shape));
 export type UpdateBlockBody = z.infer<typeof updateBlockBodySchema>;
+
+/** Nova ordem de um cadastro (blocos, categorias de um tipo): ids na ordem da tela. */
+export const catalogOrderBodySchema = z.object({
+  ids: z
+    .array(idSchema)
+    .min(1)
+    .max(300)
+    .refine((l) => new Set(l).size === l.length, "Item repetido"),
+});
+export type CatalogOrderBody = z.infer<typeof catalogOrderBodySchema>;
+
+/** Apagar bloco/categoria em uso: `moveTo` leva as lojas para outro antes de apagar. */
+export const catalogRemoveQuerySchema = z.object({ moveTo: idSchema.optional() });
+export type CatalogRemoveQuery = z.infer<typeof catalogRemoveQuerySchema>;
 
 /* Categorias de loja ----------------------------------------------------- */
 
@@ -187,10 +206,58 @@ export const storeHoursSchema = z
   });
 export type StoreHours = z.infer<typeof storeHoursSchema>;
 
+/** Até quantos intervalos por dia (ex.: almoço 11–15h e jantar 18–23h). */
+export const STORE_HOURS_PER_DAY_MAX = 3;
+
+const toMinutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+
+/**
+ * Dias com intervalos que se cruzam (o que passa da meia-noite conta até o
+ * fim do dia). Vazio = tudo certo.
+ */
+export function overlappingWeekdays(
+  hours: readonly { weekday: number; opensAt: string; closesAt: string }[],
+): number[] {
+  const bad: number[] = [];
+  for (let day = 0; day < 7; day++) {
+    const spans = hours
+      .filter((h) => h.weekday === day)
+      .map((h) => {
+        const start = toMinutes(h.opensAt);
+        const end = toMinutes(h.closesAt);
+        return { start, end: end > start ? end : 24 * 60 };
+      })
+      .sort((a, b) => a.start - b.start);
+    if (spans.some((s, i) => i > 0 && s.start < (spans[i - 1]?.end ?? 0))) bad.push(day);
+  }
+  return bad;
+}
+
 export const storeHoursListSchema = z
   .array(storeHoursSchema)
-  .max(7)
-  .refine((l) => new Set(l.map((h) => h.weekday)).size === l.length, "Dia da semana repetido");
+  .max(7 * STORE_HOURS_PER_DAY_MAX)
+  .refine(
+    (l) =>
+      [0, 1, 2, 3, 4, 5, 6].every(
+        (d) => l.filter((h) => h.weekday === d).length <= STORE_HOURS_PER_DAY_MAX,
+      ),
+    `Até ${STORE_HOURS_PER_DAY_MAX} horários por dia`,
+  )
+  .refine((l) => overlappingWeekdays(l).length === 0, "Dois horários do mesmo dia se cruzam");
+
+/**
+ * O que falta no cadastro da loja (filtro "Pendências" e completude):
+ * horário, foto de capa, logo, lugar no mapa e descrição.
+ */
+export const storeGapSchema = z.enum(["hours", "cover", "logo", "map", "description"]);
+export type StoreGap = z.infer<typeof storeGapSchema>;
+export const STORE_GAP_LABEL: Record<StoreGap, string> = {
+  hours: "horário",
+  cover: "foto de capa",
+  logo: "logo",
+  map: "lugar no mapa",
+  description: "descrição",
+};
 
 export const storeSummarySchema = z.object({
   id: idSchema,
@@ -212,9 +279,14 @@ export const storeSummarySchema = z.object({
   activeCouponsCount: z.number().int(),
   /** Calculado no fuso America/Sao_Paulo a partir dos horários. */
   isOpenNow: z.boolean(),
+  /** false = nenhum horário cadastrado ("Sem horário", não "Fechada agora"). */
+  hasHours: z.boolean(),
+  /** Itens do cadastro que faltam (vazio = completa). */
+  missing: z.array(storeGapSchema),
   /** Posição do pino no desenho do andar (null = ainda sem posição). */
   mapX: z.number().nullable(),
   mapY: z.number().nullable(),
+  updatedAt: isoDateTimeSchema,
 });
 export type StoreSummary = z.infer<typeof storeSummarySchema>;
 export const storePageSchema = paginated(storeSummarySchema);
@@ -229,8 +301,20 @@ export const storeDetailSchema = storeSummarySchema.extend({
   hours: z.array(storeHoursSchema),
   followersCount: z.number().int(),
   favoritesCount: z.number().int(),
+  /**
+   * Histórico ligado à loja. Com qualquer um deles a loja não pode ser
+   * excluída (só desativada).
+   */
+  usage: z.object({
+    coupons: z.number().int(),
+    challenges: z.number().int(),
+    events: z.number().int(),
+    highlights: z.number().int(),
+    notifications: z.number().int(),
+    jobs: z.number().int(),
+    merchants: z.number().int(),
+  }),
   createdAt: isoDateTimeSchema,
-  updatedAt: isoDateTimeSchema,
 });
 export type StoreDetail = z.infer<typeof storeDetailSchema>;
 
@@ -241,19 +325,19 @@ const phone = z
   .regex(/^[\d\s()+-]*$/, "Telefone inválido");
 
 export const createStoreBodySchema = z.object({
-  name: z.string().trim().min(2).max(80),
+  name: z.string().trim().min(2, "Escreva o nome da loja").max(80),
   /** Sem slug: gerado a partir do nome. */
   slug: slugSchema.optional(),
   /** Subcategoria principal. */
-  categoryId: idSchema,
+  categoryId: z.uuid({ error: "Escolha a categoria" }),
   /** Outras subcategorias (podem ser de outra das 3 categorias). */
   extraCategoryIds: z
     .array(idSchema)
     .max(STORE_EXTRA_CATEGORIES_MAX)
     .refine((l) => new Set(l).size === l.length, "Categoria repetida")
     .default([]),
-  blockId: idSchema,
-  floorId: idSchema,
+  blockId: z.uuid({ error: "Escolha o bloco" }),
+  floorId: z.uuid({ error: "Escolha o andar" }),
   description: z.string().trim().max(600).default(""),
   icon: iconNameSchema,
   brandColor: hexColorSchema,
@@ -274,12 +358,19 @@ export type CreateStoreInput = z.input<typeof createStoreBodySchema>;
 export const updateStoreBodySchema = z.object(patchOf(createStoreBodySchema.shape));
 export type UpdateStoreBody = z.infer<typeof updateStoreBodySchema>;
 
+export const storeSortSchema = z.enum(["name", "category", "block", "floor", "updated"]);
+export type StoreSort = z.infer<typeof storeSortSchema>;
+
 export const listStoresQuerySchema = paginationQuerySchema.extend({
   kind: storeKindSchema.optional(),
   categoryId: idSchema.optional(),
   blockId: idSchema.optional(),
   floorId: idSchema.optional(),
   status: storeStatusSchema.optional(),
+  /** Pendências: lojas sem o item (ou "any" = com qualquer pendência). */
+  missing: z.union([storeGapSchema, z.literal("any")]).optional(),
+  sort: storeSortSchema.optional(),
+  order: z.enum(["asc", "desc"]).optional(),
 });
 export type ListStoresQuery = z.infer<typeof listStoresQuerySchema>;
 
@@ -294,6 +385,30 @@ export const updateStoreLocationBodySchema = z.object({
 });
 export type UpdateStoreLocationBody = z.infer<typeof updateStoreLocationBodySchema>;
 
+/**
+ * Ação em lote na lista de lojas: muda categoria, bloco, andar e/ou
+ * situação de várias lojas de uma vez. Trocar o andar tira a loja do mapa
+ * (a posição antiga é de outro desenho).
+ */
+export const bulkUpdateStoresBodySchema = z.object({
+  ids: z
+    .array(idSchema)
+    .min(1, "Escolha pelo menos uma loja")
+    .max(200)
+    .refine((l) => new Set(l).size === l.length, "Loja repetida"),
+  changes: z
+    .object({
+      categoryId: idSchema.optional(),
+      blockId: idSchema.optional(),
+      floorId: idSchema.optional(),
+      status: storeStatusSchema.optional(),
+    })
+    .refine((c) => Object.values(c).some((v) => v !== undefined), "Escolha o que mudar"),
+});
+export type BulkUpdateStoresBody = z.infer<typeof bulkUpdateStoresBodySchema>;
+export const bulkUpdateStoresResponseSchema = z.object({ updated: z.number().int() });
+export type BulkUpdateStoresResponse = z.infer<typeof bulkUpdateStoresResponseSchema>;
+
 /** Lista enxuta para selects (todas as lojas ativas). */
 export const storeOptionSchema = z.object({
   id: idSchema,
@@ -301,6 +416,9 @@ export const storeOptionSchema = z.object({
   icon: iconNameSchema,
   brandColor: hexColorSchema,
   kind: storeKindSchema,
+  /** Onde fica (texto secundário do StoreSelect): "1º andar", "Bloco A". */
+  floorLabel: z.string().optional(),
+  blockName: z.string().optional(),
 });
 export type StoreOption = z.infer<typeof storeOptionSchema>;
 export const storeOptionListSchema = listOf(storeOptionSchema);

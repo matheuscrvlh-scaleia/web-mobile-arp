@@ -1,4 +1,11 @@
-import type { AuthUser, ListUsersQuery, Permission, Role, User } from "@arp/contracts";
+import {
+  type AuthUser,
+  type ListUsersQuery,
+  type Permission,
+  type Role,
+  type User,
+  withImpliedPermissions,
+} from "@arp/contracts";
 import { offsetOf, type Page, toPage } from "../../../shared/application/pagination";
 import type { Database } from "../../../shared/infra/database/database";
 import { sql } from "../../../shared/infra/database/sql";
@@ -17,12 +24,22 @@ interface UserRow {
   last_login_at: Date | null;
   created_at: Date;
   updated_at: Date;
+  in_use?: boolean;
 }
 
 const USER_COLUMNS = sql`
   u.id, u.name, u.email, u.status, u.role_id, r.name as role_name,
   u.store_id, s.name as store_name, u.must_change_password, u.last_login_at,
   u.created_at, u.updated_at
+`;
+
+// "Em uso" = as FKs que impedem o delete (as outras viram null ao excluir).
+// Só na lista e no detalhe (não no login/me).
+const USER_IN_USE = sql`
+  (exists (select 1 from promotions.coupons x where x.created_by = u.id)
+   or exists (select 1 from promotions.coupon_claims x where x.redeemed_by = u.id)
+   or exists (select 1 from marketing.push_notifications x where x.created_by = u.id)
+   or exists (select 1 from platform.settings x where x.updated_by = u.id)) as in_use
 `;
 
 const USER_FROM = sql`
@@ -43,6 +60,7 @@ function toUser(r: UserRow): User {
     lastLoginAt: isoOrNull(r.last_login_at),
     createdAt: iso(r.created_at),
     updatedAt: iso(r.updated_at),
+    inUse: r.in_use,
   };
 }
 
@@ -54,7 +72,9 @@ export class IdentityQueries {
   ) {}
 
   private permissionsOf(list: string[]): Permission[] {
-    return list.filter((p): p is Permission => this.knownPermissions.has(p));
+    return withImpliedPermissions(list).filter((p): p is Permission =>
+      this.knownPermissions.has(p),
+    );
   }
 
   async authUser(userId: string): Promise<AuthUser | null> {
@@ -109,7 +129,7 @@ export class IdentityQueries {
 
   async listUsers(query: ListUsersQuery): Promise<Page<User>> {
     const rows = await this.db.many<UserRow & { total: number }>(sql`
-      select ${USER_COLUMNS}, count(*) over() as total
+      select ${USER_COLUMNS}, ${USER_IN_USE}, count(*) over() as total
       ${USER_FROM}
       ${sql.where([
         query.roleId && sql`u.role_id = ${query.roleId}`,
@@ -127,7 +147,7 @@ export class IdentityQueries {
 
   async getUser(id: string): Promise<User | null> {
     const row = await this.db.maybeOne<UserRow>(
-      sql`select ${USER_COLUMNS} ${USER_FROM} where u.id = ${id}`,
+      sql`select ${USER_COLUMNS}, ${USER_IN_USE} ${USER_FROM} where u.id = ${id}`,
     );
     return row ? toUser(row) : null;
   }

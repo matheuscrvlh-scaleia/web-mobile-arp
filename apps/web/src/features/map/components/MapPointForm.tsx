@@ -95,7 +95,7 @@ export function NewMapPointModal({
       footer={
         <>
           <Button variant="secondary" onClick={close} disabled={create.isPending}>
-            Cancelar
+            Voltar
           </Button>
           <Button type="submit" form="form-ponto" loading={create.isPending}>
             Criar ponto
@@ -110,7 +110,7 @@ export function NewMapPointModal({
   );
 }
 
-/** Ponto selecionado: renomear, trocar ícone ou apagar (arrastar é no mapa). */
+/** Ponto selecionado: renomear, trocar ícone ou excluir (arrastar é no mapa). */
 export function MapPointEditor({
   point,
   readOnly,
@@ -155,7 +155,7 @@ export function MapPointEditor({
             Salvar ponto
           </Button>
           <Button variant="ghost" size="sm" icon={Trash2} onClick={() => setConfirming(true)}>
-            Apagar
+            Excluir
           </Button>
         </div>
       )}
@@ -166,16 +166,16 @@ export function MapPointEditor({
           remove.reset();
         }}
         danger
-        title={`Apagar “${point.label}”?`}
+        title={`Excluir “${point.label}”?`}
         description="O ponto some do mapa do app."
-        confirmLabel="Apagar"
+        confirmLabel="Excluir ponto"
         loading={remove.isPending}
         error={remove.error}
         onConfirm={() =>
           remove.mutate(point.id, {
             onSuccess: () => {
               setConfirming(false);
-              toast.success("Ponto apagado.");
+              toast.success("Ponto excluído.");
               onDeleted();
             },
           })

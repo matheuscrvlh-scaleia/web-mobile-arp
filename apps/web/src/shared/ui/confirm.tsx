@@ -10,7 +10,11 @@ export interface ConfirmOptions {
   title: string;
   description?: ReactNode;
   confirmLabel: string;
+  /** Botão neutro (padrão "Voltar"). Nunca "Cancelar" ao lado de "Cancelar evento". */
+  cancelLabel?: string;
   danger?: boolean;
+  /** Texto a digitar para liberar o botão: só em ação em massa (regra do painel). */
+  confirmText?: string;
 }
 
 interface Pending extends ConfirmOptions {
@@ -55,7 +59,9 @@ export function ConfirmHost() {
       title={current?.title ?? ""}
       description={current?.description}
       confirmLabel={current?.confirmLabel ?? "Confirmar"}
+      cancelLabel={current?.cancelLabel}
       danger={current?.danger}
+      confirmText={current?.confirmText}
     />
   );
 }

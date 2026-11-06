@@ -1,6 +1,8 @@
-import { type MapShapeKind, mapShapeKindSchema } from "@arp/contracts";
+import { type Floor, type MapShapeKind, mapShapeKindSchema } from "@arp/contracts";
 import { ArrowDownToLine, ArrowUpToLine, Plus, Trash2, X } from "lucide-react";
 import { useState } from "react";
+import { useBlocks } from "@/features/catalog";
+import { errorMessage } from "@/shared/api";
 import { cn } from "@/shared/lib/cn";
 import {
   Button,
@@ -10,21 +12,46 @@ import {
   Field,
   FieldRow,
   IconButton,
+  ImageUpload,
   Input,
   Select,
+  toast,
 } from "@/shared/ui";
+import { useSaveFloor } from "../api";
 import { clamp, SHAPE_KIND_LABEL, VIEW_H, VIEW_W } from "./map-canvas";
 import type { MapEditor } from "./useMapEditor";
 
 const ROW =
   "flex w-full cursor-pointer items-center gap-2 rounded-2xl px-3 py-2 text-left text-sm transition hover:bg-white/60";
 
-/** Painel do modo "Desenho": formas do andar, a selecionada e as novas. */
-export function LayoutPanel({ editor, readOnly }: { editor: MapEditor; readOnly: boolean }) {
+/** Painel do modo "Desenho": planta de fundo, formas do andar, a selecionada e as novas. */
+export function LayoutPanel({
+  editor,
+  floor,
+  readOnly,
+}: {
+  editor: MapEditor;
+  floor: Floor;
+  readOnly: boolean;
+}) {
   const { layout, selection } = editor;
   const [newKind, setNewKind] = useState<MapShapeKind>("block");
   const index = selection?.type === "shape" ? selection.index : -1;
   const shape = layout[index];
+  const blocks = useBlocks();
+  const usedBlocks = new Set(layout.map((s) => s.blockId).filter(Boolean));
+  const saveFloor = useSaveFloor();
+  const setBackground = (url: string | null) =>
+    saveFloor.mutate(
+      { id: floor.id, body: { backgroundImageUrl: url } },
+      {
+        onSuccess: () =>
+          toast.success(
+            url ? "Planta do andar salva. Desenhe os blocos por cima." : "Planta tirada.",
+          ),
+        onError: (e) => toast.error(errorMessage(e)),
+      },
+    );
 
   const num = (key: "x" | "y" | "w" | "h", raw: string) => {
     const n = Number(raw);
@@ -75,6 +102,28 @@ export function LayoutPanel({ editor, readOnly }: { editor: MapEditor; readOnly:
                   ))}
                 </Select>
               </Field>
+              {shape.kind === "block" ? (
+                <Field label="Qual bloco?" hint="O nome no mapa vem do cadastro.">
+                  <Select
+                    placeholder="Escolha o bloco"
+                    value={shape.blockId ?? ""}
+                    onChange={(e) => {
+                      const b = blocks.data?.find((x) => x.id === e.target.value);
+                      editor.updateShape(index, {
+                        blockId: b?.id ?? null,
+                        ...(b ? { label: b.name.slice(0, 40) } : {}),
+                      });
+                    }}
+                  >
+                    {(blocks.data ?? []).map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                        {usedBlocks.has(b.id) && b.id !== shape.blockId ? " (já desenhado)" : ""}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              ) : null}
               <Field label="Nome no mapa" hint="Até 40 letras">
                 <Input
                   value={shape.label}
@@ -83,18 +132,23 @@ export function LayoutPanel({ editor, readOnly }: { editor: MapEditor; readOnly:
                 />
               </Field>
             </FieldRow>
-            <div className="grid grid-cols-4 gap-2">
-              {(["x", "y", "w", "h"] as const).map((k) => (
-                <Field key={k} label={{ x: "X", y: "Y", w: "Largura", h: "Altura" }[k]}>
-                  <Input
-                    type="number"
-                    value={shape[k]}
-                    onChange={(e) => num(k, e.target.value)}
-                    className="px-2"
-                  />
-                </Field>
-              ))}
-            </div>
+            <details className="group rounded-2xl bg-neutral-900/[0.03] px-3 py-2">
+              <summary className="cursor-pointer text-sm font-medium text-neutral-700">
+                Ajuste fino (posição e tamanho exatos)
+              </summary>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {(["x", "y", "w", "h"] as const).map((k) => (
+                  <Field key={k} label={{ x: "X", y: "Y", w: "Largura", h: "Altura" }[k]}>
+                    <Input
+                      type="number"
+                      value={shape[k]}
+                      onChange={(e) => num(k, e.target.value)}
+                      className="px-2"
+                    />
+                  </Field>
+                ))}
+              </div>
+            </details>
             {!readOnly && (
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -126,6 +180,21 @@ export function LayoutPanel({ editor, readOnly }: { editor: MapEditor; readOnly:
               </div>
             )}
           </fieldset>
+        </Card>
+      )}
+
+      {!readOnly && !shape && (
+        <Card>
+          <CardHeader
+            title="Planta do andar"
+            description="Envie a planta (foto ou imagem do PDF) para desenhar os blocos por cima. Só aparece aqui no painel; o app mostra o desenho."
+          />
+          <ImageUpload
+            label="planta do andar"
+            value={floor.backgroundImageUrl}
+            onChange={setBackground}
+            disabled={saveFloor.isPending}
+          />
         </Card>
       )}
 

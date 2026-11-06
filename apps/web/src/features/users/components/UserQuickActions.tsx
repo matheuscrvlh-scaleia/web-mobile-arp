@@ -2,12 +2,14 @@ import type { User } from "@arp/contracts";
 import { Power, PowerOff, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/shared/auth";
-import { Button, ConfirmDialog, IconButton, toast } from "@/shared/ui";
+import { ActionMenu, Button, ConfirmDialog, toast } from "@/shared/ui";
 import { useDeleteUser, useUpdateUser } from "../api";
 
 /**
- * Desativar/reativar e excluir, com confirmação. `compact`: só ícones (linha da
- * lista). Ninguém desativa nem exclui a si mesmo; a API também recusa.
+ * Desativar/reativar e excluir (PLAN): no detalhe, a ação principal + "⋯ Mais";
+ * na lista (`compact`), tudo no "⋯". Desativar tira o acesso: pede confirmação.
+ * Reativar é na hora, com Desfazer. Excluir só para quem nunca usou o sistema.
+ * Ninguém desativa nem exclui a si mesmo; a API também recusa.
  */
 export function UserQuickActions({
   user,
@@ -28,66 +30,79 @@ export function UserQuickActions({
   const statusLabel = disabling ? "Desativar" : "Reativar";
   const StatusIcon = disabling ? PowerOff : Power;
 
+  const setStatus = (status: "active" | "disabled", after?: () => void) =>
+    update.mutate(
+      { status },
+      {
+        onSuccess: () => {
+          after?.();
+          toast.success(
+            status === "disabled"
+              ? `Acesso de ${user.name} desativado: não entra mais no painel`
+              : `Acesso de ${user.name} reativado`,
+            {
+              action: {
+                label: "Desfazer",
+                onClick: () =>
+                  update.mutate(
+                    { status: status === "disabled" ? "active" : "disabled" },
+                    { onError: (e) => toast.fromError(e) },
+                  ),
+              },
+            },
+          );
+        },
+        onError: (e) => {
+          if (!after) toast.fromError(e);
+        },
+      },
+    );
+  // Reativar devolve o acesso: é reversível, aplica na hora (regra 1).
+  const onStatus = () => (disabling ? setConfirm("status") : setStatus("active"));
+
+  const deleteItem = {
+    label: "Excluir",
+    icon: Trash2,
+    danger: true,
+    disabled: user.inUse === true,
+    hint: user.inUse ? "Já tem registros no sistema: desative em vez de excluir" : undefined,
+    onSelect: () => setConfirm("delete"),
+  };
+
   return (
     <>
       {compact ? (
-        <>
-          <IconButton
-            size="sm"
-            icon={StatusIcon}
-            label={`${statusLabel} ${user.name}`}
-            onClick={() => setConfirm("status")}
-          />
-          <IconButton
-            size="sm"
-            variant="danger"
-            icon={Trash2}
-            label={`Excluir ${user.name}`}
-            onClick={() => setConfirm("delete")}
-          />
-        </>
+        <ActionMenu
+          ariaLabel={`Mais ações de ${user.name}`}
+          items={[{ label: statusLabel, icon: StatusIcon, onSelect: onStatus }, deleteItem]}
+        />
       ) : (
         <>
           <Button
             variant={disabling ? "secondary" : "brand"}
             icon={StatusIcon}
-            onClick={() => setConfirm("status")}
+            loading={!disabling && update.isPending}
+            onClick={onStatus}
           >
             {statusLabel}
           </Button>
-          <Button variant="danger" icon={Trash2} onClick={() => setConfirm("delete")}>
-            Excluir
-          </Button>
+          <ActionMenu label="Mais" ariaLabel={`Mais ações de ${user.name}`} items={[deleteItem]} />
         </>
       )}
 
       <ConfirmDialog
-        open={confirm === "status"}
+        open={confirm === "status" && disabling}
         onClose={() => {
           setConfirm(null);
           update.reset();
         }}
-        danger={disabling}
-        title={disabling ? `Desativar ${user.name}?` : `Reativar ${user.name}?`}
-        description={
-          disabling
-            ? "A pessoa perde o acesso ao painel na hora. O histórico do que ela fez continua."
-            : "A pessoa volta a entrar com a senha que já tinha."
-        }
-        confirmLabel={statusLabel}
+        danger
+        title={`Desativar ${user.name}?`}
+        description="A pessoa perde o acesso ao painel na hora. O histórico do que ela fez continua, e dá para reativar depois."
+        confirmLabel="Desativar"
         loading={update.isPending}
         error={update.error}
-        onConfirm={() =>
-          update.mutate(
-            { status: disabling ? "disabled" : "active" },
-            {
-              onSuccess: () => {
-                setConfirm(null);
-                toast.success(disabling ? "Usuário desativado." : "Usuário reativado.");
-              },
-            },
-          )
-        }
+        onConfirm={() => setStatus("disabled", () => setConfirm(null))}
       />
       <ConfirmDialog
         open={confirm === "delete"}
@@ -97,7 +112,7 @@ export function UserQuickActions({
         }}
         danger
         title={`Excluir ${user.name} de vez?`}
-        description="Não tem volta. Quem já tem registros no sistema (cupons, notificações) não pode ser excluído: nesse caso, desative."
+        description="Não tem volta: a conta some do painel. O que a pessoa fez continua no Histórico."
         confirmLabel="Excluir"
         loading={remove.isPending}
         error={remove.error}
@@ -105,7 +120,7 @@ export function UserQuickActions({
           remove.mutate(user.id, {
             onSuccess: () => {
               setConfirm(null);
-              toast.success(`${user.name} foi excluído.`);
+              toast.success(`${user.name} saiu do painel: conta excluída`);
               onDeleted?.();
             },
           })

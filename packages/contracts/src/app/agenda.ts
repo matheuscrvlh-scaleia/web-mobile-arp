@@ -18,7 +18,10 @@ export const eventCardSchema = z.object({
   recurrence: eventRecurrenceSchema,
   startsOn: isoDateSchema,
   endsOn: isoDateSchema.nullable(),
+  /** Primeiro dia de `weekdays` (apps antigos leem só este). */
   weekday: z.number().int().min(0).max(6).nullable(),
+  /** weekly: todos os dias em que acontece (ex.: terça e quinta). */
+  weekdays: z.array(z.number().int().min(0).max(6)).nullable(),
   startTime: timeOfDaySchema.nullable(),
   endTime: timeOfDaySchema.nullable(),
   isLongRunning: z.boolean(),

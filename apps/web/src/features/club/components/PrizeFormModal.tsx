@@ -11,6 +11,7 @@ import { applyApiErrors, errorMessage } from "@/shared/api";
 import { saveInput } from "@/shared/lib/forms";
 import {
   Button,
+  confirmar,
   Field,
   FieldRow,
   ImageUpload,
@@ -55,11 +56,25 @@ export function PrizeFormModal({
     resolver: zodResolver(createPrizeBodySchema),
     values: toValues(prize),
   });
-  const { errors } = form.formState;
+  const { errors, isDirty } = form.formState;
   const close = () => {
     form.reset();
     save.reset();
     onClose();
+  };
+  // Fechar com algo digitado pergunta antes de descartar.
+  const askClose = async () => {
+    if (
+      !isDirty ||
+      (await confirmar({
+        title: "Descartar o que foi digitado?",
+        description: "As alterações neste prêmio ainda não foram salvas.",
+        confirmLabel: "Descartar",
+        cancelLabel: "Continuar editando",
+        danger: true,
+      }))
+    )
+      close();
   };
   const onSubmit = form.handleSubmit((values) =>
     save.mutate(saveInput(prize?.id, values, form.formState.dirtyFields), {
@@ -76,13 +91,13 @@ export function PrizeFormModal({
   return (
     <Modal
       open={open}
-      onClose={close}
+      onClose={() => void askClose()}
       busy={save.isPending}
       title={prize ? `Editar ${prize.name}` : "Novo prêmio"}
       description="O visitante troca os pontos do Clube ARP e retira no Centro de Informações."
       footer={
         <>
-          <Button variant="secondary" onClick={close} disabled={save.isPending}>
+          <Button variant="secondary" onClick={() => void askClose()} disabled={save.isPending}>
             Cancelar
           </Button>
           <Button type="submit" form="form-premio" loading={save.isPending}>
@@ -95,28 +110,29 @@ export function PrizeFormModal({
         <Field label="Nome" required error={errors.name?.message}>
           <Input autoFocus maxLength={80} placeholder="Ecobag ARP" {...form.register("name")} />
         </Field>
+        <Controller
+          control={form.control}
+          name="active"
+          render={({ field }) => (
+            <Switch
+              checked={field.value ?? true}
+              onCheckedChange={field.onChange}
+              label="Aparece na lojinha do app"
+            />
+          )}
+        />
         <Field label="Descrição" optional error={errors.description?.message}>
           <Textarea rows={2} maxLength={300} {...form.register("description")} />
         </Field>
-        <FieldRow>
-          <Field label="Tipo" required error={errors.kind?.message}>
-            <Select {...form.register("kind")}>
-              {prizeKindSchema.options.map((k) => (
-                <option key={k} value={k}>
-                  {PRIZE_KIND_LABEL[k]}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Ordem" hint="Menor aparece primeiro" error={errors.sortOrder?.message}>
-            <Input
-              type="number"
-              min={0}
-              max={999}
-              {...form.register("sortOrder", { valueAsNumber: true })}
-            />
-          </Field>
-        </FieldRow>
+        <Field label="Tipo" required error={errors.kind?.message}>
+          <Select {...form.register("kind")}>
+            {prizeKindSchema.options.map((k) => (
+              <option key={k} value={k}>
+                {PRIZE_KIND_LABEL[k]}
+              </option>
+            ))}
+          </Select>
+        </Field>
         <FieldRow>
           <Field label="Pontos" required error={errors.points?.message}>
             <Input type="number" min={1} {...form.register("points", { valueAsNumber: true })} />
@@ -125,30 +141,36 @@ export function PrizeFormModal({
             <Input type="number" min={0} {...form.register("stock", { valueAsNumber: true })} />
           </Field>
         </FieldRow>
-        <Field label="Foto" optional error={errors.imageUrl?.message}>
+        <Field label="Foto" optional error={errors.imageUrl?.message} className="sm:max-w-56">
           <Controller
             control={form.control}
             name="imageUrl"
             render={({ field }) => (
               <ImageUpload
                 label="foto do prêmio"
+                aspect="square"
                 value={field.value ?? null}
                 onChange={field.onChange}
               />
             )}
           />
         </Field>
-        <Controller
-          control={form.control}
-          name="active"
-          render={({ field }) => (
-            <Switch
-              checked={field.value ?? true}
-              onCheckedChange={field.onChange}
-              label="Aparece na lojinha"
+        <details className="group rounded-2xl border border-neutral-200 px-4 py-3 text-sm">
+          <summary className="cursor-pointer font-medium text-neutral-700">Mais opções</summary>
+          <Field
+            label="Posição na lojinha"
+            hint="Menor aparece primeiro; empate vai pelos pontos."
+            error={errors.sortOrder?.message}
+            className="mt-3 sm:max-w-48"
+          >
+            <Input
+              type="number"
+              min={0}
+              max={999}
+              {...form.register("sortOrder", { valueAsNumber: true })}
             />
-          )}
-        />
+          </Field>
+        </details>
       </form>
     </Modal>
   );

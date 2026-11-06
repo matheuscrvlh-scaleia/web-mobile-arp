@@ -1,8 +1,8 @@
-import { createUserBodySchema } from "@arp/contracts";
+import { createUserBodySchema, isMerchantRoleName } from "@arp/contracts";
 import { Controller, type UseFormReturn, useWatch } from "react-hook-form";
 import type { z } from "zod";
 import { useRoles } from "@/features/roles";
-import { useStoreOptions } from "@/features/stores";
+import { StoreSelect } from "@/features/stores";
 import { plural } from "@/shared/lib/format";
 import { Field, FieldRow, FormSection, Input, Select } from "@/shared/ui";
 
@@ -28,9 +28,13 @@ export function UserFields({
 }) {
   const { errors } = f.formState;
   const roles = useRoles();
-  const stores = useStoreOptions();
   const roleId = useWatch({ control: f.control, name: "roleId" });
   const role = roles.data?.find((r) => r.id === roleId);
+  const storeId = useWatch({ control: f.control, name: "storeId" });
+  // Loja só para cargo de lojista (e para quem já tem uma, até trocar o cargo).
+  const merchant = Boolean(role && isMerchantRoleName(role.name));
+  const showStore = merchant || Boolean(storeId);
+  const roleField = f.register("roleId");
 
   return (
     <>
@@ -60,7 +64,18 @@ export function UserFields({
               : undefined
           }
         >
-          <Select placeholder="Escolha o cargo" {...f.register("roleId")}>
+          <Select
+            placeholder="Escolha o cargo"
+            {...roleField}
+            onChange={(e) => {
+              void roleField.onChange(e);
+              // Trocou para um cargo que não é de lojista: a loja deixa de valer.
+              const next = roles.data?.find((r) => r.id === e.target.value);
+              if (next && !isMerchantRoleName(next.name) && f.getValues("storeId")) {
+                f.setValue("storeId", null, { shouldDirty: true });
+              }
+            }}
+          >
             {(roles.data ?? []).map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
@@ -68,30 +83,28 @@ export function UserFields({
             ))}
           </Select>
         </Field>
-        <Field
-          label="Loja do lojista"
-          hint="Com loja, a pessoa só vê e valida o que é da própria loja."
-          error={errors.storeId?.message}
-        >
-          <Controller
-            control={f.control}
-            name="storeId"
-            render={({ field }) => (
-              <Select
-                value={field.value ?? ""}
-                onChange={(e) => field.onChange(e.target.value || null)}
-                onBlur={field.onBlur}
-              >
-                <option value="">Sem loja (equipe da ARP)</option>
-                {(stores.data ?? []).map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </Select>
-            )}
-          />
-        </Field>
+        {showStore && (
+          <Field
+            label="Loja"
+            required={merchant}
+            hint="O lojista só vê e valida o que é da própria loja."
+            error={errors.storeId?.message}
+          >
+            <Controller
+              control={f.control}
+              name="storeId"
+              render={({ field }) => (
+                <StoreSelect
+                  ref={field.ref}
+                  name={field.name}
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                />
+              )}
+            />
+          </Field>
+        )}
       </FormSection>
     </>
   );

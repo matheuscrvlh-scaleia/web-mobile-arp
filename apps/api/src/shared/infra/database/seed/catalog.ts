@@ -36,6 +36,7 @@ export const ROLES: readonly RoleSeed[] = [
       "challenges.manage",
       "qr_codes.generate",
       "club.manage",
+      "club.redeem",
       "reports.view",
       "events.view",
       "events.manage",
@@ -53,13 +54,15 @@ export const ROLES: readonly RoleSeed[] = [
   },
   {
     name: "Atendimento",
-    description: "Balcão de informações: valida cupons e atende visitantes.",
+    description:
+      "Balcão de informações: valida cupons, troca pontos por prêmios e atende visitantes.",
     permissions: [
       "stores.view",
       "map.view",
       "coupons.view",
       "coupons.redeem",
       "challenges.view",
+      "club.redeem",
       "events.view",
       "visitors.view",
       "visitors.manage",

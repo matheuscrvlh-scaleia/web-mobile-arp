@@ -1,12 +1,12 @@
 import type { Event } from "@arp/contracts";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMemo } from "react";
+import { Radio, Save } from "lucide-react";
+import { type FormEvent, useMemo } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { useFloors } from "@/features/map";
-import { useStoreOptions } from "@/features/stores";
+import { StoreSelect } from "@/features/stores";
 import { useUnsavedChangesGuard } from "@/shared/hooks";
 import { formatNumber } from "@/shared/lib/format";
-import { emptyToNull } from "@/shared/lib/text";
 import {
   Card,
   Field,
@@ -27,24 +27,30 @@ import {
 } from "../../lib/form";
 import { EventPreview } from "./EventPreview";
 import { EventVisualFields } from "./EventVisualFields";
+import { PreviewButton } from "./PreviewButton";
 import { RecurrenceFields } from "./RecurrenceFields";
 import type { EventFormContext, EventFormHandle } from "./types";
 
 const DESCRIPTION_MAX = 1200;
-const nullable = { setValueAs: emptyToNull };
 
 /**
  * Formulário do evento (criar e editar), com a prévia ao lado. Valida com o
- * schema do contrato; quem usa decide o que enviar.
+ * schema do contrato; quem usa decide o que enviar. `copyOf` = "Duplicar":
+ * abre preenchido com o evento de origem.
  */
 export function EventForm({
   event,
+  copyOf,
+  initialStartsOn,
   onSubmit,
   saving,
   readOnly = false,
   submitLabel,
 }: {
   event?: Event;
+  copyOf?: Event;
+  /** Dia já escolhido (clique no calendário). */
+  initialStartsOn?: string;
   onSubmit: (values: EventFormValues, ctx: EventFormContext) => void;
   saving: boolean;
   readOnly?: boolean;
@@ -53,7 +59,12 @@ export function EventForm({
   const creating = !event;
   const form: EventFormHandle = useForm<EventFormInput, unknown, EventFormValues>({
     resolver: zodResolver(eventFormSchema),
-    values: useMemo(() => eventToFormValues(event), [event]),
+    values: useMemo(() => {
+      if (event) return eventToFormValues(event);
+      if (copyOf) return eventToFormValues(copyOf, { copy: true });
+      const blank = eventToFormValues();
+      return initialStartsOn ? { ...blank, startsOn: initialStartsOn } : blank;
+    }, [event, copyOf, initialStartsOn]),
     resetOptions: { keepDirtyValues: true },
   });
   const { register, control, formState } = form;
@@ -62,14 +73,42 @@ export function EventForm({
 
   const categories = useEventCategories();
   const floors = useFloors();
-  const stores = useStoreOptions();
   const watched = useWatch({ control });
   const category = categories.data?.find((c) => c.id === watched.categoryId);
   const floor = floors.data?.find((f) => f.id === watched.floorId);
   const where = [watched.place, floor?.label].filter(Boolean).join(" · ");
 
+  const preview = (
+    <EventPreview
+      title={watched.title ?? ""}
+      categoryName={category?.name}
+      description={watched.description ?? ""}
+      imageUrl={watched.imageUrl}
+      tone={watched.tone}
+      icon={watched.icon ?? category?.icon}
+      where={where}
+      awardsSeal={Boolean(watched.awardsSeal)}
+      when={{
+        recurrence: watched.recurrence ?? "single",
+        startsOn: watched.startsOn,
+        endsOn: watched.endsOn,
+        weekdays: watched.weekdays?.filter((d): d is number => d !== undefined),
+        startTime: watched.startTime,
+        endTime: watched.endTime,
+        isLongRunning: watched.isLongRunning,
+      }}
+    />
+  );
+
+  const submitWith = (status?: "draft" | "published") => (e?: FormEvent) => {
+    // Criar: "Publicar" (principal) ou "Salvar rascunho" decidem a situação.
+    if (status) form.setValue("status", status);
+    return form.handleSubmit((v) => onSubmit(v, { form, allowLeave }))(e);
+  };
+
   return (
-    <form onSubmit={form.handleSubmit((v) => onSubmit(v, { form, allowLeave }))} noValidate>
+    <form onSubmit={submitWith(creating ? "published" : undefined)} noValidate>
+      <PreviewButton title="Como aparece no app">{preview}</PreviewButton>
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <fieldset disabled={readOnly} className="min-w-0">
           <Card padding="lg">
@@ -78,13 +117,27 @@ export function EventForm({
                 <Input autoFocus={creating} {...register("title")} />
               </Field>
               <Field label="Categoria" required error={errors.categoryId?.message}>
-                <Select placeholder="Escolha a categoria" {...register("categoryId")}>
-                  {(categories.data ?? []).map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </Select>
+                {/* Controlado: com register, o valor chegava antes das opções e o campo
+                    aparecia vazio ao abrir pelo link direto (o dado não se perdia). */}
+                <Controller
+                  control={control}
+                  name="categoryId"
+                  render={({ field }) => (
+                    <Select
+                      placeholder={categories.isLoading ? "Carregando…" : "Escolha a categoria"}
+                      value={field.value ?? ""}
+                      onChange={(e) => field.onChange(e.target.value)}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                    >
+                      {(categories.data ?? []).map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                />
               </Field>
               <Field
                 label="Descrição"
@@ -114,22 +167,41 @@ export function EventForm({
               </Field>
               <FieldRow>
                 <Field label="Andar" optional error={errors.floorId?.message}>
-                  <Select placeholder="Sem andar" {...register("floorId", nullable)}>
-                    {(floors.data ?? []).map((f) => (
-                      <option key={f.id} value={f.id}>
-                        {f.label}
-                      </option>
-                    ))}
-                  </Select>
+                  <Controller
+                    control={control}
+                    name="floorId"
+                    render={({ field }) => (
+                      <Select
+                        placeholder={floors.isLoading ? "Carregando…" : "Sem andar"}
+                        value={field.value ?? ""}
+                        onChange={(e) => field.onChange(e.target.value || null)}
+                        onBlur={field.onBlur}
+                        name={field.name}
+                      >
+                        {(floors.data ?? []).map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {f.label}
+                          </option>
+                        ))}
+                      </Select>
+                    )}
+                  />
                 </Field>
                 <Field label="Loja" optional error={errors.storeId?.message}>
-                  <Select placeholder="Sem loja" {...register("storeId", nullable)}>
-                    {(stores.data ?? []).map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </Select>
+                  <Controller
+                    control={control}
+                    name="storeId"
+                    render={({ field }) => (
+                      <StoreSelect
+                        value={field.value ?? null}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        name={field.name}
+                        placeholder="Sem loja"
+                        selectedLabel={(event ?? copyOf)?.store?.name}
+                      />
+                    )}
+                  />
                 </Field>
               </FieldRow>
             </FormSection>
@@ -138,7 +210,7 @@ export function EventForm({
               <EventVisualFields form={form} readOnly={readOnly} categoryIcon={category?.icon} />
             </FormSection>
 
-            <FormSection title="Selo e publicação">
+            <FormSection title="Selo">
               <Controller
                 control={control}
                 name="awardsSeal"
@@ -152,20 +224,6 @@ export function EventForm({
                   />
                 )}
               />
-              {creating && (
-                <Controller
-                  control={control}
-                  name="status"
-                  render={({ field }) => (
-                    <Switch
-                      checked={field.value === "published"}
-                      onCheckedChange={(on) => field.onChange(on ? "published" : "draft")}
-                      label="Publicar ao criar"
-                      description="Desligado, fica como rascunho (fora do app)."
-                    />
-                  )}
-                />
-              )}
             </FormSection>
           </Card>
         </fieldset>
@@ -173,25 +231,7 @@ export function EventForm({
         <aside aria-label="Prévia no app" className="hidden xl:block">
           <div className="sticky top-6 flex flex-col gap-2">
             <p className="text-xs font-medium text-neutral-500">Como aparece no app</p>
-            <EventPreview
-              title={watched.title ?? ""}
-              categoryName={category?.name}
-              description={watched.description ?? ""}
-              imageUrl={watched.imageUrl}
-              tone={watched.tone}
-              icon={watched.icon ?? category?.icon}
-              where={where}
-              awardsSeal={Boolean(watched.awardsSeal)}
-              when={{
-                recurrence: watched.recurrence ?? "single",
-                startsOn: watched.startsOn,
-                endsOn: watched.endsOn,
-                weekday: watched.weekday,
-                startTime: watched.startTime,
-                endTime: watched.endTime,
-                isLongRunning: watched.isLongRunning,
-              }}
-            />
+            {preview}
           </div>
         </aside>
       </div>
@@ -202,7 +242,18 @@ export function EventForm({
           saving={saving}
           alwaysVisible={creating}
           onReset={creating ? undefined : () => form.reset()}
-          submitLabel={submitLabel}
+          submitLabel={creating ? "Publicar" : submitLabel}
+          submitIcon={creating ? Radio : undefined}
+          secondary={
+            creating
+              ? {
+                  label: "Salvar rascunho",
+                  icon: Save,
+                  onClick: () => void submitWith("draft")(),
+                  loading: saving && watched.status === "draft",
+                }
+              : undefined
+          }
         />
       )}
     </form>

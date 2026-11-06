@@ -1,6 +1,7 @@
 import type { Challenge, QrCode } from "@arp/contracts";
 import { FileImage, Printer, StickyNote } from "lucide-react";
 import { useState } from "react";
+import { useIsMobile } from "@/shared/hooks";
 import { Button, Modal, PrintArea, Segmented } from "@/shared/ui";
 import { QrPngButton } from "./QrPngButton";
 import {
@@ -28,8 +29,10 @@ export function QrPrintModal({
   onClose: () => void;
 }) {
   const [format, setFormat] = useState<PrintFormat>("cartaz");
+  const mobile = useIsMobile();
   if (!qr) return null;
-  const scale = PREVIEW_SCALE[format];
+  // No celular a etiqueta em tamanho real (90 mm) não cabe na prévia: reduz um pouco.
+  const scale = format === "etiqueta" && mobile ? 0.78 : PREVIEW_SCALE[format];
   const { w, h } = PRINT_SIZE[format];
 
   return (
@@ -57,11 +60,8 @@ export function QrPrintModal({
         onChange={setFormat}
         options={[
           { value: "cartaz", label: "Cartaz A4", icon: FileImage },
-          {
-            value: "etiqueta",
-            label: `Etiquetas (${LABELS_PER_SHEET} por folha)`,
-            icon: StickyNote,
-          },
+          // Curto para caber no celular; "por folha" vai na legenda da prévia.
+          { value: "etiqueta", label: "Etiquetas", icon: StickyNote },
         ]}
         className="mb-4"
       />
@@ -82,7 +82,7 @@ export function QrPrintModal({
         <figcaption className="text-xs text-neutral-500">
           {format === "cartaz"
             ? "Prévia reduzida do cartaz A4."
-            : `Tamanho real: 90 × 60 mm. Sai uma folha com ${LABELS_PER_SHEET} etiquetas para recortar.`}
+            : `Etiqueta de 90 × 60 mm. Sai uma folha com ${LABELS_PER_SHEET} etiquetas para recortar.`}
         </figcaption>
       </figure>
       <PrintArea>

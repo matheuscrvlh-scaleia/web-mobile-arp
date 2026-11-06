@@ -3,12 +3,13 @@ import {
   type CreateCampaignBody,
   campaignListSchema,
   campaignSchema,
+  type DuplicateCampaignBody,
   type ReplaceTiersBody,
   ROUTES,
   type UpdateCampaignBody,
 } from "@arp/contracts";
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiRequest, updateListItem } from "@/shared/api";
+import { apiCall, apiRequest, updateListItem } from "@/shared/api";
 
 export const campaignsApi = {
   list: (signal?: AbortSignal) => apiRequest(ROUTES.campaigns.list, campaignListSchema, { signal }),
@@ -20,6 +21,9 @@ export const campaignsApi = {
     apiRequest(ROUTES.campaigns.update, campaignSchema, { params: { id }, body }),
   replaceTiers: (id: string, body: ReplaceTiersBody) =>
     apiRequest(ROUTES.campaigns.replaceTiers, campaignSchema, { params: { id }, body }),
+  remove: (id: string) => apiCall(ROUTES.campaigns.remove, { params: { id } }),
+  duplicate: (id: string, body: DuplicateCampaignBody) =>
+    apiRequest(ROUTES.campaigns.duplicate, campaignSchema, { params: { id }, body }),
 };
 
 export const campaignKeys = {
@@ -86,5 +90,30 @@ export function useReplaceTiers(id: string) {
       qc.setQueryData(campaignKeys.detail(campaign.id), campaign);
       updateListItem<Campaign>(qc, campaignKeys.list(), campaign.id, () => campaign);
     },
+  });
+}
+
+/** Exclui campanha sem selos dados (desafios e QR Codes vão junto; a API devolve CONFLICT). */
+export function useDeleteCampaign() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: campaignsApi.remove,
+    onSuccess: (_v, id) => {
+      qc.removeQueries({ queryKey: campaignKeys.detail(id) });
+      return Promise.all([
+        qc.invalidateQueries({ queryKey: campaignKeys.list() }),
+        qc.invalidateQueries({ queryKey: ["challenges"] }),
+        qc.invalidateQueries({ queryKey: ["seals"] }),
+      ]);
+    },
+  });
+}
+
+/** Duplica a campanha (faixas e desafios, sem QR) como rascunho. */
+export function useDuplicateCampaign(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: DuplicateCampaignBody) => campaignsApi.duplicate(id, body),
+    onSuccess: (campaign) => campaignSaved(qc, campaign),
   });
 }

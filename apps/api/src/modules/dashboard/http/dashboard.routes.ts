@@ -3,15 +3,18 @@ import {
   dashboardDetailSchema,
   dashboardOverviewSchema,
   dashboardQuerySchema,
+  pendingSchema,
   ROUTES,
 } from "@arp/contracts";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { staffOf } from "../../../shared/infra/http/auth";
 import { createRouter } from "../../../shared/infra/http/router";
 import type { GetDashboardOverviewUseCase } from "../application/get-dashboard-overview.use-case";
+import type { GetPendingUseCase } from "../application/get-pending.use-case";
 
 export function dashboardRoutes(deps: {
   overview: GetDashboardOverviewUseCase;
+  pending: GetPendingUseCase;
 }): FastifyPluginAsyncZod {
   return async (app) => {
     const r = createRouter(app, { audience: "admin", tag: "Dashboard" });
@@ -24,6 +27,9 @@ export function dashboardRoutes(deps: {
       ROUTES.dashboardDetail,
       { querystring: dashboardDetailQuerySchema, response: { 200: dashboardDetailSchema } },
       async (request) => deps.overview.detail(request.query, staffOf(request)),
+    );
+    r.route(ROUTES.dashboardPending, { response: { 200: pendingSchema } }, async (request) =>
+      deps.pending.execute(staffOf(request)),
     );
   };
 }

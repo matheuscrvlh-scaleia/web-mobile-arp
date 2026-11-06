@@ -25,6 +25,8 @@ export const auditLogSchema = z.object({
   action: z.string(),
   entityType: z.string(),
   entityId: z.string().nullable(),
+  /** Nome atual do item (ou o do registro, se ele já foi excluído). */
+  entityName: z.string().nullable(),
   /** { campo: { from, to } } nas edições; snapshot nas criações. */
   changes: z.record(z.string(), z.unknown()).nullable(),
   ip: z.string().nullable(),
@@ -39,18 +41,32 @@ export const listAuditLogsQuerySchema = paginationQuerySchema.extend({
   entityType: z.string().trim().max(40).optional(),
   entityId: z.string().trim().max(60).optional(),
   action: z.string().trim().max(60).optional(),
+  /** Tipo de ação, sem depender da entidade (criou, editou, excluiu…). */
+  verb: z.enum(["create", "update", "delete", "status"]).optional(),
+  /** "true" esconde entradas e envios de arquivo (o barulho do histórico). */
+  hideAccess: z.enum(["true", "false"]).optional(),
   from: isoDateSchema.optional(),
   to: isoDateSchema.optional(),
 });
 export type ListAuditLogsQuery = z.infer<typeof listAuditLogsQuerySchema>;
 
+/** Pessoas da equipe que aparecem no histórico (filtro "Quem"). */
+export const auditActorListSchema = z.object({
+  data: z.array(z.object({ id: z.string(), name: z.string() })),
+});
+export type AuditActorList = z.infer<typeof auditActorListSchema>;
+
 /* Configurações do app --------------------------------------------------- */
 
 export const appSettingsSchema = z.object({
   /** Prazo padrão sugerido ao criar um cupom. */
-  couponDefaultWindowHours: z.number().int().min(1).max(720),
+  couponDefaultWindowHours: z
+    .number({ error: "Informe as horas" })
+    .int("Use horas inteiras")
+    .min(1, "Use pelo menos 1 hora")
+    .max(720, "Use no máximo 720 horas (30 dias)"),
   supportWhatsapp: z.string().trim().max(20).nullable(),
-  supportEmail: z.email().nullable(),
+  supportEmail: z.email("E-mail inválido (ex.: contato@arp.com.br)").nullable(),
   aboutText: z.string().trim().max(2000),
   termsUrl: urlSchema.nullable(),
   privacyUrl: urlSchema.nullable(),
@@ -59,11 +75,23 @@ export const appSettingsSchema = z.object({
   /** Texto do painel "Tour da ARP" do app. */
   tourInfo: z.string().trim().max(1000),
   /** Dias que uma vaga fica no ar antes de sair sozinha (padrão 30). */
-  jobDays: z.number().int().min(1).max(90),
+  jobDays: z
+    .number({ error: "Informe os dias" })
+    .int("Use dias inteiros")
+    .min(1, "Use pelo menos 1 dia")
+    .max(90, "Use no máximo 90 dias"),
   /** Meses em que os pontos do Clube valem para troca (padrão 12). */
-  pointsValidityMonths: z.number().int().min(1).max(24),
+  pointsValidityMonths: z
+    .number({ error: "Informe os meses" })
+    .int("Use meses inteiros")
+    .min(1, "Use pelo menos 1 mês")
+    .max(24, "Use no máximo 24 meses"),
   /** Dias antes de vencer para avisar o visitante por push (0 = sem aviso). */
-  pointsExpiryNoticeDays: z.number().int().min(0).max(60),
+  pointsExpiryNoticeDays: z
+    .number({ error: "Informe os dias (0 = sem aviso)" })
+    .int("Use dias inteiros")
+    .min(0, "Use 0 para não avisar")
+    .max(60, "Use no máximo 60 dias"),
 });
 export type AppSettings = z.infer<typeof appSettingsSchema>;
 

@@ -6,7 +6,7 @@ import { z } from "zod";
  */
 export const PERMISSION_CATALOG = [
   {
-    group: "Gestão",
+    group: "Dashboard",
     items: [{ key: "dashboard.view", label: "Ver dashboard", description: "Indicadores do app." }],
   },
   {
@@ -27,7 +27,7 @@ export const PERMISSION_CATALOG = [
     ],
   },
   {
-    group: "Cupons",
+    group: "Promoções e cupons",
     items: [
       { key: "coupons.view", label: "Ver cupons", description: "Promoções e cupons pegos." },
       {
@@ -52,13 +52,13 @@ export const PERMISSION_CATALOG = [
     items: [
       {
         key: "challenges.view",
-        label: "Ver desafios",
-        description: "Campanhas, desafios e selos.",
+        label: "Ver campanhas e selos",
+        description: "Campanhas, desafios, selos e a lojinha do Clube.",
       },
       {
         key: "challenges.manage",
-        label: "Gerenciar desafios",
-        description: "Campanhas, selos e desafios; revogar QR Codes.",
+        label: "Gerenciar campanhas e selos",
+        description: "Criar e editar campanhas, desafios e selos; revogar QR Codes.",
       },
       {
         key: "qr_codes.generate",
@@ -74,7 +74,14 @@ export const PERMISSION_CATALOG = [
       {
         key: "club.manage",
         label: "Gerenciar o Clube",
-        description: "Prêmios da lojinha, estoque e entrega das trocas.",
+        description: "Prêmios da lojinha e estoque (inclui trocar pontos no balcão).",
+      },
+      {
+        // Separada de club.manage: o balcão troca sem poder mexer na lojinha.
+        key: "club.redeem",
+        label: "Trocar pontos no balcão",
+        description:
+          "Achar o visitante, trocar os pontos por um prêmio, entregar na hora e desfazer a troca.",
       },
     ],
   },
@@ -89,7 +96,7 @@ export const PERMISSION_CATALOG = [
     ],
   },
   {
-    group: "Agenda",
+    group: "Eventos",
     items: [
       { key: "events.view", label: "Ver eventos", description: "Agenda de eventos." },
       {
@@ -149,7 +156,7 @@ export const PERMISSION_CATALOG = [
     ],
   },
   {
-    group: "Administração",
+    group: "Equipe e sistema",
     items: [
       { key: "users.view", label: "Ver usuários", description: "Equipe com acesso ao painel." },
       {
@@ -181,6 +188,28 @@ export const PERMISSIONS = PERMISSION_CATALOG.flatMap((g) => g.items.map((i) => 
 ];
 
 export const permissionSchema = z.enum(PERMISSIONS);
+
+/** Permissões que vêm junto com outra (quem gerencia o Clube também entrega prêmios). */
+export const IMPLIED_PERMISSIONS: Partial<Record<Permission, readonly Permission[]>> = {
+  "club.manage": ["club.redeem"],
+};
+
+/** A lista com as permissões implícitas acrescentadas (sem repetir). */
+export function withImpliedPermissions<P extends string>(permissions: readonly P[]): P[] {
+  const all = new Set<string>(permissions);
+  for (const p of permissions)
+    for (const extra of IMPLIED_PERMISSIONS[p as Permission] ?? []) all.add(extra);
+  return [...all] as P[];
+}
+
+/** Rótulo e grupo de uma permissão (ex.: tela de acesso negado). */
+export function permissionInfo(key: string): { label: string; group: string } | null {
+  for (const g of PERMISSION_CATALOG) {
+    const item = g.items.find((i) => i.key === key);
+    if (item) return { label: item.label, group: g.group };
+  }
+  return null;
+}
 
 export const permissionCatalogSchema = z.object({
   data: z.array(

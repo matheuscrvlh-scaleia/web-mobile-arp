@@ -29,12 +29,24 @@ export const roleListSchema = listOf(roleSchema);
 export const createRoleBodySchema = z.object({
   name: z.string().trim().min(2).max(60),
   description: z.string().trim().max(240).nullable().optional(),
-  permissions: z.array(permissionSchema).max(100),
+  permissions: z
+    .array(permissionSchema)
+    .min(1, "Marque pelo menos uma permissão: sem nenhuma, a pessoa não vê nenhuma tela")
+    .max(100),
 });
 export type CreateRoleBody = z.infer<typeof createRoleBodySchema>;
 
 export const updateRoleBodySchema = createRoleBodySchema.partial();
 export type UpdateRoleBody = z.infer<typeof updateRoleBodySchema>;
+
+/**
+ * Cargo de lojista: o usuário precisa de uma loja (e só ele tem loja). É o
+ * cargo que a aprovação do cadastro pelo link usa; cópias ("Lojista noite")
+ * contam também.
+ */
+export const MERCHANT_ROLE_NAME = "Lojista";
+export const isMerchantRoleName = (name: string) =>
+  name.trim().toLowerCase().startsWith(MERCHANT_ROLE_NAME.toLowerCase());
 
 /* Usuários do painel ----------------------------------------------------- */
 
@@ -52,6 +64,8 @@ export const userSchema = z.object({
   lastLoginAt: isoDateTimeSchema.nullable(),
   createdAt: isoDateTimeSchema,
   updatedAt: isoDateTimeSchema,
+  /** Já tem registros que dependem dela (cupons, push, validações): não dá para excluir, só desativar. */
+  inUse: z.boolean().optional(),
 });
 export type User = z.infer<typeof userSchema>;
 export const userPageSchema = paginated(userSchema);
@@ -98,10 +112,15 @@ export type ResetPasswordResponse = z.infer<typeof resetPasswordResponseSchema>;
 /* Cadastro de lojista pelo link (Fase 2) --------------------------------- */
 
 /** A ARP gera um link para a loja; quem abre se cadastra e espera a aprovação. */
-export const createMerchantInviteBodySchema = z.object({ storeId: idSchema });
+export const createMerchantInviteBodySchema = z.object({
+  storeId: idSchema,
+  /** Cancela os links ainda valendo da loja. Sem isso, com link valendo → 409. */
+  replace: z.boolean().optional(),
+});
 export type CreateMerchantInviteBody = z.infer<typeof createMerchantInviteBodySchema>;
 
 export const merchantInviteSchema = z.object({
+  id: idSchema,
   /** Vai no fim do link (/cadastro-lojista/<token>). Só aparece aqui, uma vez. */
   token: z.string(),
   store: refSchema,
@@ -110,6 +129,21 @@ export const merchantInviteSchema = z.object({
 export type MerchantInvite = z.infer<typeof merchantInviteSchema>;
 
 export const merchantInviteTokenParamsSchema = z.object({ token: z.string().min(16).max(128) });
+
+/** Link ainda valendo (o token não volta: para reenviar, gera-se outro). */
+export const activeMerchantInviteSchema = z.object({
+  id: idSchema,
+  store: refSchema,
+  createdBy: refSchema.nullable(),
+  createdAt: isoDateTimeSchema,
+  expiresAt: isoDateTimeSchema,
+  /** Quantas pessoas já se cadastraram por este link. */
+  signupsCount: z.number().int(),
+});
+export type ActiveMerchantInvite = z.infer<typeof activeMerchantInviteSchema>;
+export const activeMerchantInviteListSchema = listOf(activeMerchantInviteSchema);
+export const listMerchantInvitesQuerySchema = z.object({ storeId: idSchema.optional() });
+export type ListMerchantInvitesQuery = z.infer<typeof listMerchantInvitesQuerySchema>;
 
 /** O que a página pública do link mostra antes do cadastro. */
 export const merchantInvitationSchema = z.object({
@@ -139,10 +173,13 @@ export const merchantSignupSchema = z.object({
   status: merchantSignupStatusSchema,
   createdAt: isoDateTimeSchema,
   decidedAt: isoDateTimeSchema.nullable(),
+  /** Acesso criado na aprovação (para "Remover acesso" na mesma linha). */
+  user: z.object({ id: idSchema, status: userStatusSchema }).nullable(),
 });
 export type MerchantSignup = z.infer<typeof merchantSignupSchema>;
 export const merchantSignupListSchema = listOf(merchantSignupSchema);
 export const listMerchantSignupsQuerySchema = z.object({
   status: merchantSignupStatusSchema.optional(),
+  storeId: idSchema.optional(),
 });
 export type ListMerchantSignupsQuery = z.infer<typeof listMerchantSignupsQuerySchema>;

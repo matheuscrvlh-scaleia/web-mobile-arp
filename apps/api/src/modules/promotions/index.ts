@@ -2,9 +2,11 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import type { CoreDeps } from "../../shared/infra/core";
 import { createImageCleanup } from "../../shared/infra/images";
 import type { Job } from "../../shared/infra/jobs/scheduler";
+import { ArchiveCouponUseCase } from "./application/archive-coupon.use-case";
 import { ChangeCouponStatusUseCase } from "./application/change-coupon-status.use-case";
 import { ClaimCouponUseCase } from "./application/claim-coupon.use-case";
-import { CreateCouponUseCase } from "./application/create-coupon.use-case";
+import { CreateCouponsUseCase, CreateCouponUseCase } from "./application/create-coupon.use-case";
+import { DeleteCouponUseCase } from "./application/delete-coupon.use-case";
 import { ExpireOverdueClaimsUseCase } from "./application/expire-overdue-claims.use-case";
 import { LookupClaimUseCase } from "./application/lookup-claim.use-case";
 import type { PromotionsDeps } from "./application/promotions-deps";
@@ -50,7 +52,10 @@ export function createPromotionsModule(
   const routes: FastifyPluginAsyncZod = promotionsRoutes({
     queries,
     createCoupon: new CreateCouponUseCase(deps),
+    createCoupons: new CreateCouponsUseCase(deps),
     updateCoupon: new UpdateCouponUseCase(deps),
+    archiveCoupon: new ArchiveCouponUseCase(deps),
+    deleteCoupon: new DeleteCouponUseCase(deps),
     changeCouponStatus: new ChangeCouponStatusUseCase(deps),
     reviewCoupon: new ReviewCouponUseCase(deps),
     lookupClaim,

@@ -1,6 +1,7 @@
 import type { StaffActor } from "../../../shared/application/actor";
 import type { PushMessage } from "../../../shared/application/ports/push-sender";
 import { NotFoundError } from "../../../shared/domain/errors";
+import { assertSomeoneReceives } from "../domain/push-notification";
 import {
   buildMessages,
   deliver,
@@ -22,13 +23,13 @@ export class ScheduleNotificationUseCase {
     await uow.run(async () => {
       const notification = await notifications.findByIdForUpdate(input.id);
       if (!notification) throw new NotFoundError(NOTIFICATION_NOT_FOUND);
-      const { audience: target, storeId } = notification.content;
       const now = clock.now();
 
       if (input.scheduledAt) {
-        notification.schedule(input.scheduledAt, now, await audience.count(target, storeId));
+        notification.schedule(input.scheduledAt, now, await audience.count(notification.content));
       } else {
         const { recipients, messages } = await buildMessages(audience, notification);
+        assertSomeoneReceives(recipients);
         notification.markSent(now, recipients);
         outbox.push(...messages);
       }

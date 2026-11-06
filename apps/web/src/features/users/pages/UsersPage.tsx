@@ -1,14 +1,5 @@
 import { listUsersQuerySchema, type User, userStatusSchema } from "@arp/contracts";
-import {
-  CircleOff,
-  FilterX,
-  Pencil,
-  Plus,
-  SearchX,
-  ShieldCheck,
-  UserCheck,
-  Users,
-} from "lucide-react";
+import { CircleOff, FilterX, Plus, SearchX, ShieldCheck, UserCheck, Users } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import { Link } from "react-router";
 import { useRoles } from "@/features/roles";
@@ -44,8 +35,9 @@ const columns = (meId: string | undefined): Column<User>[] => [
   {
     key: "name",
     header: "Pessoa",
+    primary: true,
     cell: (u) => (
-      <Link to={PATHS.user(u.id)} className="flex items-center gap-3 hover:underline">
+      <span className="flex items-center gap-3">
         <Avatar name={u.name} muted={u.status === "disabled"} />
         <span className="min-w-0">
           <span className="flex items-center gap-2 font-medium text-neutral-900">
@@ -56,9 +48,9 @@ const columns = (meId: string | undefined): Column<User>[] => [
               </span>
             )}
           </span>
-          <span className="block text-xs text-neutral-500">{u.email}</span>
+          <span className="block text-xs font-normal break-all text-neutral-500">{u.email}</span>
         </span>
-      </Link>
+      </span>
     ),
   },
   { key: "role", header: "Cargo", cell: (u) => u.role.name },
@@ -68,7 +60,7 @@ const columns = (meId: string | undefined): Column<User>[] => [
     cell: (u) => <StoreAccessBadge store={u.store} />,
     className: "hidden md:table-cell",
   },
-  { key: "status", header: "Situação", cell: (u) => <UserStatusBadge user={u} /> },
+  { key: "status", header: "Situação", status: true, cell: (u) => <UserStatusBadge user={u} /> },
   {
     key: "lastLogin",
     header: "Último acesso",
@@ -90,19 +82,8 @@ const columns = (meId: string | undefined): Column<User>[] => [
     key: "actions",
     header: <span className="sr-only">Ações</span>,
     numeric: true,
-    cell: (u) => (
-      <span className="inline-flex items-center gap-0.5">
-        <Link
-          to={PATHS.user(u.id)}
-          aria-label={`Editar ${u.name}`}
-          title="Editar"
-          className="inline-grid size-8 place-items-center rounded-full text-neutral-500 hover:bg-neutral-900/[0.07] hover:text-neutral-900"
-        >
-          <Pencil className="size-4" aria-hidden />
-        </Link>
-        <UserQuickActions user={u} compact />
-      </span>
-    ),
+    actions: true,
+    cell: (u) => <UserQuickActions user={u} compact />,
   },
 ];
 
@@ -222,6 +203,8 @@ export function UsersPage() {
               columns={tableColumns}
               rows={users.data?.data}
               rowKey={(u) => u.id}
+              rowHref={(u) => PATHS.user(u.id)}
+              mobile="cards"
               loading={users.isLoading}
               empty={
                 filtered ? (

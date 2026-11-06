@@ -3,6 +3,7 @@ export { floorKeys, useFloorPins, useFloors, useMapPoints } from "./api";
 export { FloorElevator } from "./components/FloorElevator";
 export {
   clamp,
+  FloorPlanImage,
   MapCanvas,
   MapPointMark,
   MapShapeView,

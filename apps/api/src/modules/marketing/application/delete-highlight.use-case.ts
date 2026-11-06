@@ -10,6 +10,7 @@ export class DeleteHighlightUseCase {
     const imageUrl = await this.deps.uow.run(async () => {
       const highlight = await this.deps.highlights.findById(input.id);
       if (!highlight) throw new NotFoundError(HIGHLIGHT_NOT_FOUND);
+      highlight.assertDeletable(await this.deps.highlights.impressions(highlight.id));
       await this.deps.highlights.delete(highlight.id);
       await this.deps.audit.log({
         actor,
