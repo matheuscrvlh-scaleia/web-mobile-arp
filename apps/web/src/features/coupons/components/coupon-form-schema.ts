@@ -58,6 +58,10 @@ export const couponFormSchema = z
   .refine((v) => !v.endsAt || new Date(v.endsAt) > new Date(v.startsAt), {
     message: "O fim precisa ser depois do início",
     path: ["endsAt"],
+  })
+  .refine((v) => !v.useUntil || new Date(v.useUntil) > new Date(v.startsAt), {
+    message: "A data de vencimento precisa ser depois do início",
+    path: ["useUntil"],
   });
 
 export type CouponFormInput = z.input<typeof couponFormSchema>;
@@ -89,6 +93,7 @@ export function couponToFormValues(
     status: "draft",
     weekdays: coupon?.weekdays ?? [0, 1, 2, 3, 4, 5, 6],
     expiresWithPromotion: coupon?.expiresWithPromotion ?? false,
+    useUntil: coupon?.useUntil ?? null,
     savings: centsToInput(coupon?.savingsCents),
   };
 }

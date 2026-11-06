@@ -1,6 +1,7 @@
 import type { StaffActor } from "../../../shared/application/actor";
 import { snapshot } from "../../../shared/application/audit-changes";
 import { ValidationError } from "../../../shared/domain/errors";
+import { assertAvailability } from "../domain/availability";
 import { type NewChallenge, normalizeChallengeTrigger } from "../domain/challenge";
 import {
   assertChallengeReferences,
@@ -11,8 +12,16 @@ import {
 
 export type CreateChallengeInput = Omit<
   NewChallenge,
-  "storeId" | "eventId" | "product" | "autoTrigger" | "couponId"
+  | "storeId"
+  | "eventId"
+  | "product"
+  | "autoTrigger"
+  | "couponId"
+  | "availableFrom"
+  | "availableUntil"
 > & {
+  availableFrom?: Date | null;
+  availableUntil?: Date | null;
   autoTrigger?: NewChallenge["autoTrigger"];
   couponId?: string | null;
   storeId?: string | null;
@@ -32,7 +41,10 @@ export class CreateChallengeUseCase {
       storeId: input.storeId ?? null,
       product: input.product ?? null,
       eventId: input.eventId ?? null,
+      availableFrom: input.availableFrom ?? null,
+      availableUntil: input.availableUntil ?? null,
     });
+    assertAvailability(data);
     return uow.run(async () => {
       if (!(await campaigns.findById(data.campaignId))) {
         throw ValidationError.field("campaignId", CAMPAIGN_NOT_FOUND);

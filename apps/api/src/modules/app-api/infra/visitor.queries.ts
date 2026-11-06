@@ -10,6 +10,7 @@ import {
   type ChallengeRow,
   type ClaimRow,
   challengeSelect,
+  challengeStarted,
   claimSelect,
   liveCampaignId,
   toChallengeItem,
@@ -82,7 +83,8 @@ export class VisitorQueries {
         (select count(distinct es.challenge_id) from gamification.earned_seals es
          where es.visitor_id = ${visitorId} and es.campaign_id = (select id from live)) as seals_earned,
         (select count(*) from gamification.challenges ch
-         where ch.status = 'active' and ch.campaign_id = (select id from live)) as seals_total,
+         where ch.status = 'active' and ch.campaign_id = (select id from live)
+           and ${challengeStarted(now)}) as seals_total,
         (select count(*) from promotions.coupon_claims cc
          where cc.visitor_id = ${visitorId} and cc.status = 'active' and cc.expires_at > ${now}) as active_claims,
         (select coalesce(sum(c.savings_cents), 0) from promotions.coupon_claims cc
@@ -138,7 +140,7 @@ export class VisitorQueries {
     }
     const rows = await this.db.many<ChallengeRow>(sql`
       ${challengeSelect(visitorId)}
-      where ch.campaign_id = ${campaign.id} and ch.status = 'active'
+      where ch.campaign_id = ${campaign.id} and ch.status = 'active' and ${challengeStarted(now)}
       order by ch.sort_order, ch.title
     `);
     return {
@@ -167,13 +169,18 @@ export class VisitorQueries {
     return new Map(rows.map((r) => [r.challenge_id, r.earned_at]));
   }
 
-  async progress(visitorId: string | null, campaignId: string): Promise<App.CampaignProgress> {
+  async progress(
+    visitorId: string | null,
+    campaignId: string,
+    now: Date = new Date(),
+  ): Promise<App.CampaignProgress> {
     const row = await this.db.one<{ earned: number; total: number; tiers: Tier[] }>(sql`
       select
         (select count(distinct es.challenge_id) from gamification.earned_seals es
          where es.campaign_id = ${campaignId} and es.visitor_id = ${visitorId}::uuid) as earned,
         (select count(*) from gamification.challenges ch
-         where ch.campaign_id = ${campaignId} and ch.status = 'active') as total,
+         where ch.campaign_id = ${campaignId} and ch.status = 'active'
+           and ${challengeStarted(now)}) as total,
         coalesce((
           select jsonb_agg(jsonb_build_object('threshold', t.threshold, 'label', t.label, 'icon', t.icon)
                            order by t.threshold)

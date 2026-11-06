@@ -170,9 +170,12 @@ function CouponRules({ coupon: c }: { coupon: Coupon }) {
   const rules: { icon: LucideIcon; title: string; text: string }[] = [
     {
       icon: Timer,
-      title: `${formatHours(c.redeemWindowHours)} para usar`,
-      text:
-        c.expiresWithPromotion && c.endsAt
+      title: c.useUntil
+        ? `Usar até ${formatDateTime(c.useUntil)}`
+        : `${formatHours(c.redeemWindowHours)} para usar`,
+      text: c.useUntil
+        ? "Data fixa: quem pegar o cupom pode usar até essa data. Depois dela, ninguém pega mais."
+        : c.expiresWithPromotion && c.endsAt
           ? `O prazo começa quando o visitante pega o cupom e para no fim da promoção (${formatDateTime(c.endsAt)}).`
           : "O prazo começa quando o visitante pega o cupom.",
     },

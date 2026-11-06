@@ -37,6 +37,7 @@ interface CouponRow {
   total_quantity: number;
   redeem_window_hours: number;
   expires_with_promotion: boolean;
+  use_until: Date | null;
   tone: CouponTone;
   icon: string;
   image_url: string | null;
@@ -62,7 +63,7 @@ interface CouponRow {
 function couponSelect(now: Date, extraColumns: SqlFragment = sql.empty): SqlFragment {
   return sql`
     select c.id, c.title, c.headline, c.headline_sub, c.description, c.schedule_note, c.starts_at,
-           c.ends_at, c.total_quantity, c.redeem_window_hours, c.expires_with_promotion, c.tone, c.icon,
+           c.ends_at, c.total_quantity, c.redeem_window_hours, c.expires_with_promotion, c.use_until, c.tone, c.icon,
            c.image_url, c.savings_cents, c.status, c.weekdays, c.review, c.review_note,
            c.created_at, c.updated_at, c.is_demo,
            s.id as store_id, s.name as store_name, s.icon as store_icon,
@@ -103,6 +104,7 @@ function toCoupon(r: CouponRow): Coupon {
     totalQuantity: r.total_quantity,
     redeemWindowHours: r.redeem_window_hours,
     expiresWithPromotion: r.expires_with_promotion,
+    useUntil: isoOrNull(r.use_until),
     tone: r.tone,
     icon: r.icon,
     imageUrl: r.image_url,

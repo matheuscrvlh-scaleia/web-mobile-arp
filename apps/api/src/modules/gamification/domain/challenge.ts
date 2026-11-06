@@ -1,5 +1,6 @@
 import { ConflictError, ValidationError } from "../../../shared/domain/errors";
 import { applyPatch } from "../../../shared/domain/patch";
+import { assertAvailability, isAvailableAt } from "./availability";
 
 export type ChallengeValidation = "qr" | "auto";
 export type ChallengeStatus = "active" | "inactive";
@@ -24,6 +25,9 @@ export interface ChallengeProps {
   eventId: string | null;
   sortOrder: number;
   status: ChallengeStatus;
+  /** Janela própria dentro da campanha (null = início/fim da campanha). */
+  availableFrom: Date | null;
+  availableUntil: Date | null;
 }
 
 export type NewChallenge = Omit<ChallengeProps, "id">;
@@ -68,6 +72,11 @@ export class Challenge {
     return this.props.couponId;
   }
 
+  /** Dentro da janela própria (a da campanha é conferida à parte). */
+  isAvailableAt(now: Date): boolean {
+    return isAvailableAt(this.props, now);
+  }
+
   /** Aceita leitura de QR: ativo e validado por QR. */
   get acceptsQr(): boolean {
     return this.props.status === "active" && this.props.validation === "qr";
@@ -84,7 +93,9 @@ export class Challenge {
   }
 
   update(changes: ChallengeChanges): void {
-    this.props = normalizeChallengeTrigger(applyPatch(this.props, changes));
+    const next = normalizeChallengeTrigger(applyPatch(this.props, changes));
+    assertAvailability(next);
+    this.props = next;
   }
 
   /**

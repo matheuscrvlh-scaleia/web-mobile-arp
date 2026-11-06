@@ -50,10 +50,12 @@ interface SealRow {
   points: number;
   validity_months: number;
   repeatable: boolean;
+  available_from: Date | null;
+  available_until: Date | null;
 }
 
 const SEAL_COLUMNS = sql.raw(
-  "id, slug, name, description, icon, gradient_from, gradient_to, sort_order, status, points, validity_months, repeatable",
+  "id, slug, name, description, icon, gradient_from, gradient_to, sort_order, status, points, validity_months, repeatable, available_from, available_until",
 );
 
 const sealToDomain = (r: SealRow) =>
@@ -70,6 +72,8 @@ const sealToDomain = (r: SealRow) =>
     points: r.points,
     validityMonths: r.validity_months,
     repeatable: r.repeatable,
+    availableFrom: r.available_from,
+    availableUntil: r.available_until,
   });
 
 const SEAL_ERRORS: ConstraintErrors = {
@@ -100,10 +104,10 @@ export class PgSealRepository implements SealRepository {
         this.db.one<SealRow>(sql`
           insert into gamification.seals
             (slug, name, description, icon, gradient_from, gradient_to, sort_order, status,
-             points, validity_months, repeatable)
+             points, validity_months, repeatable, available_from, available_until)
           values (${d.slug}, ${d.name}, ${d.description}, ${d.icon}, ${d.gradientFrom},
                   ${d.gradientTo}, ${d.sortOrder}, ${d.status}, ${d.points}, ${d.validityMonths},
-                  ${d.repeatable})
+                  ${d.repeatable}, ${d.availableFrom}, ${d.availableUntil})
           returning ${SEAL_COLUMNS}
         `),
       SEAL_ERRORS,
@@ -120,7 +124,8 @@ export class PgSealRepository implements SealRepository {
           set slug = ${s.slug}, name = ${s.name}, description = ${s.description}, icon = ${s.icon},
               gradient_from = ${s.gradientFrom}, gradient_to = ${s.gradientTo},
               sort_order = ${s.sortOrder}, status = ${s.status}, points = ${s.points},
-              validity_months = ${s.validityMonths}, repeatable = ${s.repeatable}
+              validity_months = ${s.validityMonths}, repeatable = ${s.repeatable},
+              available_from = ${s.availableFrom}, available_until = ${s.availableUntil}
           where id = ${s.id}
         `),
       SEAL_ERRORS,
@@ -210,10 +215,12 @@ interface ChallengeRow {
   event_id: string | null;
   sort_order: number;
   status: ChallengeStatus;
+  available_from: Date | null;
+  available_until: Date | null;
 }
 
 const CHALLENGE_COLUMNS = sql.raw(
-  "id, campaign_id, seal_id, title, how_to, icon, validation, auto_trigger, coupon_id, store_id, product, event_id, sort_order, status",
+  "id, campaign_id, seal_id, title, how_to, icon, validation, auto_trigger, coupon_id, store_id, product, event_id, sort_order, status, available_from, available_until",
 );
 
 const challengeToDomain = (r: ChallengeRow) =>
@@ -232,6 +239,8 @@ const challengeToDomain = (r: ChallengeRow) =>
     eventId: r.event_id,
     sortOrder: r.sort_order,
     status: r.status,
+    availableFrom: r.available_from,
+    availableUntil: r.available_until,
   });
 
 export class PgChallengeRepository implements ChallengeRepository {
@@ -248,9 +257,10 @@ export class PgChallengeRepository implements ChallengeRepository {
     const row = await this.db.one<ChallengeRow>(sql`
       insert into gamification.challenges
         (campaign_id, seal_id, title, how_to, icon, validation, auto_trigger, coupon_id, store_id,
-         product, event_id, sort_order, status)
+         product, event_id, sort_order, status, available_from, available_until)
       values (${d.campaignId}, ${d.sealId}, ${d.title}, ${d.howTo}, ${d.icon}, ${d.validation},
-              ${d.autoTrigger}, ${d.couponId}, ${d.storeId}, ${d.product}, ${d.eventId}, ${d.sortOrder}, ${d.status})
+              ${d.autoTrigger}, ${d.couponId}, ${d.storeId}, ${d.product}, ${d.eventId}, ${d.sortOrder}, ${d.status},
+              ${d.availableFrom}, ${d.availableUntil})
       returning ${CHALLENGE_COLUMNS}
     `);
     return challengeToDomain(row);
@@ -263,7 +273,8 @@ export class PgChallengeRepository implements ChallengeRepository {
       set seal_id = ${s.sealId}, title = ${s.title}, how_to = ${s.howTo}, icon = ${s.icon},
           validation = ${s.validation}, auto_trigger = ${s.autoTrigger}, coupon_id = ${s.couponId},
           store_id = ${s.storeId}, product = ${s.product}, event_id = ${s.eventId},
-          sort_order = ${s.sortOrder}, status = ${s.status}
+          sort_order = ${s.sortOrder}, status = ${s.status},
+          available_from = ${s.availableFrom}, available_until = ${s.availableUntil}
       where id = ${s.id}
     `);
   }
@@ -371,6 +382,10 @@ export class PgSealAwardRepository implements SealAwardRepository {
       seal_points: number;
       seal_validity_months: number;
       seal_repeatable: boolean;
+      seal_available_from: Date | null;
+      seal_available_until: Date | null;
+      challenge_available_from: Date | null;
+      challenge_available_until: Date | null;
       challenge_id: string;
       seal_id: string;
       product: string | null;
@@ -398,7 +413,10 @@ export class PgSealAwardRepository implements SealAwardRepository {
              c.id as campaign_id, c.name as campaign_name, c.description as campaign_description,
              c.starts_at, c.ends_at, c.status as campaign_status,
              s.points as seal_points, s.validity_months as seal_validity_months,
-             s.repeatable as seal_repeatable
+             s.repeatable as seal_repeatable,
+             s.available_from as seal_available_from, s.available_until as seal_available_until,
+             ch.available_from as challenge_available_from,
+             ch.available_until as challenge_available_until
       from gamification.qr_codes q
       join gamification.challenges ch on ch.id = q.challenge_id
       join gamification.campaigns c on c.id = ch.campaign_id
@@ -424,6 +442,8 @@ export class PgSealAwardRepository implements SealAwardRepository {
         points: r.seal_points,
         validityMonths: r.seal_validity_months,
         repeatable: r.seal_repeatable,
+        availableFrom: r.seal_available_from,
+        availableUntil: r.seal_available_until,
       },
       challenge: challengeToDomain({
         id: r.challenge_id,
@@ -440,6 +460,8 @@ export class PgSealAwardRepository implements SealAwardRepository {
         event_id: r.event_id,
         sort_order: r.sort_order,
         status: r.challenge_status,
+        available_from: r.challenge_available_from,
+        available_until: r.challenge_available_until,
       }),
       campaign: campaignToDomain({
         id: r.campaign_id,
@@ -464,15 +486,18 @@ export class PgSealAwardRepository implements SealAwardRepository {
         seal_points: number;
         seal_validity_months: number;
         seal_repeatable: boolean;
+        seal_available_from: Date | null;
+        seal_available_until: Date | null;
       }
     >(sql`
       select ch.id, ch.campaign_id, ch.seal_id, ch.title, ch.how_to, ch.icon, ch.validation,
              ch.auto_trigger, ch.coupon_id, ch.store_id, ch.product, ch.event_id, ch.sort_order,
-             ch.status,
+             ch.status, ch.available_from, ch.available_until,
              c.name as campaign_name, c.description as campaign_description,
              c.starts_at, c.ends_at, c.status as campaign_status,
              s.name as seal_name, s.points as seal_points,
-             s.validity_months as seal_validity_months, s.repeatable as seal_repeatable
+             s.validity_months as seal_validity_months, s.repeatable as seal_repeatable,
+             s.available_from as seal_available_from, s.available_until as seal_available_until
       from gamification.challenges ch
       join gamification.campaigns c on c.id = ch.campaign_id
       join gamification.seals s on s.id = ch.seal_id
@@ -493,6 +518,8 @@ export class PgSealAwardRepository implements SealAwardRepository {
         points: r.seal_points,
         validityMonths: r.seal_validity_months,
         repeatable: r.seal_repeatable,
+        availableFrom: r.seal_available_from,
+        availableUntil: r.seal_available_until,
       },
       sealName: r.seal_name,
     }));

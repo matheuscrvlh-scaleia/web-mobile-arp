@@ -21,6 +21,8 @@ export interface CouponProps {
   redeemWindowHours: number;
   /** Pego vence no fim da promoção (endsAt), mesmo antes das horas para usar. */
   expiresWithPromotion: boolean;
+  /** Data fixa em que o pego vence, no lugar das horas para usar (null = horas). */
+  useUntil: Date | null;
   tone: CouponTone;
   icon: string;
   imageUrl: string | null;
@@ -73,6 +75,7 @@ export class Coupon {
   /** Valida um cupom novo antes de gravar. */
   static assertValidNew(data: NewCoupon, now: Date): void {
     assertPeriod(data.startsAt, data.endsAt);
+    assertUseUntil(data.startsAt, data.useUntil);
     if (data.status === "active") assertNotOver(data.endsAt, now);
   }
 
@@ -96,14 +99,15 @@ export class Coupon {
     return this.props.review;
   }
 
-  /** Dá para pegar agora: ativa, aprovada pela ARP e dentro de [startsAt, endsAt). */
+  /** Dá para pegar agora: ativa, aprovada pela ARP, dentro de [startsAt, endsAt) e antes do useUntil. */
   isClaimableAt(now: Date): boolean {
-    const { status, review, startsAt, endsAt } = this.props;
+    const { status, review, startsAt, endsAt, useUntil } = this.props;
     return (
       status === "active" &&
       review === "approved" &&
       startsAt <= now &&
-      (endsAt === null || now < endsAt)
+      (endsAt === null || now < endsAt) &&
+      (useUntil === null || now < useUntil)
     );
   }
 
@@ -121,9 +125,10 @@ export class Coupon {
     this.props = { ...this.props, review: "pending", reviewNote: null };
   }
 
-  /** Prazo de uso de um pego feito agora (para no fim da promoção, se ela pedir). */
+  /** Prazo de uso de um pego feito agora: data fixa ou horas, e para no fim da promoção se ela pedir. */
   claimExpiresAt(now: Date): Date {
-    const byWindow = new Date(now.getTime() + this.props.redeemWindowHours * HOUR_MS);
+    const byWindow =
+      this.props.useUntil ?? new Date(now.getTime() + this.props.redeemWindowHours * HOUR_MS);
     const cutoff = claimCutoff(this.props);
     return cutoff && cutoff < byWindow ? cutoff : byWindow;
   }
@@ -148,6 +153,7 @@ export class Coupon {
     }
     const next = applyPatch(this.props, changes);
     assertPeriod(next.startsAt, next.endsAt);
+    assertUseUntil(next.startsAt, next.useUntil);
     this.props = { ...next, weekdays: sortedDays(next.weekdays) };
   }
 
@@ -185,7 +191,21 @@ function assertNotOver(endsAt: Date | null, now: Date): void {
   }
 }
 
-/** Quando os pegos param de valer por causa do fim da promoção (null = não param). */
-export function claimCutoff(p: Pick<CouponProps, "expiresWithPromotion" | "endsAt">): Date | null {
-  return p.expiresWithPromotion ? p.endsAt : null;
+function assertUseUntil(startsAt: Date, useUntil: Date | null): void {
+  if (useUntil !== null && useUntil <= startsAt) {
+    throw ValidationError.field("useUntil", "A data de vencimento precisa ser depois do início");
+  }
+}
+
+/**
+ * Quando os pegos param de valer na validação (null = não param): a data fixa
+ * e, se a promoção pedir, o fim dela. O que vier primeiro.
+ */
+export function claimCutoff(
+  p: Pick<CouponProps, "expiresWithPromotion" | "endsAt" | "useUntil">,
+): Date | null {
+  const byPromotion = p.expiresWithPromotion ? p.endsAt : null;
+  if (!byPromotion) return p.useUntil;
+  if (!p.useUntil) return byPromotion;
+  return byPromotion < p.useUntil ? byPromotion : p.useUntil;
 }

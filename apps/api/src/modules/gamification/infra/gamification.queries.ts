@@ -33,6 +33,8 @@ interface SealRow {
   points: number;
   validity_months: number;
   repeatable: boolean;
+  available_from: Date | null;
+  available_until: Date | null;
   earned_count: number;
   created_at: Date;
   updated_at: Date;
@@ -51,6 +53,8 @@ const toSeal = (r: SealRow): Seal => ({
   points: r.points,
   validityMonths: r.validity_months,
   repeatable: r.repeatable,
+  availableFrom: isoOrNull(r.available_from),
+  availableUntil: isoOrNull(r.available_until),
   earnedCount: r.earned_count,
   createdAt: iso(r.created_at),
   updatedAt: iso(r.updated_at),
@@ -101,6 +105,8 @@ interface ChallengeRow {
   event_title: string | null;
   sort_order: number;
   status: "active" | "inactive";
+  available_from: Date | null;
+  available_until: Date | null;
   completions_count: number;
   qr_codes_count: number;
   created_at: Date;
@@ -115,6 +121,7 @@ const CHALLENGE_SELECT = sql`
          cp.title as coupon_title, cps.name as coupon_store_name,
          ch.store_id, st.name as store_name, ch.product,
          ch.event_id, e.title as event_title, ch.sort_order, ch.status, ch.created_at, ch.updated_at,
+         ch.available_from, ch.available_until,
          (select count(*) from gamification.earned_seals es where es.challenge_id = ch.id)
            as completions_count,
          (select count(*) from gamification.qr_codes q where q.challenge_id = ch.id) as qr_codes_count
@@ -150,6 +157,8 @@ const toChallenge = (r: ChallengeRow): Challenge => ({
   event: r.event_id ? { id: r.event_id, title: r.event_title ?? "" } : null,
   sortOrder: r.sort_order,
   status: r.status,
+  availableFrom: isoOrNull(r.available_from),
+  availableUntil: isoOrNull(r.available_until),
   completionsCount: r.completions_count,
   qrCodesCount: r.qr_codes_count,
   isDemo: r.is_demo,
@@ -253,6 +262,7 @@ export class GamificationQueries {
     const rows = await this.db.many<SealRow>(sql`
       select s.id, s.slug, s.name, s.description, s.icon, s.gradient_from, s.gradient_to,
              s.sort_order, s.status, s.points, s.validity_months, s.repeatable,
+             s.available_from, s.available_until,
              s.created_at, s.updated_at,
              (select count(*) from gamification.earned_seals e where e.seal_id = s.id) as earned_count
       from gamification.seals s

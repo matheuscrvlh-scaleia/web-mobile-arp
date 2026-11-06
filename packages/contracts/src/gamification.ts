@@ -45,6 +45,9 @@ export const sealSchema = z.object({
   validityMonths: z.number().int(),
   /** Pode ser ganho de novo (ex.: evento). Padrão: uso único. */
   repeatable: z.boolean(),
+  /** Janela em que o selo pode ser ganho (null = sem limite). */
+  availableFrom: isoDateTimeSchema.nullable(),
+  availableUntil: isoDateTimeSchema.nullable(),
   earnedCount: z.number().int(),
   createdAt: isoDateTimeSchema,
   updatedAt: isoDateTimeSchema,
@@ -64,6 +67,8 @@ export const createSealBodySchema = z.object({
   points: z.number().int().min(1).max(1000).default(10),
   validityMonths: z.number().int().min(1).max(12).default(6),
   repeatable: z.boolean().default(false),
+  availableFrom: isoDateTimeSchema.nullable().optional(),
+  availableUntil: isoDateTimeSchema.nullable().optional(),
 });
 export type CreateSealBody = z.infer<typeof createSealBodySchema>;
 export const updateSealBodySchema = z.object(patchOf(createSealBodySchema.shape));
@@ -181,6 +186,9 @@ export const challengeSchema = z.object({
   event: z.object({ id: idSchema, title: z.string() }).nullable(),
   sortOrder: z.number().int(),
   status: challengeStatusSchema,
+  /** Janela própria dentro da campanha (null = início/fim da campanha). */
+  availableFrom: isoDateTimeSchema.nullable(),
+  availableUntil: isoDateTimeSchema.nullable(),
   completionsCount: z.number().int(),
   qrCodesCount: z.number().int(),
   isDemo: demoFlagSchema,
@@ -207,6 +215,9 @@ export const createChallengeBodySchema = z.object({
   eventId: idSchema.nullable().optional(),
   sortOrder: z.number().int().min(0).max(999).default(0),
   status: challengeStatusSchema.default("active"),
+  /** Vazio: vale o início/fim da campanha. */
+  availableFrom: isoDateTimeSchema.nullable().optional(),
+  availableUntil: isoDateTimeSchema.nullable().optional(),
 });
 export type CreateChallengeBody = z.infer<typeof createChallengeBodySchema>;
 export const updateChallengeBodySchema = z.object(

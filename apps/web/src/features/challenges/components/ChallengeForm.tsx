@@ -15,6 +15,7 @@ import { useUnsavedChangesGuard } from "@/shared/hooks";
 import { formatNumber } from "@/shared/lib/format";
 import {
   Card,
+  DateTimeInput,
   Field,
   FieldRow,
   FormSection,
@@ -33,6 +34,17 @@ import { EventSelect } from "./EventSelect";
 
 /** O corpo da API, mais as regras do automático (a API confere de novo). */
 export const challengeFormSchema = createChallengeBodySchema.superRefine((v, ctx) => {
+  if (
+    v.availableFrom &&
+    v.availableUntil &&
+    new Date(v.availableUntil) <= new Date(v.availableFrom)
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["availableUntil"],
+      message: "O fim precisa ser depois do início",
+    });
+  }
   if (v.validation !== "auto") return;
   if (!v.autoTrigger) {
     ctx.addIssue({ code: "custom", path: ["autoTrigger"], message: "Escolha o que dá o selo" });
@@ -68,6 +80,8 @@ export function challengeToFormValues(
     eventId: c?.event?.id ?? null,
     sortOrder: c?.sortOrder ?? 0,
     status: c?.status ?? "active",
+    availableFrom: c?.availableFrom ?? null,
+    availableUntil: c?.availableUntil ?? null,
   };
 }
 
@@ -106,21 +120,32 @@ export function ChallengeForm({
   const campaigns = useCampaigns({ enabled: creating });
   const seals = useSeals();
   const stores = useStoreOptions();
-  const [title, howTo, icon, sealId, validation, autoTrigger, couponId, campaignIdValue, storeId] =
-    useWatch({
-      control,
-      name: [
-        "title",
-        "howTo",
-        "icon",
-        "sealId",
-        "validation",
-        "autoTrigger",
-        "couponId",
-        "campaignId",
-        "storeId",
-      ],
-    });
+  const [
+    title,
+    howTo,
+    icon,
+    sealId,
+    validation,
+    autoTrigger,
+    couponId,
+    campaignIdValue,
+    storeId,
+    availableFrom,
+  ] = useWatch({
+    control,
+    name: [
+      "title",
+      "howTo",
+      "icon",
+      "sealId",
+      "validation",
+      "autoTrigger",
+      "couponId",
+      "campaignId",
+      "storeId",
+      "availableFrom",
+    ],
+  });
   const sealList = seals.data ?? [];
   const selectedSeal = sealList.find((s) => s.id === sealId) ?? null;
   // Gatilho de cupom: a loja do desafio é a do cupom (a API confere).
@@ -396,6 +421,41 @@ export function ChallengeForm({
                 )}
               />
             </Field>
+          </FormSection>
+
+          <FormSection
+            title="Quando vale"
+            description="Horário de Brasília. Em branco, vale o início e o fim da campanha. Antes do início o desafio não aparece no app; depois do fim, o QR e o automático param de dar selo."
+          >
+            <FieldRow>
+              <Field label="Começa em" optional error={errors.availableFrom?.message}>
+                <Controller
+                  control={control}
+                  name="availableFrom"
+                  render={({ field }) => (
+                    <DateTimeInput
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                    />
+                  )}
+                />
+              </Field>
+              <Field label="Termina em" optional error={errors.availableUntil?.message}>
+                <Controller
+                  control={control}
+                  name="availableUntil"
+                  render={({ field }) => (
+                    <DateTimeInput
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      min={availableFrom ?? undefined}
+                    />
+                  )}
+                />
+              </Field>
+            </FieldRow>
           </FormSection>
 
           <FormSection title="Exibição" description="Ordem na lista do app e se aparece.">

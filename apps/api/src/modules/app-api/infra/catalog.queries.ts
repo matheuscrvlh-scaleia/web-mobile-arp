@@ -14,6 +14,7 @@ import {
   type ChallengeRow,
   type CouponCardRow,
   challengeSelect,
+  challengeStarted,
   couponCardSelect,
   liveCampaignId,
   liveCoupon,
@@ -232,7 +233,7 @@ export class CatalogQueries {
     `);
     const challenge = await this.db.maybeOne<ChallengeRow>(sql`
       ${challengeSelect(visitorId)}
-      where ch.store_id = ${row.id} and ch.status = 'active'
+      where ch.store_id = ${row.id} and ch.status = 'active' and ${challengeStarted(now)}
         and ch.campaign_id = ${liveCampaignId(now)}
       order by ch.sort_order
       limit 1

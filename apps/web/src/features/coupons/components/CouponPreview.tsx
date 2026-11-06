@@ -1,6 +1,6 @@
 import { CalendarDays, Fingerprint, RotateCcw, Timer } from "lucide-react";
 import type { ReactNode } from "react";
-import { formatNumber } from "@/shared/lib/format";
+import { formatDateShort, formatNumber } from "@/shared/lib/format";
 import { PhoneFrame } from "@/shared/ui";
 import { CouponCard, type CouponCardData } from "./CouponCard";
 
@@ -43,9 +43,15 @@ export function CouponPreview({
             <ul className="mt-3 flex flex-col gap-2.5">
               <Rule
                 icon={<Timer className="size-4" />}
-                title={`${data.redeemWindowHours} horas para usar`}
+                title={
+                  data.useUntil
+                    ? `Usar até ${formatDateShort(data.useUntil)}`
+                    : `${data.redeemWindowHours} horas para usar`
+                }
               >
-                O prazo começa quando pega o cupom
+                {data.useUntil
+                  ? "Não importa quando pega o cupom"
+                  : "O prazo começa quando pega o cupom"}
               </Rule>
               <Rule icon={<RotateCcw className="size-4" />} title="Não usou? Ele volta">
                 Depois do prazo, volta pra outra pessoa

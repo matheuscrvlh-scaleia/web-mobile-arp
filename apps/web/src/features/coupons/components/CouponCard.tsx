@@ -1,5 +1,6 @@
 import { type Coupon, imageVariantUrl, type Tone } from "@arp/contracts";
 import { cn } from "@/shared/lib/cn";
+import { formatDateShort } from "@/shared/lib/format";
 import { iconFor } from "@/shared/lib/icons";
 import { DemoMark } from "@/shared/ui";
 
@@ -14,6 +15,8 @@ export interface CouponCardData {
   icon: string;
   imageUrl: string | null;
   redeemWindowHours: number;
+  /** Data fixa de vencimento do pego (no lugar das horas). */
+  useUntil?: string | null;
   total: number;
   remaining: number;
   /** Cupom fictício de demonstração: mostra o ícone. */
@@ -31,6 +34,7 @@ export function couponCardData(c: Coupon): CouponCardData {
     icon: c.icon,
     imageUrl: c.imageUrl,
     redeemWindowHours: c.redeemWindowHours,
+    useUntil: c.useUntil,
     total: c.stock.total,
     remaining: c.stock.remaining,
     isDemo: c.isDemo,
@@ -160,7 +164,9 @@ export function CouponCard({
             {!data.imageUrl && <Icon className="size-7" />}
           </span>
           <span className="text-[11px] font-bold opacity-80">
-            {data.redeemWindowHours}h p/ usar
+            {data.useUntil
+              ? `até ${formatDateShort(data.useUntil)}`
+              : `${data.redeemWindowHours}h p/ usar`}
           </span>
         </div>
       </div>

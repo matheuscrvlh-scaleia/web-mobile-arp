@@ -91,6 +91,8 @@ export const couponSchema = z.object({
   redeemWindowHours: z.number().int(),
   /** Pego vence no fim da promoção (endsAt), mesmo antes das horas para usar. */
   expiresWithPromotion: z.boolean(),
+  /** Data fixa em que o pego vence, no lugar das horas para usar (null = horas). */
+  useUntil: isoDateTimeSchema.nullable(),
   tone: couponToneSchema,
   icon: iconNameSchema,
   imageUrl: z.string().nullable(),
@@ -123,6 +125,8 @@ const couponFields = {
   redeemWindowHours: z.number().int().min(1).max(720),
   /** Marcado: depois do fim da promoção o caixa recusa, mesmo no prazo. Padrão: não. */
   expiresWithPromotion: z.boolean().default(false),
+  /** Data fixa de vencimento do pego; vazio, valem as horas para usar. */
+  useUntil: isoDateTimeSchema.nullable().optional(),
   tone: couponToneSchema,
   icon: iconNameSchema,
   imageUrl: mediaUrlSchema.nullable().optional(),
@@ -133,6 +137,12 @@ const couponFields = {
 
 const endsAfterStart = (v: { startsAt?: string; endsAt?: string | null }) =>
   !v.startsAt || !v.endsAt || new Date(v.endsAt) > new Date(v.startsAt);
+const useUntilAfterStart = (v: { startsAt?: string; useUntil?: string | null }) =>
+  !v.startsAt || !v.useUntil || new Date(v.useUntil) > new Date(v.startsAt);
+const useUntilIssue = {
+  message: "A data de vencimento precisa ser depois do início",
+  path: ["useUntil"],
+};
 const endsAfterStartIssue = {
   message: "O fim precisa ser depois do início",
   path: ["endsAt"],
@@ -140,7 +150,8 @@ const endsAfterStartIssue = {
 
 export const createCouponBodySchema = z
   .object({ ...couponFields, status: z.enum(["draft", "active"]).default("draft") })
-  .refine(endsAfterStart, endsAfterStartIssue);
+  .refine(endsAfterStart, endsAfterStartIssue)
+  .refine(useUntilAfterStart, useUntilIssue);
 export type CreateCouponBody = z.infer<typeof createCouponBodySchema>;
 export type CreateCouponInput = z.input<typeof createCouponBodySchema>;
 
@@ -149,7 +160,8 @@ export const updateCouponBodySchema = z
   .object({ ...couponFields, weekdays: weekdaysSchema, expiresWithPromotion: z.boolean() })
   .omit({ storeId: true })
   .partial()
-  .refine(endsAfterStart, endsAfterStartIssue);
+  .refine(endsAfterStart, endsAfterStartIssue)
+  .refine(useUntilAfterStart, useUntilIssue);
 export type UpdateCouponBody = z.infer<typeof updateCouponBodySchema>;
 
 export const changeCouponStatusBodySchema = z.object({ status: couponStatusSchema });

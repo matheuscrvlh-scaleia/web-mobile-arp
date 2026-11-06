@@ -52,7 +52,13 @@ export interface QrScanContext {
   qr: QrCode;
   challenge: Challenge;
   campaign: Campaign;
-  seal: { points: number; validityMonths: number; repeatable: boolean };
+  seal: {
+    points: number;
+    validityMonths: number;
+    repeatable: boolean;
+    availableFrom: Date | null;
+    availableUntil: Date | null;
+  };
 }
 
 export interface SealAward {

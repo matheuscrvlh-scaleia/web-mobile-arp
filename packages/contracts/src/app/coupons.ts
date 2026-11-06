@@ -44,6 +44,8 @@ export const couponCardSchema = z.object({
   endsAt: isoDateTimeSchema.nullable(),
   /** Prazo para usar depois de pegar. */
   redeemWindowHours: z.number().int(),
+  /** Data fixa em que o pego vence; quando vem, vale ela e não as horas. */
+  useUntil: isoDateTimeSchema.nullable(),
   tone: couponToneSchema,
   icon: iconNameSchema,
   imageUrl: z.string().nullable(),

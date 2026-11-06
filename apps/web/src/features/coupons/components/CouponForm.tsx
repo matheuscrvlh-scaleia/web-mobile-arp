@@ -44,6 +44,8 @@ export interface CouponFormContext {
 const nullable = { setValueAs: emptyToNull };
 const WINDOW_PRESETS = [12, 24, 48, 72];
 const DESCRIPTION_MAX = 600;
+const PRESET_CLASS =
+  "h-8 cursor-pointer rounded-full border border-neutral-200 bg-white px-3 text-xs text-neutral-700 transition hover:border-neutral-400 aria-pressed:border-neutral-900 aria-pressed:bg-neutral-900 aria-pressed:text-white";
 
 /**
  * Criar e editar promoção, com a prévia do cartão como aparece no app ao
@@ -86,9 +88,23 @@ export function CouponForm({
   const values = useWatch({ control });
   const store = (stores.data ?? []).find((s) => s.id === values.storeId);
   const claimed = coupon ? coupon.stock.waiting + coupon.stock.redeemed : 0;
+  // Prazo por data fixa ("Data personalizada") no lugar das horas.
+  const [customDeadline, setCustomDeadline] = useState(() => Boolean(coupon?.useUntil));
+  const pickHours = (h: number) => {
+    setCustomDeadline(false);
+    setValue("useUntil", null, { shouldDirty: true });
+    setValue("redeemWindowHours", h, { shouldDirty: true, shouldValidate: true });
+  };
+  const submit = form.handleSubmit((v) => {
+    if (customDeadline && !v.useUntil) {
+      form.setError("useUntil", { message: "Escolha a data em que o cupom vence" });
+      return;
+    }
+    onSubmit(v, { form, allowLeave });
+  });
 
   return (
-    <form onSubmit={form.handleSubmit((v) => onSubmit(v, { form, allowLeave }))} noValidate>
+    <form onSubmit={submit} noValidate>
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <Card padding="lg">
           <FormSection
@@ -215,7 +231,7 @@ export function CouponForm({
 
           <FormSection
             title="Estoque e prazo"
-            description="Quantos cupons liberar e quanto tempo o visitante tem para usar depois de pegar. Não usou? O cupom volta."
+            description="Quantos cupons liberar e até quando o visitante pode usar: horas depois de pegar ou uma data fixa. Não usou? O cupom volta."
           >
             <FieldRow>
               <Field
@@ -236,20 +252,42 @@ export function CouponForm({
                   {...register("totalQuantity", { valueAsNumber: true })}
                 />
               </Field>
-              <Field
-                label="Horas para usar"
-                required
-                hint={`Padrão do app: ${plural(defaultWindow.hours, "hora", "horas")}.`}
-                error={errors.redeemWindowHours?.message}
-              >
-                <Input
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  max={720}
-                  {...register("redeemWindowHours", { valueAsNumber: true })}
-                />
-              </Field>
+              {customDeadline ? (
+                <Field
+                  label="Vence em"
+                  required
+                  hint="Quem pegar usa até esta data, não importa quando pegou."
+                  error={errors.useUntil?.message}
+                >
+                  <Controller
+                    control={control}
+                    name="useUntil"
+                    render={({ field }) => (
+                      <DateTimeInput
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        min={values.startsAt ?? undefined}
+                      />
+                    )}
+                  />
+                </Field>
+              ) : (
+                <Field
+                  label="Horas para usar"
+                  required
+                  hint={`Padrão do app: ${plural(defaultWindow.hours, "hora", "horas")}.`}
+                  error={errors.redeemWindowHours?.message}
+                >
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={720}
+                    {...register("redeemWindowHours", { valueAsNumber: true })}
+                  />
+                </Field>
+              )}
             </FieldRow>
             <fieldset className="flex flex-wrap items-center gap-1.5">
               <legend className="sr-only">Prazos comuns</legend>
@@ -260,15 +298,21 @@ export function CouponForm({
                 <button
                   key={h}
                   type="button"
-                  aria-pressed={values.redeemWindowHours === h}
-                  onClick={() =>
-                    setValue("redeemWindowHours", h, { shouldDirty: true, shouldValidate: true })
-                  }
-                  className="h-8 cursor-pointer rounded-full border border-neutral-200 bg-white px-3 text-xs text-neutral-700 transition hover:border-neutral-400 aria-pressed:border-neutral-900 aria-pressed:bg-neutral-900 aria-pressed:text-white"
+                  aria-pressed={!customDeadline && values.redeemWindowHours === h}
+                  onClick={() => pickHours(h)}
+                  className={PRESET_CLASS}
                 >
                   {h} h
                 </button>
               ))}
+              <button
+                type="button"
+                aria-pressed={customDeadline}
+                onClick={() => setCustomDeadline(true)}
+                className={PRESET_CLASS}
+              >
+                Data personalizada
+              </button>
             </fieldset>
           </FormSection>
 
@@ -309,10 +353,10 @@ export function CouponForm({
               label="O cupom pego vence quando a promoção termina"
               description={
                 !values.endsAt
-                  ? "Só faz efeito com data de fim. Sem fim, vale o prazo em horas."
+                  ? "Só faz efeito com data de fim. Sem fim, vale o prazo do cupom."
                   : values.expiresWithPromotion
                     ? "Depois do fim, o caixa recusa, mesmo que as horas para usar não tenham acabado."
-                    : "Quem pegou antes do fim ainda tem as horas inteiras para usar, mesmo depois que a promoção termina."
+                    : "Quem pegou antes do fim ainda tem o prazo inteiro para usar, mesmo depois que a promoção termina."
               }
               {...register("expiresWithPromotion")}
             />
@@ -379,6 +423,7 @@ export function CouponForm({
               redeemWindowHours: Number.isFinite(values.redeemWindowHours)
                 ? (values.redeemWindowHours ?? 0)
                 : 0,
+              useUntil: customDeadline ? (values.useUntil ?? null) : null,
               total: Number.isFinite(values.totalQuantity) ? (values.totalQuantity ?? 0) : 0,
               remaining: Math.max(
                 0,

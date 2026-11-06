@@ -1,4 +1,5 @@
 import { applyPatch } from "../../../shared/domain/patch";
+import { assertAvailability } from "./availability";
 export type SealStatus = "active" | "archived";
 
 export interface SealProps {
@@ -17,6 +18,9 @@ export interface SealProps {
   validityMonths: number;
   /** Pode ser ganho de novo. */
   repeatable: boolean;
+  /** Janela em que pode ser ganho (null = sem limite). */
+  availableFrom: Date | null;
+  availableUntil: Date | null;
 }
 
 export type NewSeal = Omit<SealProps, "id">;
@@ -41,7 +45,9 @@ export class Seal {
   }
 
   update(changes: SealChanges): void {
-    this.props = applyPatch(this.props, changes);
+    const next = applyPatch(this.props, changes);
+    assertAvailability(next);
+    this.props = next;
   }
 
   toState(): SealProps {

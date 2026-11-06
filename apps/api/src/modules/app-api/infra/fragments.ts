@@ -16,6 +16,7 @@ type Kind = App.StoreRef["kind"];
 export const liveCoupon = (now: Date): SqlFragment => sql`
   c.status = 'active' and c.review = 'approved'
   and c.starts_at <= ${now} and (c.ends_at is null or c.ends_at > ${now})
+  and (c.use_until is null or c.use_until > ${now})
   and s.status = 'active'
 `;
 
@@ -37,6 +38,7 @@ export interface CouponCardRow {
   starts_at: Date;
   ends_at: Date | null;
   redeem_window_hours: number;
+  use_until: Date | null;
   tone: Tone;
   icon: string;
   image_url: string | null;
@@ -57,7 +59,7 @@ export interface CouponCardRow {
  */
 export const couponCardSelect = (now: Date, extraColumns: SqlFragment = sql.empty) => sql`
   select c.id, c.title, c.headline, c.headline_sub, c.description, c.schedule_note,
-         c.starts_at, c.ends_at, c.redeem_window_hours, c.tone, c.icon, c.image_url,
+         c.starts_at, c.ends_at, c.redeem_window_hours, c.use_until, c.tone, c.icon, c.image_url,
          c.savings_cents, c.total_quantity, c.weekdays,
          greatest(c.total_quantity - st.taken, 0) as remaining,
          s.id as store_id, s.slug as store_slug, s.name as store_name, s.icon as store_icon,
@@ -93,6 +95,7 @@ export function toCouponCard(r: CouponCardRow): App.CouponCard {
     startsAt: iso(r.starts_at),
     endsAt: isoOrNull(r.ends_at),
     redeemWindowHours: r.redeem_window_hours,
+    useUntil: isoOrNull(r.use_until),
     tone: r.tone,
     icon: r.icon,
     imageUrl: r.image_url,
@@ -191,6 +194,17 @@ export interface ChallengeRow {
   repeatable: boolean;
   product: string | null;
 }
+
+/**
+ * Desafio que já começou (janela própria e a do selo; alias ch). O que ainda
+ * não começou fica fora do app; o que já terminou continua, e o QR recusa.
+ */
+export const challengeStarted = (now: Date): SqlFragment => sql`
+  (ch.available_from is null or ch.available_from <= ${now})
+  and not exists (
+    select 1 from gamification.seals sx where sx.id = ch.seal_id and sx.available_from > ${now}
+  )
+`;
 
 /** Desafios com selo, loja, evento e se o visitante já ganhou (aliases ch, se, cst, cev, es). */
 export const challengeSelect = (visitorId: string | null) => sql`

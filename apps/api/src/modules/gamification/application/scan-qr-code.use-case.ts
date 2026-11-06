@@ -1,4 +1,5 @@
 import type { VisitorActor } from "../../../shared/application/actor";
+import { isAvailableAt } from "../domain/availability";
 import { QrExpiredError, QrInvalidError, SealAlreadyEarnedError } from "../domain/errors";
 import { parseQrPayload } from "../domain/qr-code";
 import type { ScanResult } from "../domain/repositories";
@@ -55,8 +56,14 @@ export class ScanQrCodeUseCase {
     }
 
     const { qr, challenge, campaign, seal } = context;
-    // Telão: código de janela passada (print) também cai aqui.
-    if (!campaign.isLiveAt(now) || !qr.accepts(parsed, now)) {
+    // Telão: código de janela passada (print) também cai aqui. Fora da janela
+    // do desafio ou do selo, idem.
+    if (
+      !campaign.isLiveAt(now) ||
+      !challenge.isAvailableAt(now) ||
+      !isAvailableAt(seal, now) ||
+      !qr.accepts(parsed, now)
+    ) {
       await record(qr.id, "expired");
       return { result: "expired" };
     }

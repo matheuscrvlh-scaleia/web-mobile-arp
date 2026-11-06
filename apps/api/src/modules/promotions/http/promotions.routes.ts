@@ -83,9 +83,14 @@ export function promotionsRoutes(deps: PromotionsRoutesDeps): FastifyPluginAsync
       ROUTES.coupons.create,
       { body: createCouponBodySchema, response: { 201: couponSchema } },
       async (request, reply) => {
-        const { startsAt, endsAt, ...body } = request.body;
+        const { startsAt, endsAt, useUntil, ...body } = request.body;
         const id = await deps.createCoupon.execute(
-          { ...body, startsAt: toDate(startsAt), endsAt: toDate(endsAt) },
+          {
+            ...body,
+            startsAt: toDate(startsAt),
+            endsAt: toDate(endsAt),
+            useUntil: toDate(useUntil),
+          },
           staffOf(request),
         );
         return reply.status(201).send(await coupon(id));
@@ -96,7 +101,7 @@ export function promotionsRoutes(deps: PromotionsRoutesDeps): FastifyPluginAsync
       ROUTES.coupons.update,
       { params: idParamsSchema, body: updateCouponBodySchema, response: { 200: couponSchema } },
       async (request) => {
-        const { startsAt, endsAt, ...changes } = request.body;
+        const { startsAt, endsAt, useUntil, ...changes } = request.body;
         await deps.updateCoupon.execute(
           {
             id: request.params.id,
@@ -104,6 +109,7 @@ export function promotionsRoutes(deps: PromotionsRoutesDeps): FastifyPluginAsync
               ...changes,
               startsAt: toDate(startsAt),
               endsAt: toDate(endsAt),
+              useUntil: toDate(useUntil),
             },
           },
           staffOf(request),

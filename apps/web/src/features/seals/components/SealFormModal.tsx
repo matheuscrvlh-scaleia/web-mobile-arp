@@ -10,6 +10,7 @@ import { emptyToNull, slugify } from "@/shared/lib/text";
 import {
   Button,
   ColorInput,
+  DateTimeInput,
   Field,
   FieldRow,
   IconPicker,
@@ -25,6 +26,11 @@ import { SealBadge } from "./SealBadge";
 type SealInput = z.input<typeof createSealBodySchema>;
 type SealValues = z.output<typeof createSealBodySchema>;
 const FIELDS = Object.keys(createSealBodySchema.shape);
+const sealFormSchema = createSealBodySchema.refine(
+  (v) =>
+    !v.availableFrom || !v.availableUntil || new Date(v.availableUntil) > new Date(v.availableFrom),
+  { message: "O fim precisa ser depois do início", path: ["availableUntil"] },
+);
 
 /** Degradês dos selos do app (claro → escuro), para começar com algo que combina. */
 export const SEAL_GRADIENTS: readonly (readonly [string, string])[] = [
@@ -54,6 +60,8 @@ export function sealToFormValues(seal: Seal | undefined, nextOrder: number): Sea
     points: seal?.points ?? 10,
     validityMonths: seal?.validityMonths ?? 6,
     repeatable: seal?.repeatable ?? false,
+    availableFrom: seal?.availableFrom ?? null,
+    availableUntil: seal?.availableUntil ?? null,
   };
 }
 
@@ -72,14 +80,14 @@ export function SealFormModal({
 }) {
   const save = useSaveSeal();
   const form = useForm<SealInput, unknown, SealValues>({
-    resolver: zodResolver(createSealBodySchema),
+    resolver: zodResolver(sealFormSchema),
     defaultValues: sealToFormValues(seal, nextOrder),
   });
   const { register, control, formState, setValue } = form;
   const { errors } = formState;
-  const [name, icon, from, to] = useWatch({
+  const [name, icon, from, to, availableFrom] = useWatch({
     control,
-    name: ["name", "icon", "gradientFrom", "gradientTo"],
+    name: ["name", "icon", "gradientFrom", "gradientTo", "availableFrom"],
   });
   const preview = {
     icon,
@@ -222,6 +230,45 @@ export function SealFormModal({
                 />
               )}
             />
+            <FieldRow>
+              <Field
+                label="Começa em"
+                optional
+                hint="Antes disso, os desafios dele não aparecem no app."
+                error={errors.availableFrom?.message}
+              >
+                <Controller
+                  control={control}
+                  name="availableFrom"
+                  render={({ field }) => (
+                    <DateTimeInput
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                    />
+                  )}
+                />
+              </Field>
+              <Field
+                label="Termina em"
+                optional
+                hint="Depois disso, ninguém ganha mais. Quem já ganhou mantém."
+                error={errors.availableUntil?.message}
+              >
+                <Controller
+                  control={control}
+                  name="availableUntil"
+                  render={({ field }) => (
+                    <DateTimeInput
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      min={availableFrom ?? undefined}
+                    />
+                  )}
+                />
+              </Field>
+            </FieldRow>
             <fieldset className="flex flex-col gap-2">
               <legend className="mb-2 text-xs font-medium text-neutral-600">
                 Degradês prontos

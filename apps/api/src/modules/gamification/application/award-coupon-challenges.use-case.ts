@@ -1,4 +1,5 @@
 import type { StaffActor } from "../../../shared/application/actor";
+import { isAvailableAt } from "../domain/availability";
 import { SealAlreadyEarnedError } from "../domain/errors";
 import type { GamificationDeps } from "./gamification-deps";
 import { addMonths } from "./scan-qr-code.use-case";
@@ -30,7 +31,14 @@ export class AwardCouponChallengesUseCase {
     for (const { challenge, campaign, seal, sealName } of await awards.findCouponChallenges(
       input.couponId,
     )) {
-      if (!challenge.firesOnRedeemOf(input.couponId) || !campaign.isLiveAt(now)) continue;
+      if (
+        !challenge.firesOnRedeemOf(input.couponId) ||
+        !campaign.isLiveAt(now) ||
+        !challenge.isAvailableAt(now) ||
+        !isAvailableAt(seal, now)
+      ) {
+        continue;
+      }
       if (!seal.repeatable && (await awards.hasEarned(input.visitorId, challenge.id))) continue;
       let earnedSealId: string;
       try {

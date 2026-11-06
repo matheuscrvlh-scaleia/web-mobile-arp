@@ -93,7 +93,7 @@ export function gamificationRoutes(deps: GamificationRoutesDeps): FastifyPluginA
       ROUTES.seals.create,
       { body: createSealBodySchema, response: { 201: sealSchema } },
       async (request, reply) => {
-        const id = await deps.createSeal.execute(request.body, staffOf(request));
+        const id = await deps.createSeal.execute(withWindow(request.body), staffOf(request));
         return reply.status(201).send(await seal(id));
       },
     );
@@ -103,7 +103,7 @@ export function gamificationRoutes(deps: GamificationRoutesDeps): FastifyPluginA
       { params: idParamsSchema, body: updateSealBodySchema, response: { 200: sealSchema } },
       async (request) => {
         await deps.updateSeal.execute(
-          { id: request.params.id, changes: request.body },
+          { id: request.params.id, changes: withWindow(request.body) },
           staffOf(request),
         );
         return seal(request.params.id);
@@ -185,7 +185,7 @@ export function gamificationRoutes(deps: GamificationRoutesDeps): FastifyPluginA
       ROUTES.challenges.create,
       { body: createChallengeBodySchema, response: { 201: challengeSchema } },
       async (request, reply) => {
-        const id = await deps.createChallenge.execute(request.body, staffOf(request));
+        const id = await deps.createChallenge.execute(withWindow(request.body), staffOf(request));
         return reply.status(201).send(await challenge(id));
       },
     );
@@ -199,7 +199,7 @@ export function gamificationRoutes(deps: GamificationRoutesDeps): FastifyPluginA
       },
       async (request) => {
         await deps.updateChallenge.execute(
-          { id: request.params.id, changes: request.body },
+          { id: request.params.id, changes: withWindow(request.body) },
           staffOf(request),
         );
         return challenge(request.params.id);
@@ -283,4 +283,15 @@ export function gamificationRoutes(deps: GamificationRoutesDeps): FastifyPluginA
       async (request) => queries.listEarnedSeals(request.query),
     );
   };
+}
+
+/** Janela de desafio/selo: ISO do contrato → Date (ausente fica ausente). */
+function withWindow<T extends { availableFrom?: string | null; availableUntil?: string | null }>(
+  body: T,
+): Omit<T, "availableFrom" | "availableUntil"> & {
+  availableFrom?: Date | null;
+  availableUntil?: Date | null;
+} {
+  const { availableFrom, availableUntil, ...rest } = body;
+  return { ...rest, availableFrom: toDate(availableFrom), availableUntil: toDate(availableUntil) };
 }
