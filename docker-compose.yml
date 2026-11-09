@@ -24,7 +24,7 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8082}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       # Imagens no volume "uploads" (nunca no Supabase); URL absoluta para o app mobile.
-      STORAGE_PUBLIC_BASE_URL: ${STORAGE_PUBLIC_BASE_URL:?Defina STORAGE_PUBLIC_BASE_URL no .env (ex.: https://arp.controlapp.scaleia.ai)}
+      STORAGE_PUBLIC_BASE_URL: ${STORAGE_PUBLIC_BASE_URL:?Defina STORAGE_PUBLIC_BASE_URL no .env, a origem pública do painel}
       # Heap abaixo do limite do container: o GC age antes do OOM killer.
       NODE_OPTIONS: --max-old-space-size=384
     ports:
