@@ -9,11 +9,11 @@ import {
   eventPageSchema,
   eventSchema,
   idParamsSchema,
-  importSiteEventsBodySchema,
-  importSiteEventsResultSchema,
   listEventsQuerySchema,
   postponeEventBodySchema,
   ROUTES,
+  syncSiteEventsBodySchema,
+  syncSiteEventsResultSchema,
   type UpdateEventBody,
   updateEventBodySchema,
   updateEventCategoryBodySchema,
@@ -29,7 +29,7 @@ import type { CreateEventCategoryUseCase } from "../application/create-event-cat
 import type { DeleteEventUseCase } from "../application/delete-event.use-case";
 import type { DeleteEventCategoryUseCase } from "../application/delete-event-category.use-case";
 import type { EventLifecycleUseCase } from "../application/event-lifecycle.use-case";
-import type { ImportSiteEventsUseCase } from "../application/import-site-events.use-case";
+import type { SyncSiteEventsUseCase } from "../application/sync-site-events.use-case";
 import type { UpdateEventUseCase } from "../application/update-event.use-case";
 import type { UpdateEventCategoryUseCase } from "../application/update-event-category.use-case";
 import type { AgendaEventChanges, NewAgendaEvent } from "../domain/agenda-event";
@@ -44,7 +44,7 @@ export interface AgendaRoutesDeps {
   updateEvent: UpdateEventUseCase;
   deleteEvent: DeleteEventUseCase;
   lifecycle: EventLifecycleUseCase;
-  importSiteEvents: ImportSiteEventsUseCase;
+  syncSiteEvents: SyncSiteEventsUseCase;
 }
 
 /** weekdays (novo) ou weekday (cliente antigo, um dia só). undefined = não mexe. */
@@ -211,9 +211,9 @@ export function agendaRoutes(deps: AgendaRoutesDeps): FastifyPluginAsyncZod {
     );
 
     r.route(
-      ROUTES.events.importSite,
-      { body: importSiteEventsBodySchema, response: { 200: importSiteEventsResultSchema } },
-      async (request) => deps.importSiteEvents.execute(request.body, staffOf(request)),
+      ROUTES.events.syncSite,
+      { body: syncSiteEventsBodySchema, response: { 200: syncSiteEventsResultSchema } },
+      async (request) => deps.syncSiteEvents.execute(request.body, staffOf(request)),
     );
 
     r.route(ROUTES.events.remove, { params: idParamsSchema }, async (request, reply) => {

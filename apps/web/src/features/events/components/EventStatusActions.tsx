@@ -1,28 +1,18 @@
 import type { Event } from "@arp/contracts";
-import { useNavigate } from "react-router";
-import { PATHS } from "@/shared/config/paths";
-import { ActionMenu, Button } from "@/shared/ui";
+import { Button } from "@/shared/ui";
 import { useEventActions } from "./useEventActions";
 
-/**
- * Cabeçalho do detalhe: a ação principal do status atual (Publicar, Pausar,
- * Retomar, Desarquivar…) e o "⋯" com Adiar, Cancelar, Duplicar, Arquivar e
- * Excluir (por último, em vermelho).
- */
+/** Cabeçalho do detalhe: mostrar ou não no app (o resto vem do site). */
 export function EventStatusActions({ event }: { event: Event }) {
-  const navigate = useNavigate();
-  const { primary, menu, dialogs, busy } = useEventActions(event, {
-    onDeleted: () => navigate(PATHS.events),
-  });
+  const { action, busy, shown } = useEventActions(event);
   return (
-    <>
-      {primary && (
-        <Button variant="brand" icon={primary.icon} loading={busy} onClick={primary.run}>
-          {primary.label}
-        </Button>
-      )}
-      <ActionMenu items={menu} label="Mais" ariaLabel={`Mais ações de ${event.title}`} />
-      {dialogs}
-    </>
+    <Button
+      variant={shown ? "secondary" : "brand"}
+      icon={action.icon}
+      loading={busy}
+      onClick={action.run}
+    >
+      {action.label}
+    </Button>
   );
 }

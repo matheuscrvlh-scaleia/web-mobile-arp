@@ -1,4 +1,3 @@
-import { Plus } from "lucide-react";
 import { Link } from "react-router";
 import { PATHS } from "@/shared/config/paths";
 import { cn } from "@/shared/lib/cn";
@@ -10,9 +9,6 @@ import { OccurrenceLink, statusLook, statusSuffix } from "./OccurrenceLink";
 
 const MAX_PER_DAY = 3;
 
-/** "Novo evento" já com o dia escolhido. */
-const newEventOn = (day: string) => `${PATHS.eventNew}?dia=${day}`;
-
 /**
  * Mês em grade (domingo a sábado). Eventos longos atravessam os dias como
  * faixa; os demais aparecem por dia, com a hora.
@@ -22,14 +18,11 @@ export function MonthGrid({
   today,
   byDay,
   longs,
-  canCreate = false,
 }: {
   month: string;
   today: string;
   byDay: Map<string, Occurrence[]>;
   longs: LongEvent[];
-  /** Clicar no dia abre "Novo evento" com a data. */
-  canCreate?: boolean;
 }) {
   const weeks = monthWeeks(month);
   return (
@@ -50,7 +43,6 @@ export function MonthGrid({
             today={today}
             byDay={byDay}
             bands={weekBands(week, longs)}
-            canCreate={canCreate}
           />
         ))}
       </ol>
@@ -64,14 +56,12 @@ function Week({
   today,
   byDay,
   bands,
-  canCreate,
 }: {
   week: string[];
   month: string;
   today: string;
   byDay: Map<string, Occurrence[]>;
   bands: ReturnType<typeof weekBands>;
-  canCreate: boolean;
 }) {
   const listRow = bands.length + 2;
   return (
@@ -86,19 +76,7 @@ function Week({
           day === today && "bg-marca/10",
         );
         const place = { gridColumn: i + 1, gridRow: "1 / -1" };
-        // Fundo do dia clicável (o "+" ao lado do número é o caminho pelo teclado).
-        return canCreate ? (
-          <Link
-            key={`bg-${day}`}
-            to={newEventOn(day)}
-            aria-hidden
-            tabIndex={-1}
-            className={cn(look, "transition hover:bg-neutral-900/[0.04]")}
-            style={place}
-          />
-        ) : (
-          <span key={`bg-${day}`} aria-hidden className={look} style={place} />
-        );
+        return <span key={`bg-${day}`} aria-hidden className={look} style={place} />;
       })}
       {week.map((day, i) => (
         <span
@@ -119,16 +97,6 @@ function Week({
             {longDay(day)}
             {day === today ? " (hoje)" : ""}
           </span>
-          {canCreate && (
-            <Link
-              to={newEventOn(day)}
-              aria-label={`Novo evento em ${longDay(day)}`}
-              title="Novo evento neste dia"
-              className="pointer-events-auto grid size-6 place-items-center rounded-full text-neutral-400 opacity-0 transition group-hover/day:opacity-100 hover:bg-neutral-900 hover:text-white focus-visible:opacity-100"
-            >
-              <Plus className="size-3.5" aria-hidden />
-            </Link>
-          )}
         </span>
       ))}
       {bands.map((row, r) =>

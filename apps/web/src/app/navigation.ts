@@ -15,6 +15,7 @@ import {
   Map as MapIcon,
   Megaphone,
   Palette,
+  Plug,
   Settings,
   Store,
   Tags,
@@ -208,6 +209,9 @@ const STAFF_NAV: NavSection[] = [
       item("Usuários e cargos", PATHS.users, Users, ROUTES.users.list.permission, {
         also: [PATHS.roles],
         keywords: ["equipe", "acesso", "permissão", "senha", "cargo", "login"],
+      }),
+      item("Integrações", PATHS.integrations, Plug, ROUTES.events.syncSite.permission, {
+        keywords: ["site", "wordpress", "sincronizar", "importar", "espacoarp", "agenda"],
       }),
       item("Configurações", PATHS.settings, Settings, ROUTES.settings.get.permission, {
         keywords: [

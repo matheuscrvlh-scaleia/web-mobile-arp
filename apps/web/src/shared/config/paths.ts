@@ -58,7 +58,6 @@ export const PATHS = {
 
   events: "/eventos",
   eventsTab: (tab: EventsTab) => (tab === "lista" ? "/eventos" : `/eventos?aba=${tab}`),
-  eventNew: "/eventos/novo",
   event: (id: string) => `/eventos/${id}`,
   highlights: "/destaques",
   highlightNew: "/destaques/novo",
@@ -77,6 +76,7 @@ export const PATHS = {
   role: (id: string) => `/cargos/${id}`,
   audit: "/historico",
   settings: "/configuracoes",
+  integrations: "/integracoes",
 } as const;
 
 export type StoreTab = "dados" | "horarios" | "localizacao" | "equipe" | "desempenho";

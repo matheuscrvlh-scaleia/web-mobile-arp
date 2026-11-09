@@ -1,5 +1,4 @@
 import {
-  type CreateEventBody,
   type CreateEventCategoryBody,
   type Event,
   eventCategoryListSchema,
@@ -7,11 +6,10 @@ import {
   eventOccurrencesSchema,
   eventPageSchema,
   eventSchema,
-  type ImportSiteEventsBody,
-  importSiteEventsResultSchema,
   type ListEventsQuery,
-  type PostponeEventBody,
   ROUTES,
+  type SyncSiteEventsBody,
+  syncSiteEventsResultSchema,
   type UpdateEventBody,
   type UpdateEventCategoryBody,
 } from "@arp/contracts";
@@ -32,18 +30,14 @@ export const eventsApi = {
     apiRequest(ROUTES.events.occurrences, eventOccurrencesSchema, { query: { from, to }, signal }),
   get: (id: string, signal?: AbortSignal) =>
     apiRequest(ROUTES.events.get, eventSchema, { params: { id }, signal }),
-  create: (body: CreateEventBody) => apiRequest(ROUTES.events.create, eventSchema, { body }),
-  /** Edita, publica ou cancela (status). */
+  /** Só a situação (mostrar ou não no app): o resto vem do site. */
   update: (id: string, body: UpdateEventBody) =>
     apiRequest(ROUTES.events.update, eventSchema, { params: { id }, body }),
-  remove: (id: string) => apiCall(ROUTES.events.remove, { params: { id } }),
   archive: (id: string) => apiRequest(ROUTES.events.archive, eventSchema, { params: { id } }),
   unarchive: (id: string) => apiRequest(ROUTES.events.unarchive, eventSchema, { params: { id } }),
-  postpone: (id: string, body: PostponeEventBody) =>
-    apiRequest(ROUTES.events.postpone, eventSchema, { params: { id }, body }),
-  /** Traz do site os eventos novos (de hoje em diante) como rascunho. */
-  importSite: (body: ImportSiteEventsBody) =>
-    apiRequest(ROUTES.events.importSite, importSiteEventsResultSchema, { body }),
+  /** Deixa a agenda igual ao site (cria, atualiza e apaga). */
+  syncSite: (body: SyncSiteEventsBody) =>
+    apiRequest(ROUTES.events.syncSite, syncSiteEventsResultSchema, { body }),
 };
 
 export const eventCategoriesApi = {
@@ -116,27 +110,13 @@ function eventSaved(qc: QueryClient, event: Event) {
   return invalidateRelated(qc);
 }
 
-export function useCreateEvent() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: eventsApi.create,
-    onSuccess: (event) => eventSaved(qc, event),
-  });
-}
-
-/** Edita (só o que mudou), publica ou cancela (status). */
+/** Mostrar ou não no app (status). */
 export function useUpdateEvent(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: UpdateEventBody) => eventsApi.update(id, body),
     onSuccess: (event) => eventSaved(qc, event),
   });
-}
-
-/** Exclui evento sem interessados (com interessados, a API pede para arquivar). */
-export function useDeleteEvent() {
-  const qc = useQueryClient();
-  return useMutation({ mutationFn: eventsApi.remove, onSuccess: () => invalidateRelated(qc) });
 }
 
 /** Arquivar / desarquivar (some das listas e do calendário; volta pausado ou como estava). */
@@ -149,18 +129,9 @@ export function useArchiveEvent() {
   });
 }
 
-/** Adiar: nova data de início (o fim anda junto). */
-export function usePostponeEvent(id: string) {
+export function useSyncSiteEvents() {
   const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (body: PostponeEventBody) => eventsApi.postpone(id, body),
-    onSuccess: (event) => eventSaved(qc, event),
-  });
-}
-
-export function useImportSiteEvents() {
-  const qc = useQueryClient();
-  return useMutation({ mutationFn: eventsApi.importSite, onSuccess: () => invalidateRelated(qc) });
+  return useMutation({ mutationFn: eventsApi.syncSite, onSuccess: () => invalidateRelated(qc) });
 }
 
 /* Categorias de evento ---------------------------------------------------- */

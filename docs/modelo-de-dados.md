@@ -520,7 +520,7 @@ npm run db:seed -w @arp/api               # exige SEED_ADMIN_PASSWORD
   blocos; os 41 pontos do Circuito Cultural; história, regras e configurações
   (contato, estacionamento, tour). As lojas entram **uma vez só**: loja apagada
   no painel não volta na próxima subida.
-- Eventos não vêm do seed: use "Importar do site" na agenda.
+- Eventos não vêm do seed: vêm do site, em Sistema › Integrações › "Sincronizar com o site".
 - Não há mais dados fictícios (cupons, desafios, visitantes). Um banco que
   ainda tenha o catálogo de demonstração antigo é limpo na primeira execução
   (`seed/legacy-demo.ts`).

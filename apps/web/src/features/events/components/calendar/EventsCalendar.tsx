@@ -46,7 +46,7 @@ const monthTitle = (m: string) => {
 };
 
 /** Aba "Calendário": o mês com faixas (eventos longos) e eventos por dia. */
-export function EventsCalendar({ canCreate = false }: { canCreate?: boolean }) {
+export function EventsCalendar() {
   const [month, setMonth] = useMonthParam();
   const today = todayIso();
   const weeks = monthWeeks(month);
@@ -60,11 +60,7 @@ export function EventsCalendar({ canCreate = false }: { canCreate?: boolean }) {
     <Card>
       <CardHeader
         title={monthTitle(month)}
-        description={
-          canCreate
-            ? "Clique num dia para criar um evento nele. Eventos longos aparecem como faixa."
-            : "Eventos longos aparecem como faixa em todos os dias; os demais, no dia."
-        }
+        description="Eventos longos aparecem como faixa em todos os dias; os demais, no dia."
         action={
           <>
             {occurrences.isFetching && !occurrences.isLoading && (
@@ -112,13 +108,7 @@ export function EventsCalendar({ canCreate = false }: { canCreate?: boolean }) {
             </section>
           )}
           <div className="hidden md:block">
-            <MonthGrid
-              month={month}
-              today={today}
-              byDay={split.byDay}
-              longs={split.longs}
-              canCreate={canCreate}
-            />
+            <MonthGrid month={month} today={today} byDay={split.byDay} longs={split.longs} />
           </div>
           <div className="md:hidden">
             <AgendaList month={month} today={today} byDay={split.byDay} />

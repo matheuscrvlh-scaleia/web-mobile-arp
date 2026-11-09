@@ -291,10 +291,10 @@ const routes: RouteObject[] = [
                   ]),
                   guarded("events.manage", [
                     {
-                      path: "eventos/novo",
+                      path: "integracoes",
                       lazy: page(
-                        () => import("@/features/events/pages/EventCreatePage"),
-                        (m) => m.EventCreatePage,
+                        () => import("@/features/integrations/pages/IntegrationsPage"),
+                        (m) => m.IntegrationsPage,
                       ),
                     },
                   ]),

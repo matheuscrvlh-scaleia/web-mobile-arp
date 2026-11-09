@@ -73,20 +73,14 @@ export function EventRow({ event, canManage = false }: { event: Event; canManage
   );
 }
 
-/** "⋯" da linha: a ação principal do status primeiro, depois as do detalhe. */
+/** "⋯" da linha: mostrar ou não no app (o evento vem do site). */
 function RowMenu({ event }: { event: Event }) {
-  const { primary, menu, dialogs } = useEventActions(event);
+  const { action } = useEventActions(event);
   return (
-    <>
-      <ActionMenu
-        size="sm"
-        ariaLabel={`Mais ações de ${event.title}`}
-        items={[
-          primary && { label: primary.label, icon: primary.icon, onSelect: primary.run },
-          ...menu,
-        ]}
-      />
-      {dialogs}
-    </>
+    <ActionMenu
+      size="sm"
+      ariaLabel={`Mais ações de ${event.title}`}
+      items={[{ label: action.label, icon: action.icon, onSelect: action.run }]}
+    />
   );
 }

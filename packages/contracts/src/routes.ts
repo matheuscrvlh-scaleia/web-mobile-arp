@@ -259,7 +259,7 @@ export const ROUTES = {
     archive: r("POST", "/events/:id/archive", "events.manage", "Arquivar evento"),
     unarchive: r("POST", "/events/:id/unarchive", "events.manage", "Desarquivar evento"),
     postpone: r("POST", "/events/:id/postpone", "events.manage", "Adiar evento (nova data)"),
-    importSite: r("POST", "/events/import-site", "events.manage", "Importar eventos do site"),
+    syncSite: r("POST", "/events/sync-site", "events.manage", "Sincronizar eventos com o site"),
   },
 
   highlights: {

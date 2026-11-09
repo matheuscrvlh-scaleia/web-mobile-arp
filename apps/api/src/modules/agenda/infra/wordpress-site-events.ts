@@ -1,5 +1,5 @@
 import { ServiceUnavailableError } from "../../../shared/domain/errors";
-import type { SiteEvent, SiteEventSource } from "../domain/repositories";
+import type { SiteEvent, SiteEventSource, SiteSnapshot } from "../domain/repositories";
 
 /** Site da ARP: posts do tipo "evento" (ACF) na API REST do WordPress. */
 export const ARP_SITE_URL = "https://www.espacoarp.com.br";
@@ -121,7 +121,7 @@ const lastDay = (e: SiteEvent) => e.event.endsOn ?? e.event.startsOn;
 export class WordpressSiteEvents implements SiteEventSource {
   constructor(private readonly baseUrl: string = ARP_SITE_URL) {}
 
-  async upcoming(today: string): Promise<{ events: SiteEvent[]; failed: number }> {
+  async snapshot(today: string): Promise<SiteSnapshot> {
     const posts = await this.allPosts();
     const read = posts.map((p) => ({ post: p, event: siteEventFromPost(p, null) }));
     const upcoming = read.filter(
@@ -134,6 +134,7 @@ export class WordpressSiteEvents implements SiteEventSource {
         ...event,
         event: { ...event.event, imageUrl: images.get(post.featured_media) ?? null },
       })),
+      allIds: new Set(posts.map((p) => p.id)),
       // Só conta como falha o que não deu para ler; passado é ignorado.
       failed: read.filter((r) => r.event === null).length,
     };
@@ -165,6 +166,10 @@ export class WordpressSiteEvents implements SiteEventSource {
 
   private async allPosts(): Promise<WpEvento[]> {
     const first = await this.page(1);
+    // Lista cortada faria a sincronização apagar aqui o que ficou de fora.
+    if (first.pages > MAX_PAGES) {
+      throw new ServiceUnavailableError("O site tem eventos demais para sincronizar de uma vez.");
+    }
     const rest = await Promise.all(
       Array.from({ length: Math.min(first.pages, MAX_PAGES) - 1 }, (_, i) => this.page(i + 2)),
     );

@@ -1,5 +1,5 @@
 import { listEventsQuerySchema } from "@arp/contracts";
-import { CalendarDays, Plus, SearchX } from "lucide-react";
+import { CalendarDays, Globe, SearchX } from "lucide-react";
 import { useCallback } from "react";
 import { useAuth } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
@@ -60,11 +60,11 @@ export function EventsListTab() {
             <EmptyState
               icon={CalendarDays}
               title="A agenda está vazia"
-              description="Cadastre o primeiro evento: único, de vários dias ou semanal."
+              description="Os eventos vêm do site da ARP: sincronize em Integrações."
               action={
                 <Can permission="events.manage">
-                  <ButtonLink to={PATHS.eventNew} icon={Plus}>
-                    Novo evento
+                  <ButtonLink to={PATHS.integrations} icon={Globe}>
+                    Sincronizar com o site
                   </ButtonLink>
                 </Can>
               }

@@ -27,7 +27,7 @@ export interface AgendaReferences {
   storeExists(id: string): Promise<boolean>;
 }
 
-/* Importação do site ------------------------------------------------------ */
+/* Sincronização com o site ------------------------------------------------ */
 
 /** Evento lido do site, já no formato da agenda (a categoria vem do gestor). */
 export interface SiteEvent {
@@ -37,14 +37,27 @@ export interface SiteEvent {
   event: Omit<NewAgendaEvent, "categoryId" | "status">;
 }
 
-/** Eventos do site que terminam hoje ou depois. `failed` = posts sem data legível. */
-export interface SiteEventSource {
-  upcoming(today: string): Promise<{ events: SiteEvent[]; failed: number }>;
+export interface SiteSnapshot {
+  /** Eventos que terminam hoje ou depois, já legíveis. */
+  events: SiteEvent[];
+  /** Id de todo post que existe no site (inclusive passados e ilegíveis). */
+  allIds: Set<number>;
+  /** Posts sem data legível. */
+  failed: number;
 }
 
-/** Posts do site já importados (inclusive os que o gestor apagou depois). */
+export interface SiteEventSource {
+  snapshot(today: string): Promise<SiteSnapshot>;
+}
+
+/** Post do site ↔ evento daqui (eventId null = o evento foi apagado aqui). */
+export interface SiteLink {
+  siteId: number;
+  eventId: string | null;
+}
+
 export interface SiteImportLog {
-  importedIds(siteIds: readonly number[]): Promise<Set<number>>;
-  /** ConflictError se outra importação gravou o mesmo post antes. */
+  all(): Promise<SiteLink[]>;
+  /** Liga o post ao evento. ConflictError se outra sincronização ligou antes. */
   record(entry: { siteId: number; eventId: string; siteUrl: string }): Promise<void>;
 }

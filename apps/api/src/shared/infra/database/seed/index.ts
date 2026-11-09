@@ -13,8 +13,8 @@ import { SITE_BLOCKS, SITE_STORE_CATEGORIES, SITE_STORES } from "./site-data";
  * Seed idempotente: cargos, admin, configurações, textos, selos e o catálogo
  * real do site da ARP (lojas, blocos e categorias). Não sobrescreve o que foi
  * editado no painel, e o catálogo de lojas entra uma vez só: loja apagada no
- * painel não volta na próxima subida. Eventos vêm do botão "Importar do site"
- * da agenda.
+ * painel não volta na próxima subida. Eventos vêm do site, pelo "Sincronizar
+ * com o site" em Integrações.
  */
 
 const SEED_LOCK_KEY = 7_310_528_605;

@@ -198,18 +198,24 @@ export const eventOccurrencesSchema = z.object({
 });
 export type EventOccurrences = z.infer<typeof eventOccurrencesSchema>;
 
-/* Importação do site (espacoarp.com.br) ----------------------------------- */
+/* Sincronização com o site (espacoarp.com.br) ---------------------------- */
 
-/** Traz do site os eventos de hoje em diante que ainda não vieram, como rascunho. */
-export const importSiteEventsBodySchema = z.object({ categoryId: idSchema });
-export type ImportSiteEventsBody = z.infer<typeof importSiteEventsBodySchema>;
+/**
+ * Deixa a agenda igual ao site: post novo (de hoje em diante) entra fora do
+ * app na categoria escolhida; editado lá é atualizado aqui; apagado lá é
+ * apagado aqui. Mostrar ou não no app continua sendo escolha do gestor.
+ */
+export const syncSiteEventsBodySchema = z.object({ categoryId: idSchema });
+export type SyncSiteEventsBody = z.infer<typeof syncSiteEventsBodySchema>;
 
-export const importSiteEventsResultSchema = z.object({
-  /** Eventos novos criados como rascunho. */
+export const syncSiteEventsResultSchema = z.object({
+  /** Eventos novos (entram fora do app). */
   created: z.number().int(),
-  /** Já importados antes (mesmo que apagados aqui depois). */
-  skipped: z.number().int(),
+  /** Já existiam e mudaram no site. */
+  updated: z.number().int(),
+  /** Apagados aqui porque saíram do site. */
+  removed: z.number().int(),
   /** Vieram com dados que a agenda não aceita (ex.: sem data). */
   failed: z.number().int(),
 });
-export type ImportSiteEventsResult = z.infer<typeof importSiteEventsResultSchema>;
+export type SyncSiteEventsResult = z.infer<typeof syncSiteEventsResultSchema>;

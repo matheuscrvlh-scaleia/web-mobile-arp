@@ -1,24 +1,14 @@
 import type { Event } from "@arp/contracts";
 import { Archive, CalendarX2, ExternalLink, Heart } from "lucide-react";
 import { useParams } from "react-router";
-import { applyApiErrors, errorMessage } from "@/shared/api";
 import { useAuth } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
 import { formatDateTime, formatNumber } from "@/shared/lib/format";
-import {
-  DemoMark,
-  LoadError,
-  LoadingRegion,
-  PageHeader,
-  Skeleton,
-  StatusBadge,
-  toast,
-} from "@/shared/ui";
-import { useEvent, useUpdateEvent } from "../api";
+import { DemoMark, LoadError, LoadingRegion, PageHeader, Skeleton, StatusBadge } from "@/shared/ui";
+import { useEvent } from "../api";
 import { EventStatusBadge, SealPill } from "../components/EventBadges";
 import { EventStatusActions } from "../components/EventStatusActions";
 import { EventForm } from "../components/form/EventForm";
-import { EVENT_FORM_FIELDS, eventPatch } from "../lib/form";
 import { describeWhen } from "../lib/when";
 
 export function EventDetailPage() {
@@ -56,7 +46,6 @@ export function EventDetailPage() {
 
 function EventEditor({ event }: { event: Event }) {
   const { can } = useAuth();
-  const update = useUpdateEvent(event.id);
   const canEdit = can("events.manage");
 
   return (
@@ -99,26 +88,8 @@ function EventEditor({ event }: { event: Event }) {
         }
         actions={canEdit && <EventStatusActions event={event} />}
       />
-      <EventForm
-        event={event}
-        readOnly={!canEdit}
-        submitLabel="Salvar evento"
-        saving={update.isPending}
-        onSubmit={(values, { form }) => {
-          const body = eventPatch(values, form.formState.dirtyFields);
-          if (Object.keys(body).length === 0) return;
-          update.mutate(body, {
-            onSuccess: () => {
-              form.reset(values);
-              toast.success("Evento salvo.");
-            },
-            onError: (e) => {
-              if (!applyApiErrors(e, form.setError, EVENT_FORM_FIELDS))
-                toast.error(errorMessage(e));
-            },
-          });
-        }}
-      />
+      {/* Vem do site: muda lá e sincroniza em Integrações. */}
+      <EventForm event={event} readOnly submitLabel="" saving={false} onSubmit={() => {}} />
     </>
   );
 }

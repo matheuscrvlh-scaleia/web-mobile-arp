@@ -5,7 +5,7 @@ import { CreateEventCategoryUseCase } from "./application/create-event-category.
 import { DeleteEventUseCase } from "./application/delete-event.use-case";
 import { DeleteEventCategoryUseCase } from "./application/delete-event-category.use-case";
 import { EventLifecycleUseCase } from "./application/event-lifecycle.use-case";
-import { ImportSiteEventsUseCase } from "./application/import-site-events.use-case";
+import { SyncSiteEventsUseCase } from "./application/sync-site-events.use-case";
 import { UpdateEventUseCase } from "./application/update-event.use-case";
 import { UpdateEventCategoryUseCase } from "./application/update-event-category.use-case";
 import { agendaRoutes } from "./http/agenda.routes";
@@ -39,7 +39,7 @@ export function createAgendaModule(core: CoreDeps) {
     updateEvent: new UpdateEventUseCase(eventDeps),
     deleteEvent: new DeleteEventUseCase(eventDeps),
     lifecycle: new EventLifecycleUseCase({ ...eventDeps, clock }),
-    importSiteEvents: new ImportSiteEventsUseCase({
+    syncSiteEvents: new SyncSiteEventsUseCase({
       ...eventDeps,
       source: new WordpressSiteEvents(),
       imports: new PgSiteImportLog(db),
