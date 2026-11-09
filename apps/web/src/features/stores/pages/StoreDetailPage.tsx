@@ -136,7 +136,10 @@ export function StoreDetailPage() {
         </div>
       )}
       {showGaps && current === "dados" && (
-        <p className="mb-4 rounded-[1.4rem] bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <p
+          data-guia="pendencias-loja"
+          className="mb-4 rounded-[1.4rem] bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
           Falta no cadastro: <strong>{describeGaps(s.missing)}</strong>.
           {s.missing.includes("hours") && (
             <>

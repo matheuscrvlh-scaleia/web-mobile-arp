@@ -64,7 +64,7 @@ function InviteCard() {
   const [created, setCreated] = useState<MerchantInvite | null>(null);
 
   return (
-    <Card>
+    <Card data-guia="link-convite">
       <CardHeader
         title="Link de cadastro"
         description="Vale 7 dias e serve para mais de uma pessoa da mesma loja."
@@ -81,6 +81,7 @@ function InviteCard() {
           />
         </Field>
         <Button
+          data-guia="criar"
           disabled={!storeId}
           loading={invite.isPending}
           onClick={() =>
@@ -179,6 +180,7 @@ function SignupsCard() {
         s.status === "pending" ? (
           <span className="inline-flex gap-1.5">
             <Button
+              data-guia="aprovar"
               size="sm"
               icon={Check}
               loading={

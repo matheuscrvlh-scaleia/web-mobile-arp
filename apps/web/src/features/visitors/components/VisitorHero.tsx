@@ -80,7 +80,10 @@ export function VisitorHero({ visitor }: { visitor: VisitorDetail }) {
             </li>
           </ul>
         </div>
-        <div className="flex basis-full flex-wrap items-center gap-2 sm:basis-auto">
+        <div
+          data-guia="acoes"
+          className="flex basis-full flex-wrap items-center gap-2 sm:basis-auto"
+        >
           <Can permission="visitors.manage">
             {anonymized ? null : blocked ? (
               <Button variant="brand" icon={Unlock} onClick={() => setDialog("unblock")}>

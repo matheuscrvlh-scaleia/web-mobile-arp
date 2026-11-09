@@ -303,7 +303,7 @@ export function PinsPanel({
       </Card>
 
       {unplaced.length > 0 && (
-        <Card variant="green">
+        <Card data-guia="sem-lugar" variant="green">
           <CardHeader
             title="Sem lugar no mapa"
             description="Estas lojas do andar ainda não aparecem no mapa do app."

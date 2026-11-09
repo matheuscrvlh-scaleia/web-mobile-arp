@@ -123,7 +123,13 @@ function CategoriesTab({ canEdit }: { canEdit: boolean }) {
         description={`Aparecem nesta ordem na aba “${STORE_KIND_LABEL[kind]}” do app.`}
         action={
           canEdit && (
-            <Button size="sm" variant="secondary" icon={Plus} onClick={() => setEditing({ kind })}>
+            <Button
+              data-guia="criar"
+              size="sm"
+              variant="secondary"
+              icon={Plus}
+              onClick={() => setEditing({ kind })}
+            >
               Nova categoria
             </Button>
           )
@@ -226,7 +232,13 @@ function BlocksTab({ canEdit }: { canEdit: boolean }) {
         description="Os prédios da ARP, usados no “onde fica” de cada loja. A ordem vale para os filtros."
         action={
           canEdit && (
-            <Button size="sm" variant="secondary" icon={Plus} onClick={() => setEditing("new")}>
+            <Button
+              data-guia="criar"
+              size="sm"
+              variant="secondary"
+              icon={Plus}
+              onClick={() => setEditing("new")}
+            >
               Novo bloco
             </Button>
           )

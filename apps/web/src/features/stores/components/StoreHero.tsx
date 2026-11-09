@@ -139,7 +139,7 @@ export function StoreHero({ store }: { store: StoreDetail }) {
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div data-guia="acoes" className="flex flex-wrap items-center gap-2">
             {can("map.view") && (
               <ButtonLink
                 to={PATHS.map(store.floor.id)}

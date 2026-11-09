@@ -30,7 +30,13 @@ export function FloorsPanel({
         icon={Layers}
         action={
           canEdit && (
-            <Button size="sm" variant="secondary" icon={Plus} onClick={() => setEditing("new")}>
+            <Button
+              data-guia="criar"
+              size="sm"
+              variant="secondary"
+              icon={Plus}
+              onClick={() => setEditing("new")}
+            >
               Novo andar
             </Button>
           )

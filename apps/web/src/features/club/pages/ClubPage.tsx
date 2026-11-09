@@ -175,7 +175,7 @@ function ClubRulesCard() {
   ];
 
   return (
-    <Card variant="dashed" className="mb-5">
+    <Card data-guia="regras" variant="dashed" className="mb-5">
       <CardHeader title="Regras do clube" icon={BookOpen} />
       <ul className="flex flex-col gap-2 text-sm text-neutral-700">
         {rules.map((r) => (
@@ -338,7 +338,13 @@ function PrizesTab({ canEdit }: { canEdit: boolean }) {
         description="“Já podem trocar” e “Perto” ajudam a decidir quanto comprar de cada prêmio."
         action={
           canEdit && (
-            <Button size="sm" variant="secondary" icon={Plus} onClick={() => setEditing("new")}>
+            <Button
+              data-guia="criar"
+              size="sm"
+              variant="secondary"
+              icon={Plus}
+              onClick={() => setEditing("new")}
+            >
               Novo prêmio
             </Button>
           )
@@ -483,6 +489,7 @@ function RedemptionsTab() {
       cell: (r: PrizeRedemption) =>
         r.status === "delivered" && (
           <Button
+            data-guia="desfazer-troca"
             size="sm"
             variant="secondary"
             icon={Undo2}

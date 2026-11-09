@@ -184,7 +184,7 @@ export function LayoutPanel({
       )}
 
       {!readOnly && !shape && (
-        <Card>
+        <Card data-guia="planta">
           <CardHeader
             title="Planta do andar"
             description="Envie a planta (foto ou imagem do PDF) para desenhar os blocos por cima. Só aparece aqui no painel; o app mostra o desenho."

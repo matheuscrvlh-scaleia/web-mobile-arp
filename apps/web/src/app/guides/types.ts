@@ -20,13 +20,37 @@ export type Target =
   | "filtros"
   | "busca"
   | "tabela"
+  /** Primeira linha da lista (na lista em cartões, o primeiro item). */
+  | "linha"
+  /** O primeiro menu "⋯" / "Mais" visível. */
+  | "menu-acoes"
   | "cartoes"
+  /** Um bloco de formulário (FormSection), pelo título: "Quando vale" → "secao-quando-vale". */
+  | `secao-${string}`
   // Pontos de uma tela só
   | "pendencias"
   | "codigo"
+  | "resultado"
+  | "recentes"
   | "mapa"
   | "andares"
-  | "previa";
+  | "planta"
+  | "salvar-desenho"
+  | "sem-lugar"
+  | "previa"
+  | "checklist"
+  | "pendencias-loja"
+  | "copiar-horarios"
+  | "validar"
+  | "aprovar"
+  | "ativo-no-app"
+  | "criar"
+  | "cartazes"
+  | "desfazer-troca"
+  | "envio"
+  | "regras"
+  | "link-convite"
+  | "rascunhos";
 
 export interface Step {
   /** Sem alvo, o passo aparece no centro da tela (abertura, resumo). */

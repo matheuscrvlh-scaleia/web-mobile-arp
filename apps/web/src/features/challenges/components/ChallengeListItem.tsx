@@ -105,6 +105,7 @@ export function ChallengeListItem({
         <span className="relative z-10 ml-auto flex shrink-0 items-center gap-1">
           {onToggle && (
             <Switch
+              data-guia="ativo-no-app"
               checked={!inactive}
               onCheckedChange={onToggle}
               disabled={toggling}

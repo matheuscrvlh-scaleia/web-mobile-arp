@@ -214,7 +214,11 @@ export function HighlightsPage() {
             <span className="font-normal text-neutral-400">ainda não entram no carrossel</span>
           </h2>
           <Card padding="sm" className="mt-2">
-            <ul aria-label="Destaques em rascunho" className="flex flex-col gap-2">
+            <ul
+              data-guia="rascunhos"
+              aria-label="Destaques em rascunho"
+              className="flex flex-col gap-2"
+            >
               {drafts.map((h) => (
                 <li key={h.id} className="rounded-[1.4rem] p-3 hover:bg-white/50">
                   <HighlightItem highlight={h} canManage={canManage} />

@@ -141,6 +141,7 @@ export function QrCodesSection({
             <span className="flex flex-wrap gap-2">
               {canBatch && (
                 <Button
+                  data-guia="cartazes"
                   size="sm"
                   variant="secondary"
                   icon={CalendarRange}
@@ -149,7 +150,12 @@ export function QrCodesSection({
                   Gerar cartazes do mês
                 </Button>
               )}
-              <Button size="sm" icon={Plus} onClick={() => setDialog({ kind: "create" })}>
+              <Button
+                data-guia="criar"
+                size="sm"
+                icon={Plus}
+                onClick={() => setDialog({ kind: "create" })}
+              >
                 Gerar QR Code
               </Button>
             </span>
@@ -192,7 +198,7 @@ export function QrCodesSection({
           description="Gere o QR Code e imprima o cartaz para o desafio começar a dar selos."
         />
       ) : (
-        <ul aria-label="QR Codes do desafio" className="flex flex-col gap-3">
+        <ul data-guia="tabela" aria-label="QR Codes do desafio" className="flex flex-col gap-3">
           {list.map((qr) => (
             <QrCodeItem
               key={qr.id}

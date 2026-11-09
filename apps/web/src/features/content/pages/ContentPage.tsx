@@ -425,7 +425,13 @@ function ArtPointsTab({ canEdit }: { canEdit: boolean }) {
               {showMap ? "Esconder mapa" : "Ver no mapa"}
             </Button>
             {canEdit && (
-              <Button size="sm" variant="secondary" icon={Plus} onClick={() => setEditing("new")}>
+              <Button
+                data-guia="criar"
+                size="sm"
+                variant="secondary"
+                icon={Plus}
+                onClick={() => setEditing("new")}
+              >
                 Novo ponto
               </Button>
             )}
@@ -551,7 +557,13 @@ function RecyclingTab({ canEdit }: { canEdit: boolean }) {
         }
         action={
           canEdit && (
-            <Button size="sm" variant="secondary" icon={Plus} onClick={() => setEditing("new")}>
+            <Button
+              data-guia="criar"
+              size="sm"
+              variant="secondary"
+              icon={Plus}
+              onClick={() => setEditing("new")}
+            >
               Novo item
             </Button>
           )

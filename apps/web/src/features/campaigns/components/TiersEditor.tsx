@@ -95,6 +95,7 @@ export function TiersEditor({ campaign, readOnly }: { campaign: Campaign; readOn
             action={
               !readOnly && (
                 <Button
+                  data-guia="criar"
                   size="sm"
                   variant="secondary"
                   icon={Plus}

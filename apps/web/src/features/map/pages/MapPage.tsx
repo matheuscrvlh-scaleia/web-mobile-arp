@@ -345,6 +345,7 @@ export function MapPage() {
                 Desfazer
               </button>
               <Button
+                data-guia="salvar-desenho"
                 variant="brand"
                 icon={Save}
                 loading={saveLayout.isPending}

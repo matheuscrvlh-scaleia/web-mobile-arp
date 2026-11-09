@@ -320,7 +320,7 @@ export function NotificationForm({
           </Card>
         </fieldset>
 
-        <Card>
+        <Card data-guia="envio">
           <CardHeader
             title="Envio"
             icon={Send}

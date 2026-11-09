@@ -167,6 +167,7 @@ export function ChallengeList({ campaign }: { campaign: Campaign }) {
         <div className="flex flex-wrap gap-2">
           {canBatch && (
             <Button
+              data-guia="cartazes"
               size="sm"
               variant="secondary"
               icon={CalendarRange}
@@ -176,7 +177,7 @@ export function ChallengeList({ campaign }: { campaign: Campaign }) {
             </Button>
           )}
           {manage && (
-            <ButtonLink to={newHref} icon={Plus} size="sm">
+            <ButtonLink data-guia="criar" to={newHref} icon={Plus} size="sm">
               Novo desafio
             </ButtonLink>
           )}
@@ -222,6 +223,7 @@ export function ChallengeList({ campaign }: { campaign: Campaign }) {
         </Card>
       ) : (
         <ol
+          data-guia="tabela"
           aria-label={`Desafios de ${campaign.name}`}
           aria-busy={challenges.isFetching || undefined}
           className="flex flex-col gap-3"

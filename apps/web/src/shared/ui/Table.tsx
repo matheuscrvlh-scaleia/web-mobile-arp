@@ -243,6 +243,7 @@ export function Table<T>({
               ))
             : rows?.map((row) => (
                 <tr
+                  data-guia="linha"
                   key={rowKey(row)}
                   onClick={clickable ? (e) => open(row, e) : undefined}
                   className={cn(
@@ -293,6 +294,7 @@ function RowCard<T>({
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: o teclado usa o link/botão do título
     <li
+      data-guia="linha"
       onClick={onOpen}
       className={cn(
         "rounded-2xl border border-neutral-900/[0.06] bg-white/70 p-4 text-sm",

@@ -190,7 +190,7 @@ export function StoreTeamCard({ store }: { store: StoreDetail }) {
       </Card>
 
       {canApprove && (
-        <Card>
+        <Card data-guia="link-convite">
           <CardHeader
             title="Convidar lojista"
             description="O link vale 7 dias e serve para mais de uma pessoa da loja. Quem se cadastra só entra depois que você aprova."

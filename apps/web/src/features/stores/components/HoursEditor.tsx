@@ -234,6 +234,7 @@ export function HoursEditor({ store, readOnly }: { store: StoreDetail; readOnly:
                   </div>
                   {!readOnly && d.open && (
                     <Button
+                      data-guia="copiar-horarios"
                       variant="ghost"
                       size="sm"
                       icon={CopyCheck}

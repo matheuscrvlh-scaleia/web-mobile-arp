@@ -170,6 +170,7 @@ export function ClaimsTable({
               cell: (c: CouponClaim) =>
                 c.status === "active" ? (
                   <ButtonLink
+                    data-guia="validar"
                     to={PATHS.redeemCode(c.code)}
                     size="sm"
                     variant="secondary"

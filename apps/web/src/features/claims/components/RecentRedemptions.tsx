@@ -58,7 +58,7 @@ export function useRedeemedLog(): [Entry[], (claim: CouponClaim) => void] {
 
 export function RecentRedemptions({ entries }: { entries: Entry[] }) {
   return (
-    <Card>
+    <Card data-guia="recentes">
       <CardHeader
         title="Validados agora"
         description="Nesta aba, desde que abriu."

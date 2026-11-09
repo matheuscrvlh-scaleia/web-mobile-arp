@@ -609,8 +609,7 @@
   font-family: var(--font-sans);
   color: var(--color-neutral-900);
   background-color: var(--color-white);
-  border: 1px solid
-    color-mix(in oklab, var(--color-neutral-900) 8%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-neutral-900) 8%, transparent);
   border-radius: 1.5rem;
   padding: 1.25rem;
   max-width: min(22rem, calc(100vw - 2rem));

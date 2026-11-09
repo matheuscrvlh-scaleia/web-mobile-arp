@@ -2,6 +2,7 @@ import { type LucideIcon, RotateCcw, Save } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
 import { useIsMobile } from "@/shared/hooks";
 import { cn } from "@/shared/lib/cn";
+import { slugify } from "@/shared/lib/text";
 import { Button } from "./Button";
 import { registerBottomBar } from "./Toast";
 
@@ -23,6 +24,7 @@ export function FormSection({
 }) {
   return (
     <section
+      data-guia={`secao-${slugify(title)}`}
       className={cn(
         "grid grid-cols-1 gap-4 border-neutral-200/70 py-6 not-first-of-type:border-t first-of-type:pt-0 last-of-type:pb-0",
         !wide && "md:grid-cols-[15rem_minmax(0,1fr)] md:gap-8",

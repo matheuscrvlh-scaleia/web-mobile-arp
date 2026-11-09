@@ -334,7 +334,11 @@ export function CampaignPublishChecklist({ campaign }: { campaign: Campaign }) {
         {ready ? "Pronta para publicar" : "Antes de publicar"}
         <span className="font-normal text-neutral-500"> · rascunho não aparece no app</span>
       </p>
-      <ul aria-label="Checklist de publicação" className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
+      <ul
+        data-guia="checklist"
+        aria-label="Checklist de publicação"
+        className="mt-3 flex flex-wrap gap-x-5 gap-y-2"
+      >
         {items.map((i) => {
           const Icon = i.ok ? CircleCheck : i.blocks ? CircleX : TriangleAlert;
           return (

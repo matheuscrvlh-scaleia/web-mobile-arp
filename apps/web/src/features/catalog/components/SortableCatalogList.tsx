@@ -59,7 +59,7 @@ export function SortableCatalogList<T extends Item>({
       <p aria-live="assertive" className="sr-only">
         {sortable.message}
       </p>
-      <ol aria-label={label} className="flex flex-col">
+      <ol data-guia="tabela" aria-label={label} className="flex flex-col">
         {sortable.order.map((id, index) => {
           const item = byId.get(id);
           if (!item) return null;

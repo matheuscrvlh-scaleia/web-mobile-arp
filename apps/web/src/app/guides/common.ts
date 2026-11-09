@@ -36,6 +36,26 @@ export const table = (
   text = "Os registros, um por linha. Clique numa linha para abrir; o menu <b>⋯</b> no fim da linha tem as outras ações.",
 ): Step => ({ target: "tabela", title: "Lista", text });
 
+/** A primeira linha da lista: como abrir um registro. */
+export const row = (title: string, text: string): Step => ({ target: "linha", title, text });
+
+/** O primeiro menu "⋯" (na lista) ou "Mais" (no detalhe). */
+export const rowMenu = (text: string, title = "Mais ações"): Step => ({
+  target: "menu-acoes",
+  title,
+  text,
+});
+
+/** Um bloco do formulário, pelo título dele ("Quando vale" → "quando-vale"). */
+export const section = (slug: string, title: string, text: string): Step => ({
+  target: `secao-${slug}`,
+  title,
+  text,
+});
+
+/** O botão de criar que fica dentro do cartão (Novo prêmio, Nova categoria…). */
+export const create = (title: string, text: string): Step => ({ target: "criar", title, text });
+
 export const cards = (text: string): Step => ({ target: "cartoes", title: "Indicadores", text });
 
 export const preview = (

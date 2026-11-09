@@ -59,7 +59,7 @@ export function SortableRecycling({
       <p aria-live="assertive" className="sr-only">
         {sortable.message}
       </p>
-      <ol aria-label="Ordem no app" className="flex flex-col gap-1">
+      <ol data-guia="tabela" aria-label="Ordem no app" className="flex flex-col gap-1">
         {sortable.order.map((id, index) => {
           const item = byId.get(id);
           if (!item) return null;

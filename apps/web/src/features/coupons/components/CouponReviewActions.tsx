@@ -73,7 +73,7 @@ export function CouponReviewButtons({
     );
 
   return (
-    <span className={cn("inline-flex gap-2", className)}>
+    <span data-guia="aprovar" className={cn("inline-flex gap-2", className)}>
       {coupon.review === "pending" && (
         <Button
           size={size}

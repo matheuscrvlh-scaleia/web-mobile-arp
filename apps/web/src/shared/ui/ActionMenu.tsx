@@ -74,6 +74,7 @@ export function ActionMenu({
 
   const trigger = label ? (
     <button
+      data-guia="menu-acoes"
       ref={triggerRef}
       type="button"
       // O nome acessível começa pelo texto visível ("Mais ações de X"), R2G-12.
@@ -102,6 +103,7 @@ export function ActionMenu({
     </button>
   ) : (
     <button
+      data-guia="menu-acoes"
       ref={triggerRef}
       type="button"
       aria-label={ariaLabel}

@@ -5,11 +5,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router";
 import { guideFor, seenKey, type Target } from "../guides";
 
+const visible = (el: Element) => el.getClientRects().length > 0;
+
 /** O primeiro elemento visível com o alvo (fora: gaveta fechada, sem permissão, sem dado). */
 function targetOnScreen(target: Target): Element | undefined {
-  return [...document.querySelectorAll(`[data-guia="${target}"]`)].find(
-    (el) => el.getClientRects().length > 0,
-  );
+  const el = [...document.querySelectorAll(`[data-guia="${target}"]`)].find(visible);
+  if (el || target !== "linha") return el;
+  // Lista em cartões (sem a Table): a linha é o primeiro item da lista.
+  const list = [...document.querySelectorAll('[data-guia="tabela"]')].find(visible);
+  return list ? [...list.querySelectorAll("li")].find(visible) : undefined;
 }
 
 function markSeen(key: string, version: number) {

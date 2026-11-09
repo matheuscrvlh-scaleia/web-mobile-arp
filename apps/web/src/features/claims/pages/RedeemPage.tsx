@@ -164,7 +164,12 @@ export function RedeemPage() {
             </form>
           </Card>
 
-          <section aria-live="polite" aria-label="Resultado" className="flex flex-col gap-4">
+          <section
+            data-guia="resultado"
+            aria-live="polite"
+            aria-label="Resultado"
+            className="flex flex-col gap-4"
+          >
             <RedeemResult
               outcome={outcome}
               submitted={submitted}
