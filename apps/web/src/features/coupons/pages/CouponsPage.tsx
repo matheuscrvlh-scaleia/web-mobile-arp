@@ -326,6 +326,7 @@ export function CouponsPage() {
         ) : (
           <>
             <ul
+              data-guia="tabela"
               aria-label="Promoções"
               aria-busy={coupons.isFetching || undefined}
               className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3"

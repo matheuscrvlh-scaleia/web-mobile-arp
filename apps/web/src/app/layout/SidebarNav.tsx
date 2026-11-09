@@ -66,13 +66,16 @@ export function SidebarNav({
   };
 
   return (
-    <nav aria-label="Menu principal" className="flex flex-col gap-4 text-sm">
+    <nav data-guia="menu" aria-label="Menu principal" className="flex flex-col gap-4 text-sm">
       {sections.map((section) => {
         const open = !collapsed.includes(section.title);
         const sectionCount = section.items.reduce((n, it) => n + countOf(it.badge), 0);
         const id = `menu-${section.title.toLowerCase().replace(/\s+/g, "-")}`;
         return (
-          <div key={section.title}>
+          <div
+            key={section.title}
+            data-guia={section.title === activeSection ? "menu-modulo" : undefined}
+          >
             <button
               type="button"
               onClick={() => toggle(section.title)}

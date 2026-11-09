@@ -27,7 +27,10 @@ export function PageHeader({
 }) {
   useDocumentTitle(documentTitle ?? (typeof title === "string" ? title : null));
   return (
-    <header className={cn("mb-6 flex flex-wrap items-end justify-between gap-4", className)}>
+    <header
+      data-guia="titulo"
+      className={cn("mb-6 flex flex-wrap items-end justify-between gap-4", className)}
+    >
       <div className="min-w-0">
         {back && (
           <Link
@@ -43,7 +46,11 @@ export function PageHeader({
         </h1>
         {description && <p className="mt-3 max-w-3xl text-sm text-neutral-500">{description}</p>}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      {actions && (
+        <div data-guia="acoes" className="flex flex-wrap items-center gap-2">
+          {actions}
+        </div>
+      )}
     </header>
   );
 }

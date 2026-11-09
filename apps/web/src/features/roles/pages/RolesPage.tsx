@@ -43,7 +43,7 @@ export function RolesPage() {
           <EmptyState icon={ShieldCheck} title="Nenhum cargo ainda" />
         </Card>
       ) : (
-        <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <ul data-guia="tabela" className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {roles.data.map((r) => (
             <li key={r.id} className="flex">
               <Link

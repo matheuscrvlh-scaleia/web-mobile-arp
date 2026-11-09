@@ -101,7 +101,7 @@ export function HighlightsPage() {
       />
 
       {!filtered && (
-        <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div data-guia="cartoes" className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
           {!list ? (
             <SkeletonGrid count={3} className="col-span-full sm:grid-cols-3" itemClassName="h-32" />
           ) : (

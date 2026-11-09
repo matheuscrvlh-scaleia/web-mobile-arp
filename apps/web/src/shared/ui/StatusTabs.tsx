@@ -44,6 +44,7 @@ export function StatusTabs<T extends string>({
       value={value}
       onChange={onChange}
       className={cn("mb-5", className)}
+      guide="abas"
     />
   );
 }

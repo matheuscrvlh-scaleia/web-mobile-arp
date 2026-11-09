@@ -93,7 +93,7 @@ function UserTotals({ rolesCount }: { rolesCount: number | undefined }) {
   const disabled = useUsers({ status: "disabled", pageSize: 1 });
   const show = (n: number | undefined) => (n === undefined ? "—" : formatNumber(n));
   return (
-    <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <div data-guia="cartoes" className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
       <KpiCard
         label="Com acesso"
         value={show(active.data?.meta.total)}

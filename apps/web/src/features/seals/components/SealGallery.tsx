@@ -233,7 +233,11 @@ function SealGrid({
   if (seals.length === 0)
     return <p className="py-6 text-center text-sm text-neutral-500">Nenhum selo ativo.</p>;
   return (
-    <ul aria-label={label} className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
+    <ul
+      data-guia="tabela"
+      aria-label={label}
+      className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4"
+    >
       {seals.map((s) => {
         const archived = s.status === "archived";
         return (

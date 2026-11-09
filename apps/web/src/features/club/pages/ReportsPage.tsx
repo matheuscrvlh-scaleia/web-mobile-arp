@@ -144,7 +144,7 @@ export function ReportsPage() {
           </Button>
         }
       />
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div data-guia="filtros" className="mb-4 flex flex-wrap items-center gap-2">
         <PeriodFilter value={period} onChange={(p) => setFilters({ from: p.from, to: p.to })} />
         {!merchant && (
           <Combobox
@@ -161,7 +161,7 @@ export function ReportsPage() {
       </div>
 
       {tab !== "selos" && (
-        <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div data-guia="cartoes" className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <KpiCard
             label="Cupons pegos"
             icon={Wallet}

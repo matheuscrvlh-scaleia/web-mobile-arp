@@ -101,7 +101,7 @@ function HighlightEditor({ highlight }: { highlight: Highlight }) {
           )
         }
       />
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div data-guia="cartoes" className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <KpiCard label="Impressões" value={formatNumber(highlight.impressions)} icon={Eye} />
         <KpiCard label="Cliques" value={formatNumber(highlight.clicks)} icon={MousePointerClick} />
         <KpiCard

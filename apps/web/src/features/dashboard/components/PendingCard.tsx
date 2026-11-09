@@ -14,7 +14,7 @@ export function PendingCard() {
   const items = pending.data?.data ?? [];
 
   return (
-    <Card>
+    <Card data-guia="pendencias">
       <CardHeader
         title="Pendências"
         description="O que precisa da sua atenção agora"

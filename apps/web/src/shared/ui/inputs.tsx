@@ -64,6 +64,7 @@ export function SearchInput({
 }) {
   return (
     <label
+      data-guia="busca"
       className={cn(
         "flex h-10 min-w-0 items-center gap-2 rounded-full border border-neutral-200 bg-white py-1 pr-1.5 pl-1.5 text-sm transition focus-within:border-neutral-900 focus-within:ring-4 focus-within:ring-neutral-900/5",
         className,

@@ -108,5 +108,9 @@ export function InfoItem({
 
 /** Linha de filtros acima das listas. */
 export function FilterBar({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("mb-4 flex flex-wrap items-center gap-2", className)}>{children}</div>;
+  return (
+    <div data-guia="filtros" className={cn("mb-4 flex flex-wrap items-center gap-2", className)}>
+      {children}
+    </div>
+  );
 }

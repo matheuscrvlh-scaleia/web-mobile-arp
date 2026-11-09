@@ -135,7 +135,7 @@ export function RedeemPage() {
       />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="flex min-w-0 flex-col gap-4">
-          <Card padding="lg">
+          <Card data-guia="codigo" padding="lg">
             <form onSubmit={submit} noValidate>
               <label htmlFor={inputId} className="mb-3 block text-sm font-medium text-neutral-700">
                 Código do cupom

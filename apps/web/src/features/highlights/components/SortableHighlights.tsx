@@ -56,7 +56,7 @@ export function SortableHighlights({
       <p aria-live="assertive" className="sr-only">
         {sortable.message}
       </p>
-      <ol aria-label="Ordem do carrossel" className="flex flex-col gap-2">
+      <ol data-guia="tabela" aria-label="Ordem do carrossel" className="flex flex-col gap-2">
         {sortable.order.map((id, index) => {
           const h = byId.get(id);
           if (!h) return null;

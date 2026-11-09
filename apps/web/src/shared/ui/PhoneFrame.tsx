@@ -28,6 +28,7 @@ export function PhoneFrame({
   const dark = screen === "dark";
   return (
     <figure
+      data-guia="previa"
       aria-hidden={label ? undefined : true}
       aria-label={label}
       className={cn(

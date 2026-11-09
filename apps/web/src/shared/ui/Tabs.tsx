@@ -95,7 +95,13 @@ export function Tabs<T extends string>({
     else if (r.right > b.right) bar.scrollLeft += r.right - b.right + 8;
   }, [idBase, value]);
   return (
-    <div ref={barRef} role="tablist" aria-label={label} className={cn(BAR, className)}>
+    <div
+      ref={barRef}
+      role="tablist"
+      aria-label={label}
+      data-guia="abas"
+      className={cn(BAR, className)}
+    >
       {items.map((item, i) => {
         const active = item.value === value;
         return (
@@ -155,6 +161,7 @@ export function Segmented<T extends string>({
   label,
   size = "md",
   className,
+  guide,
 }: {
   options: TabItem<T>[];
   value: T;
@@ -162,10 +169,12 @@ export function Segmented<T extends string>({
   label: string;
   size?: "sm" | "md";
   className?: string;
+  /** Ponto do guia da tela (ex.: "abas" nas abas de situação). */
+  guide?: string;
 }) {
   const name = useId();
   return (
-    <fieldset className={cn(BAR, "min-w-0", className)}>
+    <fieldset data-guia={guide} className={cn(BAR, "min-w-0", className)}>
       <legend className="sr-only">{label}</legend>
       {options.map((o) => {
         const active = o.value === value;
@@ -206,7 +215,7 @@ export function NavTabs({
   className?: string;
 }) {
   return (
-    <nav aria-label={label} className={cn(BAR, "mb-6", className)}>
+    <nav aria-label={label} data-guia="abas" className={cn(BAR, "mb-6", className)}>
       {items.map((item) => {
         const Icon = item.icon;
         return (

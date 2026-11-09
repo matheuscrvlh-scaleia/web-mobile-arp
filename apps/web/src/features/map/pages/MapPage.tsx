@@ -307,7 +307,7 @@ export function MapPage() {
       {header}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="flex min-w-0 flex-col gap-4">
-          <Card padding="sm" className="relative overflow-hidden">
+          <Card data-guia="mapa" padding="sm" className="relative overflow-hidden">
             <div className="pointer-events-none absolute top-6 left-6 z-10">
               <p className="text-3xl font-bold tracking-tight text-neutral-900">{floor.label}</p>
               <p className="text-xs font-medium text-neutral-500">
@@ -315,7 +315,7 @@ export function MapPage() {
                 {stores.isLoading && " · carregando pinos…"}
               </p>
             </div>
-            <div className="absolute top-6 right-6 z-10">
+            <div data-guia="andares" className="absolute top-6 right-6 z-10">
               <FloorElevator floors={list} value={floorId} onChange={selectFloor} />
             </div>
             <MapEditorCanvas

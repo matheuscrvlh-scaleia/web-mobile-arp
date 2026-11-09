@@ -138,7 +138,10 @@ export function UserPanel() {
   const [leaving, setLeaving] = useState(false);
   return (
     <div className="flex flex-col gap-3">
-      <div className="relative flex items-center gap-2 rounded-2xl bg-neutral-100 p-1.5">
+      <div
+        data-guia="avisos"
+        className="relative flex items-center gap-2 rounded-2xl bg-neutral-100 p-1.5"
+      >
         <ThemeToggle />
         <PendingBell />
       </div>

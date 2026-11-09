@@ -26,6 +26,7 @@ import { cn } from "@/shared/lib/cn";
 import { formatToday } from "@/shared/lib/format";
 import { activeNavItem, type NavSection, searchScreens } from "../navigation";
 import { prefetchRoute } from "../prefetch";
+import { GuideButton } from "./GuideButton";
 
 /** Barra do topo: onde estou (Seção / Tela), a data e a busca (Ctrl+K). */
 export function TopBar({ sections }: { sections: NavSection[] }) {
@@ -33,7 +34,10 @@ export function TopBar({ sections }: { sections: NavSection[] }) {
   const here = activeNavItem(sections, pathname, search);
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <p className="flex min-h-11 items-center gap-2 text-sm text-neutral-500">
+      <p
+        data-guia="onde-estou"
+        className="flex min-h-11 items-center gap-2 text-sm text-neutral-500"
+      >
         {here && here.section.title === here.item.label && (
           <span className="font-medium text-neutral-900">{here.item.label}</span>
         )}
@@ -52,6 +56,7 @@ export function TopBar({ sections }: { sections: NavSection[] }) {
           </span>
           {formatToday()}
         </span>
+        <GuideButton />
         <QuickSearch sections={sections} />
       </div>
     </div>
@@ -214,7 +219,10 @@ function QuickSearch({ sections }: { sections: NavSection[] }) {
 
   return (
     <div className="relative w-full sm:w-80">
-      <label className="vidro flex items-center gap-2 rounded-full py-1.5 pr-3 pl-1.5 text-sm">
+      <label
+        data-guia="busca-telas"
+        className="vidro flex items-center gap-2 rounded-full py-1.5 pr-3 pl-1.5 text-sm"
+      >
         <span className="grid size-8 shrink-0 place-items-center rounded-full bg-neutral-900 text-white">
           <Search className="size-4" aria-hidden />
         </span>

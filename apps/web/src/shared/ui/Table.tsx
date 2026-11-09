@@ -141,7 +141,7 @@ export function Table<T>({
 
   if (isMobile && mobile === "cards") {
     return (
-      <div className={className}>
+      <div data-guia="tabela" className={className}>
         <ul aria-label={caption} aria-busy={loading || undefined} className="flex flex-col gap-2">
           {loading
             ? Array.from({ length: Math.min(skeletonRows, 4) }, (_, i) => (
@@ -200,6 +200,7 @@ export function Table<T>({
 
   return (
     <div
+      data-guia="tabela"
       className={cn("-mx-2 overflow-x-auto", maxHeight && "overflow-y-auto", maxHeight, className)}
     >
       <table className="w-full min-w-max border-collapse text-sm" aria-busy={loading || undefined}>

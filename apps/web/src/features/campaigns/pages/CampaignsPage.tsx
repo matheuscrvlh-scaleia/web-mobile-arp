@@ -123,7 +123,11 @@ export function CampaignsPage() {
           )}
         </Card>
       ) : (
-        <ul aria-label="Campanhas" className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <ul
+          data-guia="tabela"
+          aria-label="Campanhas"
+          className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
+        >
           {list.map((c) => (
             <li key={c.id}>
               <CampaignCard campaign={c} />

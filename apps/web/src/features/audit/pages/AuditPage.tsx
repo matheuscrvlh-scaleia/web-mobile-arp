@@ -181,6 +181,7 @@ export function AuditPage() {
         ) : (
           <>
             <ol
+              data-guia="tabela"
               aria-label="Alterações, das mais novas para as mais antigas"
               aria-busy={logs.isFetching || undefined}
               className="flex flex-col divide-y divide-neutral-900/[0.06]"

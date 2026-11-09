@@ -69,7 +69,7 @@ export function DashboardPage() {
       <div className="mt-5">
         <PendingCard />
       </div>
-      <div className="mt-5 mb-6 flex flex-wrap items-center justify-end gap-2">
+      <div data-guia="filtros" className="mt-5 mb-6 flex flex-wrap items-center justify-end gap-2">
         {/* Trocou loja ou período: os números antigos ficam até os novos chegarem. */}
         {overview.isPlaceholderData && (
           <span className="flex items-center gap-1.5 px-3 text-xs text-neutral-500">
