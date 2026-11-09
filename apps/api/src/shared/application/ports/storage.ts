@@ -1,7 +1,7 @@
 /**
  * Porta de armazenamento de arquivos públicos (imagens de lojas, cupons,
- * eventos, destaques). Implementações: SupabaseStorage (produção) e
- * LocalDiskStorage (dev offline). O banco guarda só a URL pública devolvida;
+ * eventos, destaques). Implementação: LocalDiskStorage (disco do servidor;
+ * em produção, o volume da VPS). O banco guarda só a URL pública devolvida;
  * as miniaturas (`<uuid>_w<largura>.webp`) ficam ao lado da original, por
  * convenção (ver application/image-variants.ts).
  */

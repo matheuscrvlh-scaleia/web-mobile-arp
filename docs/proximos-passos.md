@@ -15,7 +15,7 @@
 ## Próximos passos
 
 1. **Supabase real**: preencher `DATABASE_URL` (pooler em modo session, porta 5432),
-   `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`; rodar migrations e seed.
+   `STORAGE_PUBLIC_BASE_URL` (imagens no volume da VPS); rodar migrations e seed.
 2. **Verificação final no navegador** (dark mode, responsivo, arrastar no mapa e nos
    destaques, impressão dos QR Codes).
 3. **Escalabilidade**: itens restantes em "Pendente" de `docs/escalabilidade.md`

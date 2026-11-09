@@ -77,8 +77,8 @@ const CONTENT_TYPES: Record<string, string> = {
 };
 
 /**
- * Arquivos do storage local (dev/offline) em /uploads/*. Só imagens, só
- * dentro da pasta raiz; em produção quem serve é o Supabase Storage.
+ * Arquivos do storage (disco do servidor) em /uploads/*. Só imagens, só
+ * dentro da pasta raiz.
  */
 export function localUploadsRoutes(options: { rootDir: string; publicPath: string }) {
   const root = path.resolve(options.rootDir);

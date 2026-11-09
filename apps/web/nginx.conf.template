@@ -71,7 +71,7 @@ server {
     proxy_next_upstream_tries 2;
   }
 
-  # Só usado com STORAGE_DRIVER=local; no Supabase as imagens têm URL própria.
+  # Imagens e arquivos gravados no volume da VPS (a API serve).
   location /uploads/ {
     proxy_pass http://arp_api;
     proxy_http_version 1.1;

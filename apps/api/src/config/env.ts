@@ -164,11 +164,12 @@ const envSchema = z
         message: "SEED_ON_START=true exige SEED_ADMIN_PASSWORD",
       });
     }
-    if (env.STORAGE_DRIVER === "supabase" && !(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY)) {
+    if (env.NODE_ENV === "production" && !env.STORAGE_PUBLIC_BASE_URL) {
       ctx.addIssue({
         code: "custom",
-        path: ["STORAGE_DRIVER"],
-        message: "STORAGE_DRIVER=supabase exige SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY",
+        path: ["STORAGE_PUBLIC_BASE_URL"],
+        message:
+          "Em produção defina STORAGE_PUBLIC_BASE_URL (ex.: https://arp.controlapp.scaleia.ai): o app precisa de URL absoluta",
       });
     }
     if (env.MAIL_DRIVER === "smtp" && !(env.MAIL_FROM && (env.SMTP_URL || env.SMTP_HOST))) {

@@ -66,8 +66,8 @@ apps/api/src/
 │     │                          #   rate-limit, cache HTTP (ETag/gzip), métricas, rotas de sistema
 │     ├─ presenters.ts           # iso/isoOrNull/hhmmOrNull/toDate (banco ↔ fio)
 │     ├─ security/               # Argon2PasswordHasher, JoseTokenService
-│     ├─ storage/                # SupabaseStorage (bucket público "media");
-│     │                          #   LocalDiskStorage em dev sem Supabase (mesma porta)
+│     ├─ storage/                # LocalDiskStorage: disco do servidor (volume "uploads"
+│     │                          #   na VPS), servido pela API em /uploads
 │     ├─ images/                 # SharpImageProcessor (miniaturas WebP), colunas de imagem,
 │     │                          #   referências para a limpeza e backfill (images:thumbnails)
 │     ├─ cache/                  # MemoryCache (TTL curto) e PgNotifyCache (invalidação entre
@@ -283,9 +283,10 @@ local). **Um schema por domínio**. Convenções:
   Supabase; ainda assim toda tabela tem `enable row level security` sem
   políticas e `revoke all … from anon, authenticated`. Só a API (role
   `postgres`/dona das tabelas) lê e grava.
-- **Imagens**: bucket público `media` no Supabase Storage, gravado só pela API
-  com a service role key (`SUPABASE_SERVICE_ROLE_KEY`, nunca no web). O banco
-  guarda a URL pública. Caminho: `<pasta>/<AAAA>/<MM>/<uuid>.<ext>`.
+- **Imagens**: disco do servidor (volume `uploads` da VPS), gravado só pela API
+  e servido por ela em `/uploads/` (atrás do nginx). Nada vai para o Supabase.
+  O banco guarda a URL pública absoluta (`STORAGE_PUBLIC_BASE_URL` + `/uploads/…`,
+  o app mobile precisa dela). Caminho: `<pasta>/<AAAA>/<MM>/<uuid>.<ext>`.
 - **Miniaturas**: o upload (`POST /uploads`) gera com `sharp`, antes de
   responder, uma WebP por largura de `IMAGE_WIDTHS` (160 lista/avatar, 480
   card, 960 detalhe), ao lado da original: `<uuid>.<ext>` →
@@ -305,7 +306,7 @@ local). **Um schema por domínio**. Convenções:
     `IMAGE_URL_COLUMNS` (`shared/infra/images`): coluna nova entra lá.
   - Backfill (imagens antigas, idempotente, só gera o que falta):
     `npm run images:thumbnails -w @arp/api [-- --concurrency=4 --dry-run]`,
-    com `DATABASE_URL` e `STORAGE_*`/`SUPABASE_*` do ambiente alvo. Rodar
+    com `DATABASE_URL` e `STORAGE_*` do ambiente alvo (rodar no servidor, onde está o volume). Rodar
     depois de publicar a versão que gera miniaturas.
 
 ### identity
@@ -448,10 +449,10 @@ seções recolhíveis; barra superior com "Seção / Tela", data e busca de tela
 | api | node:22-alpine | 3000 | **3002** |
 | db (só perfil `local`) | postgres:17-alpine | 5432 | 5433 |
 
-Produção: `DATABASE_URL` e `SUPABASE_*` apontam para o projeto Supabase; não
-há container de banco. Dev offline: `docker compose --profile local up` sobe
-um Postgres local e a API usa `STORAGE_DRIVER=local` (arquivos num volume,
-servidos em `/uploads/`).
+Produção: `DATABASE_URL` aponta para o Postgres do Supabase; não há container
+de banco. Imagens e arquivos ficam no volume `uploads` da VPS, servidos em
+`/uploads/`. Dev offline: `docker compose --profile local up` sobe também um
+Postgres local.
 
 O nginx do web serve o SPA e faz proxy de `/api/` (e `/uploads/` no modo
 local) para `api:3000` — mesma origem, o cookie de refresh funciona sem CORS.

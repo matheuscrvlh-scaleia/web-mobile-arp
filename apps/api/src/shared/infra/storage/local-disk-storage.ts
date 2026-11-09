@@ -9,16 +9,20 @@ import {
 } from "../../application/ports/storage";
 
 /**
- * Storage em disco para dev offline. Os arquivos ficam em `rootDir` e a API
- * os serve em `publicPath` (padrão /uploads), atrás do mesmo proxy do web.
+ * Storage em disco (produção: volume "uploads" da VPS). Os arquivos ficam em
+ * `rootDir` e a API os serve em `publicPath` (padrão /uploads), atrás do mesmo
+ * proxy do web. Com `publicBaseUrl`, a URL gravada no banco é absoluta
+ * (https://host/uploads/…), que é o que o app mobile precisa.
  */
 export class LocalDiskStorage implements Storage {
   private readonly rootDir: string;
   private readonly publicPath: string;
+  private readonly publicBaseUrl: string;
 
-  constructor(options: { rootDir: string; publicPath?: string }) {
+  constructor(options: { rootDir: string; publicPath?: string; publicBaseUrl?: string }) {
     this.rootDir = path.resolve(options.rootDir);
     this.publicPath = (options.publicPath ?? "/uploads").replace(/\/+$/, "");
+    this.publicBaseUrl = (options.publicBaseUrl ?? "").replace(/\/+$/, "");
   }
 
   /** Diretório absoluto servido em publicPath (para o plugin de estáticos da API). */
@@ -69,13 +73,18 @@ export class LocalDiskStorage implements Storage {
 
   publicUrl(key: string): string {
     assertValidStorageKey(key);
-    return `${this.publicPath}/${key}`;
+    return `${this.publicBaseUrl}${this.publicPath}/${key}`;
   }
 
+  /** Aceita a URL absoluta (deste host) e a relativa (gravada antes da URL base). */
   keyFromUrl(url: string): string | null {
+    const rest =
+      this.publicBaseUrl && url.startsWith(this.publicBaseUrl)
+        ? url.slice(this.publicBaseUrl.length)
+        : url;
     const prefix = `${this.publicPath}/`;
-    if (!url.startsWith(prefix)) return null;
-    const key = url.slice(prefix.length);
+    if (!rest.startsWith(prefix)) return null;
+    const key = rest.split("?")[0]?.slice(prefix.length) ?? "";
     try {
       assertValidStorageKey(key);
       return key;

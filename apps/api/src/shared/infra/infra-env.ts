@@ -36,15 +36,18 @@ export const databaseEnvShape = {
 };
 
 export const storageEnvShape = {
-  STORAGE_DRIVER: z.enum(["supabase", "local"]).default("local"),
-  /** Driver local: onde gravar os arquivos (relativo ao diretório de trabalho). */
+  /** Onde gravar imagens e arquivos (relativo ao diretório de trabalho). Em produção, o volume da VPS. */
   STORAGE_LOCAL_DIR: z.string().default("storage/uploads"),
-  /** Driver local: prefixo das URLs (a API serve os arquivos aqui). */
+  /** Prefixo das URLs (a API serve os arquivos aqui). */
   STORAGE_LOCAL_PUBLIC_PATH: z.string().startsWith("/").default("/uploads"),
-  SUPABASE_URL: z.url().optional(),
-  /** Só no servidor. Nunca no web nem no app. */
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(20).optional(),
-  SUPABASE_STORAGE_BUCKET: z.string().min(3).default("media"),
+  /**
+   * Origem pública das URLs gravadas no banco (ex.: https://arp.controlapp.scaleia.ai).
+   * Obrigatória em produção: o app mobile chama a API de outro host e precisa de URL absoluta.
+   */
+  STORAGE_PUBLIC_BASE_URL: z
+    .url()
+    .transform((u) => u.replace(/\/+$/, ""))
+    .optional(),
 };
 
 export const seedEnvShape = {
@@ -57,15 +60,7 @@ export const seedEnvShape = {
 };
 
 const databaseEnvSchema = z.object(databaseEnvShape);
-const storageEnvSchema = z
-  .object(storageEnvShape)
-  .refine(
-    (e) => e.STORAGE_DRIVER !== "supabase" || (e.SUPABASE_URL && e.SUPABASE_SERVICE_ROLE_KEY),
-    {
-      message: "STORAGE_DRIVER=supabase exige SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY",
-      path: ["STORAGE_DRIVER"],
-    },
-  );
+const storageEnvSchema = z.object(storageEnvShape);
 const seedEnvSchema = z.object(seedEnvShape);
 
 export type DatabaseEnv = z.infer<typeof databaseEnvSchema>;

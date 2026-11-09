@@ -1,6 +1,6 @@
 # Produção (Supabase):  cp .env.example .env  →  preencher  →  docker compose up -d --build
 # Dev offline:          docker compose --profile local up -d --build
-#                       (com DATABASE_URL=postgres://postgres:postgres@db:5432/postgres e STORAGE_DRIVER=local)
+#                       (com DATABASE_URL=postgres://postgres:postgres@db:5432/postgres)
 #
 # Web:  http://localhost:8082  (nginx :80)  — proxy de /api para a API
 # API:  http://localhost:3002  (node  :3000)
@@ -23,7 +23,8 @@ services:
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?Defina JWT_ACCESS_SECRET no .env (32+ caracteres)}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8082}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
-      STORAGE_DRIVER: ${STORAGE_DRIVER:-supabase}
+      # Imagens no volume "uploads" (nunca no Supabase); URL absoluta para o app mobile.
+      STORAGE_PUBLIC_BASE_URL: ${STORAGE_PUBLIC_BASE_URL:?Defina STORAGE_PUBLIC_BASE_URL no .env (ex.: https://arp.controlapp.scaleia.ai)}
       # Heap abaixo do limite do container: o GC age antes do OOM killer.
       NODE_OPTIONS: --max-old-space-size=384
     ports:

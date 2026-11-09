@@ -9,7 +9,7 @@ painel (`/api/v1/*`) e o app mobile (`/api/v1/app/*`).
 |---|---|
 | API | Node 22 · Fastify 5 · TypeScript · Clean Architecture · SQL puro (`pg`) |
 | Web | React 19 · Vite · Tailwind CSS 4 · TanStack Query · React Hook Form |
-| Dados | Supabase: Postgres (dados) e Storage (imagens). Sem ORM, sem Supabase Auth |
+| Dados | Supabase Postgres (dados). Imagens e arquivos no disco da VPS (volume `uploads`), nunca no Supabase. Sem ORM, sem Supabase Auth |
 | Auth | JWT de acesso (15 min) + refresh rotativo em cookie httpOnly · RBAC. App: e-mail/senha, Google/Apple (id_token) e nova senha por código no e-mail |
 | Contratos | `packages/contracts`: schemas Zod, permissões e rotas compartilhados |
 
@@ -45,7 +45,7 @@ Entre com `admin@arp.com.br` e a senha de `SEED_ADMIN_PASSWORD`.
 ## Rodar com Docker
 
 ```bash
-cp .env.example .env                     # DATABASE_URL do Supabase, JWT, Storage
+cp .env.example .env                     # DATABASE_URL do Supabase, JWT, STORAGE_PUBLIC_BASE_URL
 docker compose up -d --build
 ```
 
@@ -53,7 +53,7 @@ docker compose up -d --build
 - API: <http://localhost:3002> (node :3000)
 
 Sem Supabase, use o perfil local: `DATABASE_URL=postgres://postgres:postgres@db:5432/postgres`,
-`STORAGE_DRIVER=local` e `docker compose --profile local up -d --build`.
+`STORAGE_PUBLIC_BASE_URL=http://localhost:8082` e `docker compose --profile local up -d --build`.
 
 ## Qualidade
 
