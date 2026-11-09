@@ -51,7 +51,7 @@ export function VisitorDetailPage() {
         className="mb-3 inline-flex items-center gap-1.5 text-sm text-neutral-500 transition hover:text-neutral-900"
       >
         <ArrowLeft className="size-4" aria-hidden />
-        Visitantes
+        Usuários do app
       </Link>
       <div className="flex flex-col gap-5">
         <VisitorHero visitor={v} />

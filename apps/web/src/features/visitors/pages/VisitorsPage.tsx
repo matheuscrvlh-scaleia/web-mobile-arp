@@ -132,7 +132,7 @@ export function VisitorsPage() {
   return (
     <>
       <PageHeader
-        title="Visitantes"
+        title="Usuários do app"
         description="Quem usa o app: selos, cupons, economia e preferências."
       />
       <FilterBar>
@@ -186,7 +186,7 @@ export function VisitorsPage() {
         ) : (
           <>
             <Table
-              caption="Visitantes do app"
+              caption="Usuários do app"
               columns={COLUMNS}
               rows={visitors.data?.data}
               rowKey={(v) => v.id}

@@ -191,12 +191,8 @@ const STAFF_NAV: NavSection[] = [
   {
     title: "Pessoas",
     items: [
-      item("Visitantes", PATHS.visitors, UserRound, ROUTES.visitors.list.permission, {
-        keywords: ["cliente", "conta do app", "bloquear", "lgpd", "anonimizar"],
-      }),
-      item("Usuários e cargos", PATHS.users, Users, ROUTES.users.list.permission, {
-        also: [PATHS.roles],
-        keywords: ["equipe", "acesso", "permissão", "senha", "cargo", "login"],
+      item("Usuários do app", PATHS.visitors, UserRound, ROUTES.visitors.list.permission, {
+        keywords: ["visitante", "cliente", "conta do app", "bloquear", "lgpd", "anonimizar"],
       }),
     ],
   },
@@ -208,6 +204,10 @@ const STAFF_NAV: NavSection[] = [
       }),
       item("Histórico", PATHS.audit, History, ROUTES.auditLogs.permission, {
         keywords: ["auditoria", "log", "quem alterou", "alterações"],
+      }),
+      item("Usuários e cargos", PATHS.users, Users, ROUTES.users.list.permission, {
+        also: [PATHS.roles],
+        keywords: ["equipe", "acesso", "permissão", "senha", "cargo", "login"],
       }),
       item("Configurações", PATHS.settings, Settings, ROUTES.settings.get.permission, {
         keywords: [

@@ -16,6 +16,7 @@ import {
   Card,
   CardHeader,
   ConfirmDialog,
+  FormSection,
   InfoItem,
   LoadError,
   LoadingRegion,
@@ -140,76 +141,85 @@ function UserDetail({ user }: { user: User }) {
       />
       <PeopleTabs />
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <form onSubmit={onSubmit} noValidate>
-          <fieldset disabled={!manage} className="min-w-0">
-            <Card padding="lg">
-              <UserFields form={form} />
-            </Card>
-          </fieldset>
-          {manage && (
-            <SaveBar
-              dirty={form.formState.isDirty}
-              saving={update.isPending}
-              onReset={() => form.reset()}
-              submitLabel="Salvar usuário"
-            />
-          )}
-        </form>
+        <div className="flex min-w-0 flex-col gap-5">
+          <form onSubmit={onSubmit} noValidate>
+            <fieldset disabled={!manage} className="min-w-0">
+              <Card padding="lg">
+                <UserFields form={form} />
+              </Card>
+            </fieldset>
+            {manage && (
+              <SaveBar
+                dirty={form.formState.isDirty}
+                saving={update.isPending}
+                onReset={() => form.reset()}
+                submitLabel="Salvar usuário"
+              />
+            )}
+          </form>
 
-        <div className="flex flex-col gap-4">
-          <Card>
-            <CardHeader title="Situação" />
-            <div className="mb-5 flex flex-wrap gap-2">
-              <UserStatusBadge user={user} />
-              <StoreAccessBadge store={user.store} />
-            </div>
-            <div className="flex flex-col gap-4">
-              <InfoItem label="Último acesso" icon={LogIn}>
-                {user.lastLoginAt ? (
-                  <time dateTime={user.lastLoginAt} title={formatDateTime(user.lastLoginAt)}>
-                    {formatRelative(user.lastLoginAt)}
-                  </time>
-                ) : (
-                  "Ainda não entrou"
-                )}
-              </InfoItem>
-              <InfoItem label="Criado em" icon={CalendarClock}>
-                {formatDateTime(user.createdAt)}
-              </InfoItem>
-            </div>
-          </Card>
+          {/* Mesmo desenho do copiloto: cartão largo, título à esquerda e campo à direita. */}
           {manage && !isMe && (
-            <Card>
-              <CardHeader
+            <Card padding="lg">
+              <FormSection
                 title="Redefinir senha"
                 description="Se a pessoa esqueceu a senha, defina uma provisória. No próximo acesso ela escolhe uma nova."
-              />
-              <div className="flex flex-col gap-3">
-                <PasswordField
-                  value={newPassword}
-                  onChange={(v) => {
-                    setNewPassword(v);
-                    setPasswordError(undefined);
-                  }}
-                  placeholder="Clique em Gerar ou digite"
-                  hint="Em branco, o sistema gera uma. A pessoa troca no próximo acesso."
-                  error={passwordError}
-                />
-                <Button variant="secondary" icon={KeyRound} onClick={askReset}>
+              >
+                <div className="max-w-xl">
+                  <PasswordField
+                    value={newPassword}
+                    onChange={(v) => {
+                      setNewPassword(v);
+                      setPasswordError(undefined);
+                    }}
+                    placeholder="Em branco, o sistema gera"
+                    hint="8 caracteres ou mais, com letra e número. As sessões abertas são encerradas."
+                    error={passwordError}
+                  />
+                </div>
+                <Button
+                  variant="secondary"
+                  icon={KeyRound}
+                  onClick={askReset}
+                  className="self-start"
+                >
                   Redefinir senha
                 </Button>
-              </div>
+              </FormSection>
             </Card>
           )}
           {isMe && (
-            <Card>
-              <CardHeader title="Sua senha" />
-              <Link to={PATHS.account} className="text-sm font-medium hover:underline">
-                Trocar a minha senha →
-              </Link>
+            <Card padding="lg">
+              <FormSection title="Sua senha" description="A sua senha você troca em Minha conta.">
+                <Link to={PATHS.account} className="self-start text-sm font-medium hover:underline">
+                  Trocar a minha senha →
+                </Link>
+              </FormSection>
             </Card>
           )}
         </div>
+
+        <Card className="self-start">
+          <CardHeader title="Situação" />
+          <div className="mb-5 flex flex-wrap gap-2">
+            <UserStatusBadge user={user} />
+            <StoreAccessBadge store={user.store} />
+          </div>
+          <div className="flex flex-col gap-4">
+            <InfoItem label="Último acesso" icon={LogIn}>
+              {user.lastLoginAt ? (
+                <time dateTime={user.lastLoginAt} title={formatDateTime(user.lastLoginAt)}>
+                  {formatRelative(user.lastLoginAt)}
+                </time>
+              ) : (
+                "Ainda não entrou"
+              )}
+            </InfoItem>
+            <InfoItem label="Criado em" icon={CalendarClock}>
+              {formatDateTime(user.createdAt)}
+            </InfoItem>
+          </div>
+        </Card>
       </div>
 
       <ConfirmDialog
