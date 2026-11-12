@@ -1,4 +1,4 @@
-import type { EventRecurrence } from "@arp/contracts";
+import type { EventPeriod, EventRecurrence } from "@arp/contracts";
 import { MONTH_LABEL, WEEKDAY_LABEL, WEEKDAY_SHORT, weekdayOfIso } from "@/shared/lib/dates";
 import { formatIsoDay, formatTimeOfDay } from "@/shared/lib/format";
 
@@ -9,6 +9,8 @@ export interface WhenInput {
   /** Legado (um dia só); `weekdays` tem prioridade. */
   weekday?: number | null;
   weekdays?: number[] | null;
+  /** range em 2+ períodos. */
+  periods?: EventPeriod[] | null;
   startTime?: string | null;
   endTime?: string | null;
   isLongRunning?: boolean;
@@ -88,6 +90,12 @@ export function describeDays(v: WhenInput): string {
     return extra ? `${everyWeekdays(days)} (${extra})` : everyWeekdays(days);
   }
   if (!start) return "Data a definir";
+  if (v.recurrence === "range" && v.periods && v.periods.length > 1) {
+    return v.periods
+      .filter((p) => ISO_DAY.test(p.startsOn) && ISO_DAY.test(p.endsOn))
+      .map((p) => spanLabel(p.startsOn, p.endsOn))
+      .join(" e ");
+  }
   // Fim antes do início: o erro aparece no campo; a prévia não mostra "-4 dias".
   if (v.recurrence === "single" || !end || end <= start) return longDay(start);
   const a = parts(start);
@@ -98,6 +106,16 @@ export function describeDays(v: WhenInput): string {
       ? `${a.d} a ${b.d} de ${MONTH_LABEL[b.m - 1]}`
       : `${formatIsoDay(start)} a ${formatIsoDay(end)}`;
   return `${span} · ${v.isLongRunning ? "todos os dias" : `${n} dias`}`;
+}
+
+/** "10 a 12 de outubro", "30/10 a 2/11", "10 de outubro". */
+function spanLabel(start: string, end: string): string {
+  const a = parts(start);
+  const b = parts(end);
+  if (start === end) return `${a.d} de ${MONTH_LABEL[a.m - 1]}`;
+  return a.y === b.y && a.m === b.m
+    ? `${a.d} a ${b.d} de ${MONTH_LABEL[b.m - 1]}`
+    : `${formatIsoDay(start)} a ${formatIsoDay(end)}`;
 }
 
 /** Resumo completo, como o app escreve: "Todo sábado · 9h às 14h". */

@@ -9,6 +9,7 @@ import {
   listPrizeRedemptionsQuerySchema,
   prizeListSchema,
   prizeRedemptionPageSchema,
+  prizeRedemptionSchema,
   prizeSchema,
   ROUTES,
   rankingListSchema,
@@ -29,11 +30,14 @@ import type { CreateCatalogItemUseCase } from "../../directory/application/creat
 import type { DeleteCatalogItemUseCase } from "../../directory/application/delete-catalog-item.use-case";
 import type { UpdateCatalogItemUseCase } from "../../directory/application/update-catalog-item.use-case";
 import type {
+  CancelMyRedemptionUseCase,
   CancelRedemptionUseCase,
   CounterRedeemPrizeUseCase,
+  DeliverRedemptionUseCase,
+  RedeemPrizeUseCase,
   SetRankingNicknameUseCase,
 } from "../application/club.use-cases";
-import { PRIZE_NOT_FOUND, type PrizeProps } from "../domain/club";
+import { PRIZE_NOT_FOUND, type PrizeProps, REDEMPTION_NOT_FOUND } from "../domain/club";
 import type { ClubQueries } from "../infra/club.queries";
 
 const RANKING_PANEL_LIMIT = 100;
@@ -48,6 +52,7 @@ export interface ClubRoutesDeps {
   };
   cancel: CancelRedemptionUseCase;
   counterRedeem: CounterRedeemPrizeUseCase;
+  deliver: DeliverRedemptionUseCase;
 }
 
 /** Painel: lojinha, trocas, ranking e selos dados por loja/produto. */
@@ -114,6 +119,15 @@ export function clubRoutes(deps: ClubRoutesDeps): FastifyPluginAsyncZod {
       await deps.cancel.execute(request.params, staffOf(request));
       return reply.status(204).send();
     });
+    r.route(
+      ROUTES.prizeRedemptions.deliver,
+      { params: idParamsSchema, response: { 200: prizeRedemptionSchema } },
+      async (request) => {
+        await deps.deliver.execute(request.params, staffOf(request));
+        const page = await queries.redemptions({ page: 1, pageSize: 1 }, request.params.id);
+        return orNotFound(page.data[0], REDEMPTION_NOT_FOUND);
+      },
+    );
 
     r.route(ROUTES.clubReports.ranking, { response: { 200: rankingListSchema } }, async () => ({
       data: (await queries.ranking(clock.now(), RANKING_PANEL_LIMIT)).top,
@@ -146,6 +160,8 @@ export interface AppClubRoutesDeps {
   clock: Clock;
   optionalVisitor: OptionalVisitor;
   setNickname: SetRankingNicknameUseCase;
+  redeem: RedeemPrizeUseCase;
+  cancelMine: CancelMyRedemptionUseCase;
 }
 
 /** App: Clube ARP (registrado sob /app). */
@@ -169,5 +185,26 @@ export function appClubRoutes(deps: AppClubRoutesDeps): FastifyPluginAsyncZod {
       await deps.setNickname.execute({ nickname: null }, visitorOf(request));
       return reply.status(204).send();
     });
+    r.route(
+      APP_ROUTES.club.statement,
+      { response: { 200: App.trevoStatementSchema } },
+      async (request) => queries.statement(visitorOf(request).id, clock.now()),
+    );
+    r.route(
+      APP_ROUTES.club.redeem,
+      { params: idParamsSchema, response: { 201: App.redeemPrizeResultSchema } },
+      async (request, reply) =>
+        reply
+          .status(201)
+          .send(await deps.redeem.execute({ prizeId: request.params.id }, visitorOf(request))),
+    );
+    r.route(
+      APP_ROUTES.club.cancelRedemption,
+      { params: idParamsSchema },
+      async (request, reply) => {
+        await deps.cancelMine.execute(request.params, visitorOf(request));
+        return reply.status(204).send();
+      },
+    );
   };
 }

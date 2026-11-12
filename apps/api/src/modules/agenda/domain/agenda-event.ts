@@ -17,6 +17,8 @@ export interface AgendaEventDetails {
   storeId: string | null;
   isLongRunning: boolean;
   awardsSeal: boolean;
+  /** Link para comprar ou retirar ingresso (null = sem venda). */
+  ticketUrl: string | null;
   status: EventStatus;
   /** Arquivado: fora das listas do painel (nunca com status published). */
   archivedAt: Date | null;
@@ -41,12 +43,14 @@ export class AgendaEvent {
   }
 
   static restore(props: AgendaEventProps): AgendaEvent {
-    const { recurrence, startsOn, endsOn, weekdays, startTime, endTime, ...details } = props;
+    const { recurrence, startsOn, endsOn, weekdays, periods, startTime, endTime, ...details } =
+      props;
     const schedule = EventSchedule.restore({
       recurrence,
       startsOn,
       endsOn,
       weekdays,
+      periods,
       startTime,
       endTime,
     });
@@ -63,7 +67,8 @@ export class AgendaEvent {
   /** Aplica um PATCH: junta o estado atual com as mudanças e valida o resultado. */
   update(changes: AgendaEventChanges): void {
     const merged = applyPatch(this.toState(), changes);
-    const { recurrence, startsOn, endsOn, weekdays, startTime, endTime, ...details } = merged;
+    const { recurrence, startsOn, endsOn, weekdays, periods, startTime, endTime, ...details } =
+      merged;
     if (details.archivedAt && details.status === "published") {
       throw new BusinessRuleError("Desarquive o evento antes de publicar.");
     }
@@ -72,6 +77,7 @@ export class AgendaEvent {
       startsOn,
       endsOn,
       weekdays,
+      periods,
       startTime,
       endTime,
     });

@@ -28,10 +28,12 @@ export const EVENT_FORM_FIELDS = [
   "startsOn",
   "endsOn",
   "weekdays",
+  "periods",
   "startTime",
   "endTime",
   "isLongRunning",
   "awardsSeal",
+  "ticketUrl",
   "status",
 ] as const;
 
@@ -41,6 +43,7 @@ const RECURRENCE_FIELDS = [
   "startsOn",
   "endsOn",
   "weekdays",
+  "periods",
   "isLongRunning",
 ] as const;
 
@@ -63,10 +66,12 @@ export function eventToFormValues(event?: Event, { copy = false } = {}): EventFo
     startsOn: event?.startsOn ?? todayIso(),
     endsOn: event?.endsOn ?? null,
     weekdays: event?.weekdays ?? (event?.weekday == null ? null : [event.weekday]),
+    periods: event?.periods ?? null,
     startTime: event?.startTime ?? null,
     endTime: event?.endTime ?? null,
     isLongRunning: event?.isLongRunning ?? false,
     awardsSeal: event?.awardsSeal ?? false,
+    ticketUrl: event?.ticketUrl ?? null,
     status: copy ? "draft" : (event?.status ?? "draft"),
   };
 }
@@ -76,10 +81,12 @@ export function cleanRecurrence(values: EventFormValues): CreateEventBody {
   // O formulário só usa `weekdays`; o campo legado não vai.
   const { weekday: _legacy, ...v } = values;
   if (v.recurrence === "single") {
-    return { ...v, endsOn: null, weekdays: null, isLongRunning: false };
+    return { ...v, endsOn: null, weekdays: null, periods: null, isLongRunning: false };
   }
-  if (v.recurrence === "range") return { ...v, weekdays: null };
-  return { ...v, isLongRunning: false };
+  if (v.recurrence === "range") {
+    return { ...v, weekdays: null, periods: (v.periods?.length ?? 0) > 1 ? v.periods : null };
+  }
+  return { ...v, periods: null, isLongRunning: false };
 }
 
 /**

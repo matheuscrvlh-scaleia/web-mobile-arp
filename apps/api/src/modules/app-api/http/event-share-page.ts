@@ -61,6 +61,9 @@ function whenLabel(e: App.EventDetail): string {
     return `Toda ${list}${time}`;
   }
   const day = e.nextDate ?? e.startsOn;
+  if (e.periods) {
+    return `${e.periods.map((p) => `${br(p.startsOn)} a ${br(p.endsOn)}`).join(" e ")}${time}`;
+  }
   if (e.endsOn && e.endsOn !== e.startsOn) return `${br(e.startsOn)} a ${br(e.endsOn)}${time}`;
   return `${br(day)}${time}`;
 }

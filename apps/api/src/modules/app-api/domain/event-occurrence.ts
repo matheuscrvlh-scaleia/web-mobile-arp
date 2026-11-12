@@ -7,6 +7,8 @@ export interface EventRecurrence {
   endsOn: string | null;
   /** weekly: dias da semana (0 = domingo). */
   weekdays: number[] | null;
+  /** range em 2+ períodos (em ordem); null = de startsOn a endsOn direto. */
+  periods: { startsOn: string; endsOn: string }[] | null;
 }
 
 /** O evento acontece neste dia de calendário (YYYY-MM-DD)? */
@@ -16,7 +18,11 @@ export function occursOn(event: EventRecurrence, date: string): boolean {
     case "single":
       return date === event.startsOn;
     case "range":
-      return event.endsOn !== null && date <= event.endsOn;
+      return (
+        event.endsOn !== null &&
+        date <= event.endsOn &&
+        (!event.periods || event.periods.some((p) => date >= p.startsOn && date <= p.endsOn))
+      );
     case "weekly":
       return (
         (event.endsOn === null || date <= event.endsOn) &&
@@ -32,9 +38,16 @@ export function nextOccurrence(event: EventRecurrence, from: string): string | n
   switch (event.recurrence) {
     case "single":
       return event.startsOn >= from ? event.startsOn : null;
-    case "range":
-      candidate = start;
+    case "range": {
+      if (!event.periods) {
+        candidate = start;
+        break;
+      }
+      const period = event.periods.find((p) => p.endsOn >= start);
+      if (!period) return null;
+      candidate = period.startsOn > start ? period.startsOn : start;
       break;
+    }
     case "weekly": {
       if (!event.weekdays?.length) return null;
       const today = weekdayOfDate(start);

@@ -13,7 +13,7 @@ import { addDaysToDate, daysBetween } from "../../../shared/domain/time";
 import type { Database } from "../../../shared/infra/database/database";
 import { type SqlFragment, sql } from "../../../shared/infra/database/sql";
 import { hhmmOrNull, iso, isoOrNull } from "../../../shared/infra/presenters";
-import { EventSchedule } from "../domain/event-schedule";
+import { type EventPeriod, EventSchedule } from "../domain/event-schedule";
 
 /** Maior intervalo do calendário (dois meses cheios e um pouco). */
 const MAX_OCCURRENCE_DAYS = 62;
@@ -39,10 +39,12 @@ interface EventRow {
   ends_on: string | null;
   weekday: number | null;
   weekdays: number[] | null;
+  periods: EventPeriod[] | null;
   start_time: string | null;
   end_time: string | null;
   is_long_running: boolean;
   awards_seal: boolean;
+  ticket_url: string | null;
   status: EventStatus;
   site_url: string | null;
   interests_count: number;
@@ -55,8 +57,8 @@ const EVENT_COLUMNS = sql`
   e.id, e.title, e.category_id, c.name as category_name, c.icon as category_icon,
          e.description, e.image_url, e.tone, e.icon, e.place,
          e.floor_id, f.label as floor_label, e.store_id, s.name as store_name,
-         e.recurrence, e.starts_on, e.ends_on, e.weekday, e.weekdays, e.start_time, e.end_time,
-         e.is_long_running, e.awards_seal, e.status, si.site_url, e.created_at, e.updated_at, e.is_demo,
+         e.recurrence, e.starts_on, e.ends_on, e.weekday, e.weekdays, e.periods, e.start_time,
+         e.end_time, e.is_long_running, e.awards_seal, e.ticket_url, e.status, si.site_url, e.created_at, e.updated_at, e.is_demo,
          e.archived_at,
          (select count(*) from agenda.event_interests i where i.event_id = e.id) as interests_count
 `;
@@ -86,10 +88,12 @@ function toEvent(r: EventRow): Event {
     endsOn: r.ends_on,
     weekday: r.weekday,
     weekdays: r.weekdays,
+    periods: r.periods,
     startTime: hhmmOrNull(r.start_time),
     endTime: hhmmOrNull(r.end_time),
     isLongRunning: r.is_long_running,
     awardsSeal: r.awards_seal,
+    ticketUrl: r.ticket_url,
     status: r.status,
     siteUrl: r.site_url,
     interestsCount: r.interests_count,
@@ -110,6 +114,11 @@ function happensBetween(from: string | undefined, to: string | undefined): SqlFr
   const hi = sql`least(coalesce(e.ends_on, 'infinity'::date), coalesce(${to ?? null}::date, 'infinity'::date))`;
   return sql`
     e.active_period && daterange(${from ?? null}::date, ${to ?? null}::date, '[]')
+    and (e.periods is null or exists (
+      select 1 from jsonb_array_elements(e.periods) p
+      where daterange((p->>'startsOn')::date, (p->>'endsOn')::date, '[]')
+            && daterange(${from ?? null}::date, ${to ?? null}::date, '[]')
+    ))
     and (
       e.recurrence <> 'weekly'
       or exists (
@@ -192,11 +201,12 @@ export class AgendaQueries {
       starts_on: string;
       ends_on: string | null;
       weekdays: number[] | null;
+      periods: EventPeriod[] | null;
       start_time: string | null;
       is_long_running: boolean;
       status: EventStatus;
     }>(sql`
-      select e.id, e.title, e.recurrence, e.starts_on, e.ends_on, e.weekdays, e.start_time,
+      select e.id, e.title, e.recurrence, e.starts_on, e.ends_on, e.weekdays, e.periods, e.start_time,
              e.is_long_running, e.status
       from agenda.events e
       where e.active_period && daterange(${from}::date, ${to}::date, '[]')
@@ -212,6 +222,7 @@ export class AgendaQueries {
         startsOn: r.starts_on,
         endsOn: r.ends_on,
         weekdays: r.weekdays,
+        periods: r.periods,
         startTime: hhmmOrNull(r.start_time),
         endTime: null,
       });

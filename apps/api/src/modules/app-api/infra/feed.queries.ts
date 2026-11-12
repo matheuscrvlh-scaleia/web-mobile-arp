@@ -30,6 +30,7 @@ interface EventRow {
   ends_on: string | null;
   weekday: number | null;
   weekdays: number[] | null;
+  periods: { startsOn: string; endsOn: string }[] | null;
   start_time: string | null;
   end_time: string | null;
   is_long_running: boolean;
@@ -46,13 +47,14 @@ interface EventDetailRow extends EventRow {
   store_id: string | null;
   store_slug: string | null;
   store_name: string | null;
+  ticket_url: string | null;
   interests_count: number;
   is_interested: boolean;
 }
 
 const eventSelect = (extra: SqlFragment = sql.empty) => sql`
   select e.id, e.title, e.image_url, e.tone, e.icon, e.place, e.recurrence, e.starts_on,
-         e.ends_on, e.weekday, e.weekdays, e.start_time, e.end_time, e.is_long_running, e.awards_seal,
+         e.ends_on, e.weekday, e.weekdays, e.periods, e.start_time, e.end_time, e.is_long_running, e.awards_seal,
          ec.id as category_id, ec.name as category_name, ec.icon as category_icon
          ${extra}
   from agenda.events e
@@ -69,6 +71,7 @@ function toEventCard(r: EventRow, today: string): App.EventCard {
     startsOn: r.starts_on,
     endsOn: r.ends_on,
     weekdays: r.weekdays,
+    periods: r.periods,
   };
   return {
     id: r.id,
@@ -258,6 +261,7 @@ export class FeedQueries {
               startsOn: r.starts_on,
               endsOn: r.ends_on,
               weekdays: r.weekdays,
+              periods: r.periods,
             },
             date,
           ),
@@ -280,7 +284,7 @@ export class FeedQueries {
     const row = await this.db.maybeOne<EventDetailRow>(sql`
       ${eventSelect(sql`,
         e.description, fl.id as floor_id, fl.label as floor_label, st.id as store_id,
-        st.slug as store_slug, st.name as store_name,
+        st.slug as store_slug, st.name as store_name, e.ticket_url,
         (select count(*) from agenda.event_interests i where i.event_id = e.id) as interests_count,
         exists(select 1 from agenda.event_interests i
                where i.event_id = e.id and i.visitor_id = ${visitorId}::uuid) as is_interested`)}
@@ -297,6 +301,7 @@ export class FeedQueries {
         ? { id: row.store_id, slug: row.store_slug ?? "", name: row.store_name ?? "" }
         : null,
       interestsCount: row.interests_count,
+      ticketUrl: row.ticket_url,
       isInterested: row.is_interested,
     };
   }

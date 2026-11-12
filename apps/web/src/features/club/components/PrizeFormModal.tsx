@@ -26,7 +26,16 @@ import { useSavePrize } from "../api";
 
 type PrizeInput = z.input<typeof createPrizeBodySchema>;
 type PrizeValues = z.output<typeof createPrizeBodySchema>;
-const FIELDS = ["name", "description", "kind", "points", "stock", "imageUrl", "sortOrder"];
+const FIELDS = [
+  "name",
+  "description",
+  "pickupRules",
+  "kind",
+  "points",
+  "stock",
+  "imageUrl",
+  "sortOrder",
+];
 
 function toValues(p?: Prize): PrizeInput {
   return {
@@ -36,6 +45,7 @@ function toValues(p?: Prize): PrizeInput {
     points: p?.points ?? 50,
     stock: p?.stock ?? 10,
     imageUrl: p?.imageUrl ?? null,
+    pickupRules: p?.pickupRules ?? "",
     active: p?.active ?? true,
     sortOrder: p?.sortOrder ?? 0,
   };
@@ -94,7 +104,7 @@ export function PrizeFormModal({
       onClose={() => void askClose()}
       busy={save.isPending}
       title={prize ? `Editar ${prize.name}` : "Novo prêmio"}
-      description="O visitante troca os pontos do Clube ARP e retira no Centro de Informações."
+      description="O visitante troca os Trevos no app e retira no Mercado Local com o código."
       footer={
         <>
           <Button variant="secondary" onClick={() => void askClose()} disabled={save.isPending}>
@@ -123,6 +133,14 @@ export function PrizeFormModal({
         />
         <Field label="Descrição" optional error={errors.description?.message}>
           <Textarea rows={2} maxLength={300} {...form.register("description")} />
+        </Field>
+        <Field
+          label="Como retirar"
+          optional
+          hint="Aparece no app, no detalhe do prêmio. Vazio: “Mostre o código no Mercado Local em até 7 dias”."
+          error={errors.pickupRules?.message}
+        >
+          <Textarea rows={2} maxLength={600} {...form.register("pickupRules")} />
         </Field>
         <Field label="Tipo" required error={errors.kind?.message}>
           <Select {...form.register("kind")}>

@@ -187,6 +187,7 @@ export function VisitorInterests({ visitor }: { visitor: VisitorDetail }) {
 }
 
 const REDEMPTION_STATUS: Record<PrizeRedemptionStatus, string> = {
+  pending: "Esperando retirada",
   delivered: "Entregue",
   cancelled: "Desfeita",
 };

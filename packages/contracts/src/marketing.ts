@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   demoFlagSchema,
   idSchema,
+  isoDateSchema,
   isoDateTimeSchema,
   listOf,
   mediaUrlSchema,
@@ -274,3 +275,34 @@ export const listNotificationsQuerySchema = paginationQuerySchema.extend({
   status: notificationStatusSchema.optional(),
 });
 export type ListNotificationsQuery = z.infer<typeof listNotificationsQuerySchema>;
+
+/* NPS do app ------------------------------------------------------------- */
+
+export const npsReportQuerySchema = paginationQuerySchema.extend({
+  /** Período das respostas (dias em São Paulo); sem datas = últimos 90 dias. */
+  from: isoDateSchema.optional(),
+  to: isoDateSchema.optional(),
+});
+export type NpsReportQuery = z.infer<typeof npsReportQuerySchema>;
+
+export const npsResponseSchema = z.object({
+  id: idSchema,
+  score: z.number().int(),
+  comment: z.string().nullable(),
+  visitor: refSchema.nullable(),
+  platform: z.string().nullable(),
+  createdAt: isoDateTimeSchema,
+});
+export type NpsResponse = z.infer<typeof npsResponseSchema>;
+
+/** NPS = % promotores (9–10) − % detratores (0–6), de −100 a 100 (null sem respostas). */
+export const npsReportSchema = paginated(npsResponseSchema).extend({
+  summary: z.object({
+    nps: z.number().int().nullable(),
+    total: z.number().int(),
+    promoters: z.number().int(),
+    passives: z.number().int(),
+    detractors: z.number().int(),
+  }),
+});
+export type NpsReport = z.infer<typeof npsReportSchema>;

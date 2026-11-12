@@ -180,7 +180,7 @@ class Seeder {
           gradient_from: seal.from,
           gradient_to: seal.to,
           sort_order: i + 1,
-          status: "active",
+          status: "archived" in seal ? "archived" : "active",
           // Evento pode ser ganho de novo (um por código).
           repeatable: seal.slug === "agito",
         },

@@ -165,6 +165,18 @@ export function EventForm({
               >
                 <Input {...register("place")} />
               </Field>
+              <Field
+                label="Link do ingresso"
+                optional
+                hint="Quando houver venda ou retirada de ingresso: o app mostra o botão “Ingressos”."
+                error={errors.ticketUrl?.message}
+              >
+                <Input
+                  type="url"
+                  placeholder="https://"
+                  {...register("ticketUrl", { setValueAs: (v: string) => v?.trim() || null })}
+                />
+              </Field>
               <FieldRow>
                 <Field label="Andar" optional error={errors.floorId?.message}>
                   <Controller

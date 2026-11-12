@@ -1,10 +1,10 @@
 import type { EventRecurrence } from "@arp/contracts";
-import { CalendarDays, CalendarRange, MoonStar, Repeat } from "lucide-react";
+import { CalendarDays, CalendarRange, MoonStar, Plus, Repeat, X } from "lucide-react";
 import { Controller, useWatch } from "react-hook-form";
 import { cn } from "@/shared/lib/cn";
 import { WEEKDAY_LABEL, WEEKDAY_SHORT } from "@/shared/lib/dates";
 import { emptyToNull } from "@/shared/lib/text";
-import { Field, FieldRow, Input, Segmented, Switch, type TabItem } from "@/shared/ui";
+import { Button, Field, FieldRow, Input, Segmented, Switch, type TabItem } from "@/shared/ui";
 import { crossesMidnight, describeWhen } from "../../lib/when";
 import type { EventFormHandle } from "./types";
 
@@ -27,17 +27,54 @@ const nullable = { setValueAs: emptyToNull };
  * texto como o app vai escrever.
  */
 export function RecurrenceFields({ form, readOnly }: { form: EventFormHandle; readOnly: boolean }) {
-  const { register, control, formState } = form;
+  const { register, control, formState, setValue } = form;
   const { errors } = formState;
-  const [recurrence, startsOn, endsOn, weekdays, startTime, endTime, isLongRunning] = useWatch({
-    control,
-    name: ["recurrence", "startsOn", "endsOn", "weekdays", "startTime", "endTime", "isLongRunning"],
-  });
+  const [recurrence, startsOn, endsOn, weekdays, periods, startTime, endTime, isLongRunning] =
+    useWatch({
+      control,
+      name: [
+        "recurrence",
+        "startsOn",
+        "endsOn",
+        "weekdays",
+        "periods",
+        "startTime",
+        "endTime",
+        "isLongRunning",
+      ],
+    });
+  const multi = recurrence === "range" && (periods?.length ?? 0) > 1;
+  /** Grava a lista e mantém o início/fim do evento = primeiro e último dia. */
+  const setPeriods = (next: { startsOn: string; endsOn: string }[]) => {
+    const opts = { shouldDirty: true, shouldValidate: formState.isSubmitted };
+    if (next.length <= 1) {
+      setValue("periods", null, opts);
+      if (next[0]) {
+        setValue("startsOn", next[0].startsOn, opts);
+        setValue("endsOn", next[0].endsOn || null, opts);
+      }
+      return;
+    }
+    setValue("periods", next, opts);
+    const days = next
+      .flatMap((p) => [p.startsOn, p.endsOn])
+      .filter(Boolean)
+      .sort();
+    if (days[0]) setValue("startsOn", days[0], opts);
+    setValue("endsOn", days.at(-1) ?? null, opts);
+  };
+  const addPeriod = () => {
+    const current = multi ? (periods ?? []) : [{ startsOn: startsOn ?? "", endsOn: endsOn ?? "" }];
+    setPeriods([...current, { startsOn: "", endsOn: "" }]);
+  };
+  const editPeriod = (i: number, patch: Partial<{ startsOn: string; endsOn: string }>) =>
+    setPeriods((periods ?? []).map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const summary = describeWhen({
     recurrence,
     startsOn,
     endsOn,
     weekdays,
+    periods: multi ? periods : null,
     startTime,
     endTime,
     isLongRunning,
@@ -110,32 +147,82 @@ export function RecurrenceFields({ form, readOnly }: { form: EventFormHandle; re
         </Field>
       )}
 
-      <FieldRow>
+      {multi ? (
         <Field
-          label={
-            recurrence === "single"
-              ? "Dia"
-              : recurrence === "range"
-                ? "Primeiro dia"
-                : "A partir de"
-          }
+          label="Períodos"
           required
-          error={errors.startsOn?.message}
+          hint="Cada período aparece na agenda só nos seus dias (ex.: 10 a 12 e 17 a 19)."
+          error={errors.periods?.message ?? errors.startsOn?.message ?? errors.endsOn?.message}
         >
-          <Input type="date" {...register("startsOn")} />
+          <div className="space-y-2">
+            {(periods ?? []).map((p, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: linhas do formulário, sem identidade
+              <div key={i} className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  aria-label={`Início do período ${i + 1}`}
+                  value={p.startsOn}
+                  disabled={readOnly}
+                  onChange={(e) => editPeriod(i, { startsOn: e.target.value })}
+                />
+                <span className="text-sm text-neutral-500">a</span>
+                <Input
+                  type="date"
+                  aria-label={`Fim do período ${i + 1}`}
+                  value={p.endsOn}
+                  min={p.startsOn || undefined}
+                  disabled={readOnly}
+                  onChange={(e) => editPeriod(i, { endsOn: e.target.value })}
+                />
+                {!readOnly && (
+                  <button
+                    type="button"
+                    aria-label={`Tirar o período ${i + 1}`}
+                    onClick={() => setPeriods((periods ?? []).filter((_, j) => j !== i))}
+                    className="grid size-11 shrink-0 place-items-center rounded-full text-neutral-500 hover:bg-neutral-100 sm:size-9"
+                  >
+                    <X className="size-4" aria-hidden />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
         </Field>
-        {recurrence !== "single" && (
+      ) : (
+        <FieldRow>
           <Field
-            label={recurrence === "range" ? "Último dia" : "Até"}
-            required={recurrence === "range"}
-            optional={recurrence === "weekly"}
-            hint={recurrence === "weekly" ? "Sem data, repete sem fim." : undefined}
-            error={errors.endsOn?.message}
+            label={
+              recurrence === "single"
+                ? "Dia"
+                : recurrence === "range"
+                  ? "Primeiro dia"
+                  : "A partir de"
+            }
+            required
+            error={errors.startsOn?.message}
           >
-            <Input type="date" min={startsOn} {...register("endsOn", nullable)} />
+            <Input type="date" {...register("startsOn")} />
           </Field>
-        )}
-      </FieldRow>
+          {recurrence !== "single" && (
+            <Field
+              label={recurrence === "range" ? "Último dia" : "Até"}
+              required={recurrence === "range"}
+              optional={recurrence === "weekly"}
+              hint={recurrence === "weekly" ? "Sem data, repete sem fim." : undefined}
+              error={errors.endsOn?.message}
+            >
+              <Input type="date" min={startsOn} {...register("endsOn", nullable)} />
+            </Field>
+          )}
+        </FieldRow>
+      )}
+      {recurrence === "range" && !readOnly && (
+        <div>
+          <Button variant="secondary" size="sm" icon={Plus} onClick={addPeriod}>
+            Adicionar outro período (ex.: 10 a 12 e 17 a 19)
+          </Button>
+        </div>
+      )}
 
       <FieldRow>
         <Field label="Começa às" optional error={errors.startTime?.message}>

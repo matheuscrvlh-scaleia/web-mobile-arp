@@ -14,7 +14,7 @@ import {
   type Tone,
 } from "../domain/agenda-event";
 import { EventCategory, type NewEventCategory } from "../domain/event-category";
-import type { EventRecurrence } from "../domain/event-schedule";
+import type { EventPeriod, EventRecurrence } from "../domain/event-schedule";
 import type {
   AgendaEventRepository,
   AgendaReferences,
@@ -101,17 +101,19 @@ interface EventRow {
   starts_on: string;
   ends_on: string | null;
   weekdays: number[] | null;
+  periods: EventPeriod[] | null;
   start_time: string | null;
   end_time: string | null;
   is_long_running: boolean;
   awards_seal: boolean;
+  ticket_url: string | null;
   status: EventStatus;
   archived_at: Date | null;
 }
 
 const EVENT_COLUMNS = sql.raw(`id, title, category_id, description, image_url, tone, icon, place,
-  floor_id, store_id, recurrence, starts_on, ends_on, weekdays, start_time, end_time,
-  is_long_running, awards_seal, status, archived_at`);
+  floor_id, store_id, recurrence, starts_on, ends_on, weekdays, periods, start_time, end_time,
+  is_long_running, awards_seal, ticket_url, status, archived_at`);
 
 const eventToDomain = (r: EventRow) =>
   AgendaEvent.restore({
@@ -129,13 +131,18 @@ const eventToDomain = (r: EventRow) =>
     startsOn: r.starts_on,
     endsOn: r.ends_on,
     weekdays: r.weekdays,
+    periods: r.periods,
     startTime: hhmmOrNull(r.start_time),
     endTime: hhmmOrNull(r.end_time),
     isLongRunning: r.is_long_running,
     awardsSeal: r.awards_seal,
+    ticketUrl: r.ticket_url,
     status: r.status,
     archivedAt: r.archived_at,
   });
+
+/** jsonb dos períodos (null = um período só). */
+const periodsJson = (periods: EventPeriod[] | null) => (periods ? JSON.stringify(periods) : null);
 
 /** weekday (legado do app) = primeiro dia da lista. */
 const firstDay = (days: number[] | null) => days?.[0] ?? null;
@@ -154,14 +161,14 @@ export class PgAgendaEventRepository implements AgendaEventRepository {
     const row = await this.db.one<EventRow>(sql`
       insert into agenda.events
         (title, category_id, description, image_url, tone, icon, place, floor_id, store_id,
-         recurrence, starts_on, ends_on, weekday, weekdays, start_time, end_time, is_long_running,
-         awards_seal, status)
+         recurrence, starts_on, ends_on, weekday, weekdays, periods, start_time, end_time,
+         is_long_running, awards_seal, ticket_url, status)
       values
         (${d.title}, ${d.categoryId}, ${d.description}, ${d.imageUrl}, ${d.tone}, ${d.icon},
          ${d.place}, ${d.floorId}, ${d.storeId}, ${d.recurrence}, ${d.startsOn}::date,
          ${d.endsOn}::date, ${firstDay(d.weekdays)}, ${d.weekdays}::smallint[],
-         ${d.startTime}::time, ${d.endTime}::time,
-         ${d.isLongRunning}, ${d.awardsSeal}, ${d.status})
+         ${periodsJson(d.periods)}::jsonb, ${d.startTime}::time, ${d.endTime}::time,
+         ${d.isLongRunning}, ${d.awardsSeal}, ${d.ticketUrl}, ${d.status})
       returning ${EVENT_COLUMNS}
     `);
     return eventToDomain(row);
@@ -176,6 +183,7 @@ export class PgAgendaEventRepository implements AgendaEventRepository {
           floor_id = ${s.floorId}, store_id = ${s.storeId}, recurrence = ${s.recurrence},
           starts_on = ${s.startsOn}::date, ends_on = ${s.endsOn}::date,
           weekday = ${firstDay(s.weekdays)}, weekdays = ${s.weekdays}::smallint[],
+          periods = ${periodsJson(s.periods)}::jsonb, ticket_url = ${s.ticketUrl},
           start_time = ${s.startTime}::time, end_time = ${s.endTime}::time,
           is_long_running = ${s.isLongRunning}, awards_seal = ${s.awardsSeal}, status = ${s.status},
           archived_at = ${s.archivedAt}

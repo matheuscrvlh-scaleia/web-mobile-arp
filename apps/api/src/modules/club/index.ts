@@ -5,15 +5,18 @@ import { CreateCatalogItemUseCase } from "../directory/application/create-catalo
 import { DeleteCatalogItemUseCase } from "../directory/application/delete-catalog-item.use-case";
 import { UpdateCatalogItemUseCase } from "../directory/application/update-catalog-item.use-case";
 import {
+  CancelMyRedemptionUseCase,
   CancelRedemptionUseCase,
   CounterRedeemPrizeUseCase,
+  DeliverRedemptionUseCase,
+  RedeemPrizeUseCase,
   SetRankingNicknameUseCase,
 } from "./application/club.use-cases";
 import { PRIZE_NOT_FOUND } from "./domain/club";
 import { appClubRoutes, clubRoutes } from "./http/club.routes";
 import { ClubQueries } from "./infra/club.queries";
 import { PgClubStore, prizeRepository } from "./infra/pg-club-store";
-import { pointsExpiryJob } from "./infra/points-expiry-job";
+import { pendingRedemptionsJob, pointsExpiryJob } from "./infra/points-expiry-job";
 
 /** Clube ARP (Fase 2): lojinha, trocas, ranking e relatório de selos. */
 export function createClubModule(
@@ -22,7 +25,8 @@ export function createClubModule(
 ) {
   const { db, uow, audit, clock, random, tokens } = core;
   const queries = new ClubQueries(db);
-  const clubDeps = { store: new PgClubStore(db), random, clock, audit, uow };
+  const store = new PgClubStore(db);
+  const clubDeps = { store, random, clock, audit, uow };
   const prizeDeps = {
     entityType: "prize",
     notFoundMessage: PRIZE_NOT_FOUND,
@@ -41,12 +45,15 @@ export function createClubModule(
     },
     cancel: new CancelRedemptionUseCase(clubDeps),
     counterRedeem: new CounterRedeemPrizeUseCase(clubDeps),
+    deliver: new DeliverRedemptionUseCase(clubDeps),
   });
   const app = appClubRoutes({
     queries,
     clock,
     optionalVisitor: createOptionalVisitor(tokens, deps.isVisitorActive),
     setNickname: new SetRankingNicknameUseCase(clubDeps),
+    redeem: new RedeemPrizeUseCase(clubDeps),
+    cancelMine: new CancelMyRedemptionUseCase(clubDeps),
   });
 
   const routes: FastifyPluginAsyncZod = async (api) => {
@@ -55,6 +62,9 @@ export function createClubModule(
   };
   return {
     routes,
-    jobs: [pointsExpiryJob({ db, push: core.push, clock, logger: core.logger })],
+    jobs: [
+      pointsExpiryJob({ db, push: core.push, clock, logger: core.logger }),
+      pendingRedemptionsJob({ store, clock, logger: core.logger }),
+    ],
   };
 }

@@ -9,7 +9,7 @@ import type {
   VisitorSummary,
 } from "@arp/contracts";
 import { offsetOf, type Page, toCountedPage } from "../../../shared/application/pagination";
-import { POINTS_VALIDITY_SQL, visitorPointsSql } from "../../../shared/infra/database/club-points";
+import { visitorPointsSql, yearEndSql } from "../../../shared/infra/database/club-points";
 import type { Database } from "../../../shared/infra/database/database";
 import { sql } from "../../../shared/infra/database/sql";
 import { iso, isoOrNull } from "../../../shared/infra/presenters";
@@ -83,21 +83,14 @@ const SUMMARY_COLUMNS = sql`
 `;
 
 /**
- * Selos que ainda valem e quando cada um vence: o que vier primeiro entre o
- * vencimento do selo e o fim da validade dos pontos (configuração).
+ * Trevos que vencem: o saldo inteiro vence em 31/12 (o programa é anual).
+ * "Vencendo" = saldo, quando faltam 30 dias ou menos para o fim do ano.
  */
 const CLUB_EXPIRY_COLUMNS = (now: Date) => sql`
-  (select coalesce(sum(x.points), 0) from (${validSeals(now)}) x
-    where x.ends_at <= ${now}::timestamptz + interval '30 days') as club_expiring_points,
-  (select min(x.ends_at) from (${validSeals(now)}) x) as club_next_expiry_at
-`;
-
-const validSeals = (now: Date) => sql`
-  select es.points,
-         least(es.expires_at, es.earned_at + make_interval(months => ${POINTS_VALIDITY_SQL})) as ends_at
-  from gamification.earned_seals es
-  where es.visitor_id = v.id and es.expires_at > ${now}
-    and es.earned_at + make_interval(months => ${POINTS_VALIDITY_SQL}) > ${now}
+  (case when ${yearEndSql(now)} <= ${now}::timestamptz + interval '30 days'
+        then ${visitorPointsSql(sql`v.id`, now)} else 0 end) as club_expiring_points,
+  (case when ${visitorPointsSql(sql`v.id`, now)} > 0 then ${yearEndSql(now)} - interval '1 millisecond'
+        end) as club_next_expiry_at
 `;
 
 const storeMini = (alias: string) =>

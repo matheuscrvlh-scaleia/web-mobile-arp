@@ -105,6 +105,8 @@ export const SEALS = [
     from: "#7fd68d",
     to: "#2f7d3d",
     description: "Visitou o Túnel do Tempo.",
+    // Correções V2: sai da vitrine (quem ganhou continua vendo no histórico).
+    archived: true,
   },
   {
     slug: "mao-verde",
@@ -145,6 +147,14 @@ export const SEALS = [
     from: "#9cc5ff",
     to: "#2b4c6f",
     description: "Pagou o estacionamento pelo app.",
+  },
+  {
+    slug: "estilo",
+    name: "Estilo",
+    icon: "shirt",
+    from: "#f5a3c0",
+    to: "#b4466f",
+    description: "Comprou numa loja parceira de moda e acessórios.",
   },
 ] as const;
 

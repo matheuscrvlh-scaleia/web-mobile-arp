@@ -118,18 +118,9 @@ export function SealFormModal({
       errors.gradientFrom ||
       errors.gradientTo,
   );
-  const [name, icon, from, to, availableFrom, points, validityMonths, repeatable] = useWatch({
+  const [name, icon, from, to, availableFrom, points, repeatable] = useWatch({
     control,
-    name: [
-      "name",
-      "icon",
-      "gradientFrom",
-      "gradientTo",
-      "availableFrom",
-      "points",
-      "validityMonths",
-      "repeatable",
-    ],
+    name: ["name", "icon", "gradientFrom", "gradientTo", "availableFrom", "points", "repeatable"],
   });
   const preview = {
     icon,
@@ -238,38 +229,23 @@ export function SealFormModal({
               />
             </Field>
             <MoreOptions
-              summary={`${points ?? 10} pontos no Clube · vale ${validityMonths ?? 6} meses · ${repeatable ? "repetível" : "uma vez por pessoa"}`}
+              summary={`${points ?? 10} Trevos por conquista · ${repeatable ? "repetível" : "uma vez por pessoa"}`}
               defaultOpen={Boolean(seal?.availableFrom || seal?.availableUntil)}
               forceOpen={advancedErrors}
             >
-              <FieldRow>
-                <Field
-                  label="Pontos"
-                  required
-                  hint="Pontos no Clube ARP"
-                  error={errors.points?.message}
-                >
-                  <Input
-                    type="number"
-                    min={1}
-                    max={1000}
-                    {...register("points", { valueAsNumber: true })}
-                  />
-                </Field>
-                <Field
-                  label="Validade (meses)"
-                  required
-                  hint="Vencido, os pontos saem do total (máx. 12)"
-                  error={errors.validityMonths?.message}
-                >
-                  <Input
-                    type="number"
-                    min={1}
-                    max={12}
-                    {...register("validityMonths", { valueAsNumber: true })}
-                  />
-                </Field>
-              </FieldRow>
+              <Field
+                label="Trevos"
+                required
+                hint="Trevos que cada conquista dá no Clube ARP. O selo não vence: vira histórico."
+                error={errors.points?.message}
+              >
+                <Input
+                  type="number"
+                  min={1}
+                  max={1000}
+                  {...register("points", { valueAsNumber: true })}
+                />
+              </Field>
               <Controller
                 control={control}
                 name="repeatable"

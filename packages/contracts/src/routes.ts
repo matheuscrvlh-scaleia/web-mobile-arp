@@ -152,6 +152,13 @@ export const ROUTES = {
       "club.redeem",
       "Desfazer troca (pontos e estoque voltam)",
     ),
+    /** Mercado Local: o visitante trocou no app e mostra o código; aqui o prêmio sai entregue. */
+    deliver: r(
+      "POST",
+      "/prize-redemptions/:id/deliver",
+      "club.redeem",
+      "Validar o código da troca feita no app e entregar o prêmio",
+    ),
   },
   clubReports: {
     ranking: r("GET", "/club/ranking", "reports.view", "Ranking de visitantes (apelidos)"),
@@ -163,6 +170,7 @@ export const ROUTES = {
       "reports.view",
       "Pegos, usados e economia por promoção",
     ),
+    nps: r("GET", "/reports/nps", "reports.view", "NPS do app: nota e respostas (paginado)"),
   },
   /** Cadastro de lojista pelo link (Fase 2): a ARP gera o link e aprova. */
   merchantSignups: {

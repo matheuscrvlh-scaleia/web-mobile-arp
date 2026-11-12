@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eventRecurrenceSchema } from "../agenda";
+import { eventPeriodSchema, eventRecurrenceSchema } from "../agenda";
 import { iconNameSchema, idSchema, isoDateSchema, timeOfDaySchema, toneSchema } from "../common";
 import { storeLinkSchema } from "./coupons";
 
@@ -22,6 +22,8 @@ export const eventCardSchema = z.object({
   weekday: z.number().int().min(0).max(6).nullable(),
   /** weekly: todos os dias em que acontece (ex.: terça e quinta). */
   weekdays: z.array(z.number().int().min(0).max(6)).nullable(),
+  /** range em mais de um período (ex.: 10–12 e 17–19/10); null = um período só. */
+  periods: z.array(eventPeriodSchema).nullable(),
   startTime: timeOfDaySchema.nullable(),
   endTime: timeOfDaySchema.nullable(),
   isLongRunning: z.boolean(),
@@ -66,6 +68,8 @@ export const eventDetailSchema = eventCardSchema.extend({
   floor: z.object({ id: idSchema, label: z.string() }).nullable(),
   store: storeLinkSchema.nullable(),
   interestsCount: z.number().int(),
+  /** Link para comprar ou retirar ingresso (null = sem venda). */
+  ticketUrl: z.string().nullable(),
   /** false sem login. */
   isInterested: z.boolean(),
 });

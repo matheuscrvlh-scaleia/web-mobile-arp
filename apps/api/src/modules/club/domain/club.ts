@@ -10,6 +10,7 @@ export interface PrizeProps {
   points: number;
   stock: number;
   imageUrl: string | null;
+  pickupRules: string;
   active: boolean;
   sortOrder: number;
 }
@@ -24,7 +25,7 @@ export class PrizeOutOfStockError extends DomainError {
 export class NotEnoughPointsError extends DomainError {
   override readonly name = "NotEnoughPointsError";
   constructor(missing: number) {
-    super("NOT_ENOUGH_POINTS", `Faltam ${missing} pontos para este prêmio`, 422, { missing });
+    super("NOT_ENOUGH_POINTS", `Faltam ${missing} Trevos para este prêmio`, 422, { missing });
   }
 }
 

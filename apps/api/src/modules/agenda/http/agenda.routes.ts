@@ -75,10 +75,12 @@ function toNewEvent(body: CreateEventBody): NewAgendaEvent {
     startsOn: body.startsOn,
     endsOn: body.endsOn ?? null,
     weekdays: weekdaysOf(body) ?? null,
+    periods: body.periods ?? null,
     startTime: body.startTime ?? null,
     endTime: body.endTime ?? null,
     isLongRunning: body.isLongRunning,
     awardsSeal: body.awardsSeal,
+    ticketUrl: body.ticketUrl ?? null,
     status: body.status,
   };
 }

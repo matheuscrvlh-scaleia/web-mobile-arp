@@ -43,6 +43,15 @@ export const updateEventCategoryBodySchema = z.object(patchOf(createEventCategor
 export type UpdateEventCategoryBody = z.infer<typeof updateEventCategoryBodySchema>;
 
 export const eventRecurrenceSchema = z.enum(["single", "range", "weekly"]);
+
+/**
+ * Um trecho de dias seguidos (inclusive). Evento em mais de um período (ex.:
+ * 10 a 12 e 17 a 19 de outubro) é um `range` com `periods`: startsOn/endsOn
+ * viram o primeiro e o último dia, e o app só mostra os dias dos períodos.
+ */
+export const eventPeriodSchema = z.object({ startsOn: isoDateSchema, endsOn: isoDateSchema });
+export type EventPeriod = z.infer<typeof eventPeriodSchema>;
+export const EVENT_MAX_PERIODS = 20;
 export type EventRecurrence = z.infer<typeof eventRecurrenceSchema>;
 /** paused: estava no app e saiu por um tempo ("Continuar" volta para published). */
 export const eventStatusSchema = z.enum(["draft", "published", "paused", "cancelled"]);
@@ -69,12 +78,16 @@ export const eventSchema = z.object({
   weekday: z.number().int().min(0).max(6).nullable(),
   /** weekly: todos os dias da semana em que acontece (ex.: terça e quinta). */
   weekdays: z.array(z.number().int().min(0).max(6)).nullable(),
+  /** range em mais de um período, em ordem e sem sobrepor (null = um período só). */
+  periods: z.array(eventPeriodSchema).nullable(),
   startTime: timeOfDaySchema.nullable(),
   endTime: timeOfDaySchema.nullable(),
   /** Aparece como faixa em todos os dias da agenda (ex.: o mês inteiro). */
   isLongRunning: z.boolean(),
   /** Participar vale selo (o desafio liga ao evento). */
   awardsSeal: z.boolean(),
+  /** Link para comprar ou retirar ingresso (null = sem venda). */
+  ticketUrl: z.string().nullable(),
   status: eventStatusSchema,
   /** Página do evento no site, quando veio da importação; null = cadastrado aqui. */
   siteUrl: z.string().nullable(),
@@ -119,10 +132,21 @@ const eventFields = {
   /** Legado (um dia só); prefira `weekdays`. */
   weekday: z.number().int().min(0).max(6).nullable().optional(),
   weekdays: eventWeekdaysSchema.nullable().optional(),
+  /** range: mais de um período (com 2 ou mais, startsOn/endsOn saem deles). */
+  periods: z
+    .array(eventPeriodSchema)
+    .max(EVENT_MAX_PERIODS, `No máximo ${EVENT_MAX_PERIODS} períodos`)
+    .nullable()
+    .optional(),
   startTime: timeOfDaySchema.nullable().optional(),
   endTime: timeOfDaySchema.nullable().optional(),
   isLongRunning: z.boolean().default(false),
   awardsSeal: z.boolean().default(false),
+  ticketUrl: z
+    .url({ protocol: /^https?$/, error: "Cole o link completo (https://...)" })
+    .max(500, "Link longo demais")
+    .nullable()
+    .optional(),
   status: eventStatusSchema.default("draft"),
 };
 
@@ -132,6 +156,7 @@ type RecurrenceShape = {
   endsOn?: string | null;
   weekday?: number | null;
   weekdays?: number[] | null;
+  periods?: EventPeriod[] | null;
 };
 
 /** Coerência da recorrência; vale para criar e (com todos os campos) para editar. */
@@ -146,7 +171,22 @@ export function recurrenceIssues(v: RecurrenceShape): { path: string; message: s
   if (v.startsOn && v.endsOn && v.endsOn < v.startsOn) {
     issues.push({ path: "endsOn", message: "O fim precisa ser depois do início" });
   }
+  if (v.recurrence === "range" && v.periods && v.periods.length > 1) {
+    const sorted = sortPeriods(v.periods);
+    if (sorted.some((p) => p.endsOn < p.startsOn)) {
+      issues.push({ path: "periods", message: "Em cada período, o fim vem depois do início" });
+    } else if (
+      sorted.some((p, i) => i > 0 && p.startsOn <= (sorted[i - 1] as EventPeriod).endsOn)
+    ) {
+      issues.push({ path: "periods", message: "Os períodos não podem se sobrepor" });
+    }
+  }
   return issues;
+}
+
+/** Períodos em ordem de início. */
+export function sortPeriods(periods: readonly EventPeriod[]): EventPeriod[] {
+  return [...periods].sort((a, b) => a.startsOn.localeCompare(b.startsOn));
 }
 
 export const createEventBodySchema = z.object(eventFields).superRefine((v, ctx) => {

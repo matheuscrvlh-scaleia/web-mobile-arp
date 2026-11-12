@@ -2,6 +2,10 @@ import { type FieldErrors, ValidationError } from "../../../shared/domain/errors
 import { addDaysToDate, daysBetween, weekdayOfDate } from "../../../shared/domain/time";
 
 export type EventRecurrence = "single" | "range" | "weekly";
+export interface EventPeriod {
+  startsOn: string;
+  endsOn: string;
+}
 
 export interface EventScheduleProps {
   recurrence: EventRecurrence;
@@ -11,6 +15,8 @@ export interface EventScheduleProps {
   endsOn: string | null;
   /** weekly: dias da semana (0 = domingo … 6 = sábado), em ordem; demais: null. */
   weekdays: number[] | null;
+  /** range em 2+ períodos (em ordem, sem sobrepor); demais: null. */
+  periods: EventPeriod[] | null;
   /** HH:mm */
   startTime: string | null;
   endTime: string | null;
@@ -56,6 +62,15 @@ export class EventSchedule {
       const names = p.weekdays.map((d) => WEEKDAY_NAMES[d]).join(" nem ");
       addIssue(issues, "weekdays", `Não há ${names} entre o início e o fim informados`);
     }
+    if (p.periods) {
+      if (p.periods.some((x) => x.endsOn < x.startsOn)) {
+        addIssue(issues, "periods", "Em cada período, o fim vem depois do início");
+      } else if (
+        p.periods.some((x, i) => i > 0 && x.startsOn <= (p.periods?.[i - 1]?.endsOn ?? ""))
+      ) {
+        addIssue(issues, "periods", "Os períodos não podem se sobrepor");
+      }
+    }
     if (p.endTime && !p.startTime) {
       addIssue(issues, "startTime", "Informe o horário de início");
     }
@@ -79,13 +94,30 @@ export class EventSchedule {
   private static normalize(props: EventScheduleProps): EventScheduleProps {
     switch (props.recurrence) {
       case "single":
-        return { ...props, endsOn: null, weekdays: null };
-      case "range":
-        return { ...props, weekdays: null };
+        return { ...props, endsOn: null, weekdays: null, periods: null };
+      case "range": {
+        // 2+ períodos: o início e o fim do evento saem deles (o GiST usa os dois).
+        const periods =
+          props.periods && props.periods.length > 1
+            ? [...props.periods].sort((a, b) => a.startsOn.localeCompare(b.startsOn))
+            : null;
+        if (!periods) return { ...props, weekdays: null, periods: null };
+        const last = periods.reduce(
+          (m, x) => (x.endsOn > m ? x.endsOn : m),
+          periods[0]?.endsOn ?? "",
+        );
+        return {
+          ...props,
+          weekdays: null,
+          periods,
+          startsOn: periods[0]?.startsOn ?? props.startsOn,
+          endsOn: last,
+        };
+      }
       case "weekly": {
         // Sem repetir e em ordem (o primeiro vira o "weekday" legado do app).
         const days = props.weekdays ? [...new Set(props.weekdays)].sort((a, b) => a - b) : null;
-        return { ...props, weekdays: days?.length ? days : null };
+        return { ...props, weekdays: days?.length ? days : null, periods: null };
       }
     }
   }
@@ -96,11 +128,14 @@ export class EventSchedule {
 
   /** O evento acontece neste dia (YYYY-MM-DD)? */
   occursOn(date: string): boolean {
-    const { recurrence, startsOn, endsOn, weekdays } = this.props;
+    const { recurrence, startsOn, endsOn, weekdays, periods } = this.props;
     if (date < startsOn) return false;
     if (recurrence === "single") return date === startsOn;
     if (endsOn && date > endsOn) return false;
-    return recurrence === "range" || (weekdays ?? []).includes(weekdayOfDate(date));
+    if (recurrence === "range") {
+      return !periods || periods.some((p) => date >= p.startsOn && date <= p.endsOn);
+    }
+    return (weekdays ?? []).includes(weekdayOfDate(date));
   }
 
   /** Dias do intervalo [from, to] em que o evento acontece. */
@@ -126,11 +161,20 @@ export class EventSchedule {
   movedTo(startsOn: string): EventScheduleProps {
     const shift = daysBetween(this.props.startsOn, startsOn);
     const endsOn = this.props.endsOn ? addDaysToDate(this.props.endsOn, shift) : null;
-    return { ...this.props, startsOn, endsOn };
+    const periods =
+      this.props.periods?.map((p) => ({
+        startsOn: addDaysToDate(p.startsOn, shift),
+        endsOn: addDaysToDate(p.endsOn, shift),
+      })) ?? null;
+    return { ...this.props, startsOn, endsOn, periods };
   }
 
   toState(): EventScheduleProps {
-    return { ...this.props, weekdays: this.props.weekdays ? [...this.props.weekdays] : null };
+    return {
+      ...this.props,
+      weekdays: this.props.weekdays ? [...this.props.weekdays] : null,
+      periods: this.props.periods ? this.props.periods.map((p) => ({ ...p })) : null,
+    };
   }
 }
 

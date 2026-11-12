@@ -41,7 +41,7 @@ export const sealSchema = z.object({
   status: sealStatusSchema,
   /** Pontos que o selo dá no Clube ARP (Fase 2). */
   points: z.number().int(),
-  /** Meses até o selo vencer; vencido, os pontos saem do total. */
+  /** Legado: selos não vencem mais (os Trevos valem até o fim do ano). Ignorado. */
   validityMonths: z.number().int(),
   /** Pode ser ganho de novo (ex.: evento). Padrão: uso único. */
   repeatable: z.boolean(),
@@ -386,6 +386,8 @@ export const prizeSchema = z.object({
   /** Unidades disponíveis; 0 = sai da lojinha. */
   stock: z.number().int(),
   imageUrl: z.string().nullable(),
+  /** Como e onde retirar (ex.: "No Mercado Local, de terça a domingo"). Vazio = texto padrão do app. */
+  pickupRules: z.string(),
   active: z.boolean(),
   sortOrder: z.number().int(),
   redeemedCount: z.number().int(),
@@ -417,6 +419,7 @@ export const createPrizeBodySchema = z.object({
     .min(0, "O estoque não pode ser negativo")
     .max(100_000, "No máximo 100.000"),
   imageUrl: mediaUrlSchema.nullable().default(null),
+  pickupRules: z.string().trim().max(600, "Use até 600 letras").default(""),
   active: z.boolean().default(true),
   sortOrder: z.number().int().min(0).max(999).default(0),
 });
@@ -425,10 +428,19 @@ export const updatePrizeBodySchema = z.object(patchOf(createPrizeBodySchema.shap
 export type UpdatePrizeBody = z.infer<typeof updatePrizeBodySchema>;
 
 /**
- * A troca só acontece no balcão (o app não pede): sai entregue na hora.
- * Cancelada = o Centro de Informações desfez (pontos e estoque voltam).
+ * pending = o visitante trocou no app: os Trevos e a unidade ficam reservados
+ * e ele mostra o código no Mercado Local, que valida e entrega (delivered).
+ * Troca feita no balcão já sai delivered. cancelled = desfeita ou o código
+ * venceu sem retirada (Trevos e estoque voltam).
  */
-export const prizeRedemptionStatusSchema = z.enum(["delivered", "cancelled"]);
+export const prizeRedemptionStatusSchema = z.enum(["pending", "delivered", "cancelled"]);
+export const PRIZE_REDEMPTION_STATUS_LABEL: Record<PrizeRedemptionStatus, string> = {
+  pending: "Esperando retirada",
+  delivered: "Entregue",
+  cancelled: "Cancelada",
+};
+/** Dias para retirar depois de trocar no app; depois disso a troca é cancelada. */
+export const PRIZE_PICKUP_DAYS = 7;
 export type PrizeRedemptionStatus = z.infer<typeof prizeRedemptionStatusSchema>;
 
 export const prizeRedemptionSchema = z.object({
@@ -440,6 +452,8 @@ export const prizeRedemptionSchema = z.object({
   points: z.number().int(),
   status: prizeRedemptionStatusSchema,
   createdAt: isoDateTimeSchema,
+  /** pending: até quando dá para retirar. */
+  expiresAt: isoDateTimeSchema.nullable(),
   deliveredAt: isoDateTimeSchema.nullable(),
   /** Quem fez a troca no balcão (null = usuário apagado). */
   deliveredBy: refSchema.nullable(),
@@ -470,7 +484,7 @@ export const redemptionVisitorSchema = z.object({
   phone: z.string().nullable(),
   avatarUrl: z.string().nullable(),
   blocked: z.boolean(),
-  /** Saldo do Clube agora (selos valendo menos trocas). */
+  /** Saldo de Trevos agora (ganhos no ano menos trocas). */
   points: z.number().int(),
 });
 export type RedemptionVisitor = z.infer<typeof redemptionVisitorSchema>;

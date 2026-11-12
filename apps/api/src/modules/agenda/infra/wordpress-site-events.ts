@@ -107,10 +107,12 @@ export function siteEventFromPost(post: WpEvento, imageUrl: string | null): Site
       startsOn,
       endsOn: multiDay ? (end?.[0] ?? null) : null,
       weekdays: null,
+      periods: null,
       startTime: timeOrNull(startClock),
       endTime: timeOrNull(startClock) ? timeOrNull(end?.[1]) : null,
       isLongRunning: false,
       awardsSeal: false,
+      ticketUrl: null,
     },
   };
 }

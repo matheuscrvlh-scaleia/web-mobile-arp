@@ -130,6 +130,10 @@ const PAGE_HINT: Record<ContentPageKey, string> = {
   rules: "Aparece depois do cadastro e no menu do perfil, com o PDF para baixar.",
   club_rules: "Link na tela do Clube ARP e no menu do perfil.",
   circuit: "Abertura do Circuito Cultural. A imagem é o mapa do Circuito.",
+  history_full:
+    "O “Saiba mais” das boas-vindas e o atalho Nossa História do Início. A imagem vai no topo.",
+  sustentarp: "Texto de abertura do Sustentarp. A imagem é a foto colorida do topo.",
+  sustentarp_friend: "Botão “Seja um Amigo do Sustentarp”. O link abre o formulário ou o PDF.",
 };
 
 interface Draft {
@@ -264,11 +268,15 @@ function PagesForm({
                     onChange={(e) => setDraft(p.key, { body: e.target.value })}
                   />
                 </Field>
-                {p.key === "rules" ? (
+                {p.key === "rules" || p.key === "sustentarp_friend" ? (
                   <Field
-                    label="Link do PDF"
+                    label={p.key === "rules" ? "Link do PDF" : "Link do formulário"}
                     optional
-                    hint="O botão “Baixar” do app abre este link."
+                    hint={
+                      p.key === "rules"
+                        ? "O botão “Baixar” do app abre este link."
+                        : "O botão “Quero ser amigo” do app abre este link."
+                    }
                   >
                     <Input
                       type="url"
@@ -277,10 +285,10 @@ function PagesForm({
                       onChange={(e) => setDraft(p.key, { fileUrl: e.target.value || null })}
                     />
                   </Field>
-                ) : p.key === "circuit" ? (
-                  <Field label="Mapa do Circuito" optional>
+                ) : p.key === "circuit" || p.key === "history_full" || p.key === "sustentarp" ? (
+                  <Field label={p.key === "circuit" ? "Mapa do Circuito" : "Foto do topo"} optional>
                     <ImageUpload
-                      label="mapa do Circuito"
+                      label={p.key === "circuit" ? "mapa do Circuito" : "foto do topo"}
                       value={d.fileUrl}
                       onChange={(v) => setDraft(p.key, { fileUrl: v })}
                     />

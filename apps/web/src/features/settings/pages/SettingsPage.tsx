@@ -138,26 +138,13 @@ function SettingsForm({ settings }: { settings: AppSettings }) {
 
         <FormSection
           title="Clube ARP"
-          description="Por quanto tempo os pontos dos selos valem para trocar por prêmios."
+          description="Os Trevos ganhos no ano valem para troca até 31/12 daquele ano."
         >
           <FieldRow>
             <Field
-              label="Validade dos pontos (meses)"
+              label="Avisar antes de 31/12 (dias)"
               required
-              hint="Pontos do Clube ARP valem para troca por este tempo (padrão: 12)."
-              error={errors.pointsValidityMonths?.message}
-            >
-              <Input
-                type="number"
-                min={1}
-                max={24}
-                {...register("pointsValidityMonths", { valueAsNumber: true })}
-              />
-            </Field>
-            <Field
-              label="Avisar antes de vencer (dias)"
-              required
-              hint="Push para o visitante quando os pontos estão para vencer (0 = sem aviso)."
+              hint="Push para quem ainda tem Trevos quando faltam estes dias para o fim do ano (0 = sem aviso)."
               error={errors.pointsExpiryNoticeDays?.message}
             >
               <Input

@@ -38,6 +38,7 @@ import {
   toast,
 } from "@/shared/ui";
 import { useCancelRedemption, useCounterRedeem, usePrizes, useRedemptionVisitors } from "../api";
+import { DeliverCodeCard } from "../components/DeliverCodeCard";
 
 /**
  * Tela de balcão do Clube ARP, o único lugar onde se troca pontos (o app só
@@ -111,8 +112,8 @@ export function PrizeExchangePage() {
   return (
     <>
       <PageHeader
-        title="Trocar pontos"
-        description="Ache o visitante, confira o saldo e escolha um prêmio que tem no estoque. O prêmio sai entregue na hora."
+        title="Validar e trocar Trevos"
+        description="Troca feita no app: valide o código e entregue. Sem app? Ache o visitante, confira o saldo e troque aqui (sai entregue na hora)."
         actions={
           <ButtonLink to={PATHS.club("trocas")} icon={PackageCheck} variant="secondary">
             Ver trocas
@@ -120,6 +121,7 @@ export function PrizeExchangePage() {
         }
       />
       <div className="flex flex-col gap-4">
+        <DeliverCodeCard />
         {done && (
           <Banner
             tone="success"

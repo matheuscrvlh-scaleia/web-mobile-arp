@@ -6,6 +6,7 @@ import { createClubModule } from "./modules/club";
 import { createContentModule } from "./modules/content";
 import { createDashboardModule } from "./modules/dashboard";
 import { createDirectoryModule } from "./modules/directory";
+import { createFeedbackModule } from "./modules/feedback";
 import { createGamificationModule } from "./modules/gamification";
 import { createIdentityModule } from "./modules/identity";
 import { createMarketingModule } from "./modules/marketing";
@@ -210,6 +211,7 @@ export async function createContainer(options: ContainerOptions): Promise<Contai
     { name: "platform", routes: createPlatformModule(core).routes },
     { name: "content", routes: createContentModule(core).routes },
     { name: "club", routes: club.routes },
+    { name: "feedback", routes: createFeedbackModule(core).routes },
     { name: "merchant-signup", routes: createMerchantSignupModule(core).routes },
     { name: "app-api", routes: appApi.routes },
     {

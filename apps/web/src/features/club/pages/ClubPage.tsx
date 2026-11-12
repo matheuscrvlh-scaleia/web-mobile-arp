@@ -1,6 +1,7 @@
 import {
   type Permission,
   PRIZE_KIND_LABEL,
+  PRIZE_PICKUP_DAYS,
   type Prize,
   type PrizeRedemption,
   type PrizeRedemptionStatus,
@@ -56,6 +57,7 @@ import {
 import {
   useCancelRedemption,
   useDeletePrize,
+  useDeliverRedemption,
   usePrizes,
   useRanking,
   useRedemptions,
@@ -133,44 +135,30 @@ function ClubRulesCard() {
     const max = Math.max(...list);
     return min === max ? unit(min) : `de ${formatNumber(min)} a ${unit(max)}`;
   };
-  const months = (n: number) => plural(n, "mês", "meses");
-  // O saldo conta o selo que não venceu E foi ganho dentro do limite do clube
-  // (club-points.ts): vale o que vencer primeiro. Uma regra só, já combinada.
-  const limit = settings.data?.pointsValidityMonths;
-  const sealMonths = active.map((s) => s.validityMonths);
-  const effective = limit ? sealMonths.map((m) => Math.min(m, limit)) : sealMonths;
+  // Trevos: o programa é por ano (club-points.ts). Os do ano valem até 31/12.
   const notice =
     settings.data && settings.data.pointsExpiryNoticeDays > 0
-      ? ` O app avisa ${plural(settings.data.pointsExpiryNoticeDays, "dia", "dias")} antes.`
+      ? ` O app avisa ${plural(settings.data.pointsExpiryNoticeDays, "dia", "dias")} antes do fim do ano.`
       : "";
-  const validity =
-    effective.length > 0
-      ? `Cada ponto vale ${range(effective, months)} depois de ganho${
-          limit && sealMonths.some((m) => m > limit)
-            ? ` (o limite do clube é ${months(limit)}, mesmo que o selo valha mais)`
-            : ", e vence junto com o selo"
-        }.${notice}`
-      : limit
-        ? `Cada ponto vale até ${months(limit)} depois de ganho, ou menos se o selo vencer antes.${notice}`
-        : "Os pontos vencem junto com o selo do visitante.";
+  const validity = `Os Trevos ganhos no ano valem para troca até 31/12 daquele ano (ex.: os de 2027, de janeiro a dezembro de 2027).${notice}`;
 
   const rules: { text: string; link?: { to: string; label: string } }[] = [
     {
       text:
         points.length > 0
-          ? `Cada selo dá ${range(points, (n) => plural(n, "ponto", "pontos"))}.`
-          : "Cada selo dá os pontos definidos no cadastro do selo.",
+          ? `Cada conquista de selo dá ${range(points, (n) => plural(n, "Trevo", "Trevos"))}. Selos não vencem: viram histórico.`
+          : "Cada conquista de selo dá os Trevos definidos no cadastro do selo.",
       link: can("challenges.view") ? { to: PATHS.seals, label: "Mudar em Selos" } : undefined,
     },
     {
       text: validity,
       link: settings.data
-        ? { to: PATHS.settings, label: "Mudar o limite em Configurações" }
+        ? { to: PATHS.settings, label: "Mudar o aviso em Configurações" }
         : undefined,
     },
     {
-      text: "O app só mostra a lojinha. A troca é no balcão: a equipe acha o visitante, troca os pontos e entrega o prêmio na hora. Errou? Desfaça a troca, e pontos e estoque voltam.",
-      link: can("club.redeem") ? { to: PATHS.prizeExchange, label: "Trocar pontos" } : undefined,
+      text: `O visitante troca no app e recebe um código; os Trevos e o prêmio ficam reservados por ${PRIZE_PICKUP_DAYS} dias. No Mercado Local, a equipe valida o código e entrega. Não retirou no prazo? A troca é cancelada e tudo volta.`,
+      link: can("club.redeem") ? { to: PATHS.prizeExchange, label: "Validar código" } : undefined,
     },
   ];
 
@@ -406,13 +394,15 @@ function PrizesTab({ canEdit }: { canEdit: boolean }) {
 /* Trocas ------------------------------------------------------------------ */
 
 const REDEMPTION_STATUS: Record<PrizeRedemptionStatus, { label: string; tone: StatusTone }> = {
+  pending: { label: "Esperando retirada", tone: "warning" },
   delivered: { label: "Entregue", tone: "success" },
   cancelled: { label: "Desfeita", tone: "neutral" },
 };
 
 /**
- * Histórico das trocas feitas no balcão (o app não troca). Troca errada se
- * desfaz: pontos e estoque voltam. Mesma permissão do balcão (club.redeem).
+ * Trocas: as do app esperam retirada no Mercado Local (entregar = validar o
+ * código); as do balcão já nascem entregues. Troca errada se desfaz: Trevos e
+ * estoque voltam. Mesma permissão do balcão (club.redeem).
  */
 function RedemptionsTab() {
   const [status, setStatus] = useState<PrizeRedemptionStatus | "">("");
@@ -427,11 +417,12 @@ function RedemptionsTab() {
   };
   const list = useRedemptions(query);
   const cancel = useCancelRedemption();
+  const deliver = useDeliverRedemption();
 
   const undo = async (r: PrizeRedemption) => {
     const ok = await confirmar({
       title: `Desfazer a troca de ${r.visitor.name}?`,
-      description: `${formatNumber(r.points)} pontos voltam para ${r.visitor.name} e ${r.prize.name} volta ao estoque. Recolha o prêmio no balcão.`,
+      description: `${formatNumber(r.points)} Trevos voltam para ${r.visitor.name} e ${r.prize.name} volta ao estoque.${r.status === "delivered" ? " Recolha o prêmio no balcão." : ""}`,
       confirmLabel: "Desfazer troca",
       cancelLabel: "Manter troca",
       danger: true,
@@ -439,7 +430,7 @@ function RedemptionsTab() {
     if (!ok) return;
     cancel.mutate(r.id, {
       onSuccess: () =>
-        toast.success(`Troca desfeita: ${r.visitor.name} recebeu os pontos de volta.`),
+        toast.success(`Troca desfeita: ${r.visitor.name} recebeu os Trevos de volta.`),
       onError: (e) => toast.fromError(e),
     });
   };
@@ -467,17 +458,24 @@ function RedemptionsTab() {
       ),
     },
     { key: "prize", header: "Prêmio", cell: (r) => r.prize.name },
-    { key: "points", header: "Pontos", numeric: true, cell: (r) => formatNumber(r.points) },
-    { key: "at", header: "Trocado em", cell: (r) => formatDateTime(r.createdAt) },
+    { key: "points", header: "Trevos", numeric: true, cell: (r) => formatNumber(r.points) },
+    {
+      key: "at",
+      header: "Trocado em",
+      cell: (r) =>
+        r.status === "pending" && r.expiresAt
+          ? `${formatDateTime(r.createdAt)} · retirar até ${formatDateTime(r.expiresAt)}`
+          : formatDateTime(r.createdAt),
+    },
     {
       key: "by",
-      header: "Feita por",
+      header: "Entregue por",
       cell: (r) => <span className="text-neutral-600">{r.deliveredBy?.name ?? "—"}</span>,
       hideOnMobile: true,
     },
     {
       key: "code",
-      header: "Comprovante",
+      header: "Código",
       cell: (r) => <span className="font-mono text-xs font-semibold">{r.code}</span>,
       hideOnMobile: true,
     },
@@ -487,18 +485,38 @@ function RedemptionsTab() {
       numeric: true,
       actions: true,
       cell: (r: PrizeRedemption) =>
-        r.status === "delivered" && (
-          <Button
-            data-guia="desfazer-troca"
-            size="sm"
-            variant="secondary"
-            icon={Undo2}
-            loading={cancel.isPending && cancel.variables === r.id}
-            onClick={() => void undo(r)}
-            aria-label={`Desfazer a troca de ${r.prize.name} de ${r.visitor.name}`}
-          >
-            Desfazer troca
-          </Button>
+        r.status === "cancelled" ? null : (
+          <span className="inline-flex flex-wrap justify-end gap-2">
+            {r.status === "pending" && (
+              <Button
+                size="sm"
+                variant="brand"
+                icon={PackageCheck}
+                loading={deliver.isPending && deliver.variables === r.id}
+                onClick={() =>
+                  deliver.mutate(r.id, {
+                    onSuccess: () =>
+                      toast.success(`Entregue: ${r.prize.name} para ${r.visitor.name}.`),
+                    onError: (e) => toast.fromError(e),
+                  })
+                }
+                aria-label={`Entregar ${r.prize.name} para ${r.visitor.name}`}
+              >
+                Entregar
+              </Button>
+            )}
+            <Button
+              data-guia="desfazer-troca"
+              size="sm"
+              variant="secondary"
+              icon={Undo2}
+              loading={cancel.isPending && cancel.variables === r.id}
+              onClick={() => void undo(r)}
+              aria-label={`Desfazer a troca de ${r.prize.name} de ${r.visitor.name}`}
+            >
+              {r.status === "pending" ? "Cancelar" : "Desfazer troca"}
+            </Button>
+          </span>
         ),
     },
   ];
@@ -507,10 +525,10 @@ function RedemptionsTab() {
     <Card className="min-w-0">
       <CardHeader
         title="Trocas"
-        description="Trocas feitas no Centro de Informações. O app só mostra a lojinha: quem troca é a equipe."
+        description="O visitante troca no app e retira no Mercado Local com o código (Esperando retirada → Entregar). No balcão a troca já sai entregue."
         action={
           <ButtonLink to={PATHS.prizeExchange} size="sm" variant="secondary" icon={ArrowRightLeft}>
-            Trocar pontos
+            Validar código / trocar
           </ButtonLink>
         }
       />
@@ -521,7 +539,7 @@ function RedemptionsTab() {
             setTerm(v);
             setPage(1);
           }}
-          placeholder="Visitante ou comprovante"
+          placeholder="Visitante ou código"
           label="Buscar troca"
           className="w-full sm:w-72"
         />
@@ -572,7 +590,7 @@ function RankingTab() {
   const columns: Column<RankingEntry>[] = [
     { key: "position", header: "Posição", numeric: true, cell: (r) => `${r.position}º` },
     { key: "nickname", header: "Apelido", cell: (r) => r.nickname },
-    { key: "points", header: "Pontos", numeric: true, cell: (r) => formatNumber(r.points) },
+    { key: "points", header: "Trevos", numeric: true, cell: (r) => formatNumber(r.points) },
   ];
   return (
     <Card className="min-w-0">

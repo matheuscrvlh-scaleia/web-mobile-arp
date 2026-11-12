@@ -76,7 +76,19 @@ export const APP_ROUTES = {
     get: r("GET", "/club", "Clube ARP: pontos, selos, lojinha e ranking", open),
     joinRanking: r("PUT", "/club/ranking", "Entrar no ranking com apelido"),
     leaveRanking: r("DELETE", "/club/ranking", "Sair do ranking"),
+    statement: r("GET", "/club/statement", "Extrato de Trevos (conquistas e trocas)"),
+    /** Reserva os Trevos e a unidade e devolve o código para retirar no Mercado Local. */
+    redeem: r("POST", "/club/prizes/:id/redeem", "Trocar Trevos por prêmio (gera o código)"),
+    cancelRedemption: r(
+      "POST",
+      "/club/redemptions/:id/cancel",
+      "Desistir de uma troca que espera retirada (Trevos voltam)",
+    ),
   },
+  /** Comunicados da ARP (pushes enviados a todos), do mais novo ao mais antigo. */
+  news: r("GET", "/news", "Novidades da ARP", open),
+  /** Pesquisa de satisfação (0 a 10) dentro do app. */
+  nps: r("POST", "/nps", "Responder o NPS"),
   pushTokens: {
     register: r("POST", "/push-tokens", "Registrar token de push do aparelho"),
     remove: r("DELETE", "/push-tokens", "Desvincular token de push do aparelho"),

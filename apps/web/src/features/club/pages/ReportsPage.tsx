@@ -9,6 +9,7 @@ import {
   Download,
   Percent,
   PiggyBank,
+  Smile,
   Store,
   TicketCheck,
   TicketPercent,
@@ -50,12 +51,14 @@ import {
   toast,
 } from "@/shared/ui";
 import { useSealsReport } from "../api";
+import { NpsTab } from "../components/NpsTab";
 
-type Tab = "promocoes" | "lojas" | "selos";
+type Tab = "promocoes" | "lojas" | "selos" | "nps";
 const TABS: TabItem<Tab>[] = [
   { value: "promocoes", label: "Cupons por promoção", icon: TicketPercent },
   { value: "lojas", label: "Cupons por loja", icon: Store },
   { value: "selos", label: "Selos por loja e produto", icon: BarChart3 },
+  { value: "nps", label: "NPS do app", icon: Smile },
 ];
 
 const filtersSchema = z.object({
@@ -127,6 +130,8 @@ export function ReportsPage() {
     } else if (tab === "lojas") {
       if (!storeRows.length) return toast.info("Nada para exportar neste período.");
       downloadCsv(`cupons-por-loja-${name}.csv`, storeRows, STORE_CSV);
+    } else if (tab === "nps") {
+      return toast.info("O NPS ainda não exporta CSV: copie da tabela.");
     } else {
       if (!seals.data?.length) return toast.info("Nada para exportar neste período.");
       downloadCsv(`selos-por-loja-${name}.csv`, seals.data, SEALS_CSV);
@@ -137,7 +142,7 @@ export function ReportsPage() {
     <>
       <PageHeader
         title="Relatórios"
-        description="Qual promoção funcionou melhor, cupons por loja e selos dados no período."
+        description="Qual promoção funcionou melhor, cupons por loja, selos dados e o NPS do app no período."
         actions={
           <Button variant="secondary" icon={Download} onClick={exportCsv}>
             Exportar CSV
@@ -160,7 +165,7 @@ export function ReportsPage() {
         )}
       </div>
 
-      {tab !== "selos" && (
+      {tab !== "selos" && tab !== "nps" && (
         <div data-guia="cartoes" className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <KpiCard
             label="Cupons pegos"
@@ -198,7 +203,7 @@ export function ReportsPage() {
       <Tabs
         idBase="relatorios"
         label="Relatórios"
-        items={TABS}
+        items={merchant ? TABS.filter((t) => t.value !== "nps") : TABS}
         value={tab}
         onChange={setTab}
         className="mb-5"
@@ -213,6 +218,8 @@ export function ReportsPage() {
             error={byStore.error}
             retry={() => void byStore.refetch()}
           />
+        ) : tab === "nps" ? (
+          <NpsTab period={period} />
         ) : (
           <SealsTab
             rows={seals.data}

@@ -5,6 +5,7 @@ import {
   type ListPrizeRedemptionsQuery,
   prizeListSchema,
   prizeRedemptionPageSchema,
+  prizeRedemptionSchema,
   prizeSchema,
   ROUTES,
   rankingListSchema,
@@ -28,6 +29,8 @@ export const clubApi = {
   redemptions: (query: ListPrizeRedemptionsQuery, signal?: AbortSignal) =>
     apiRequest(ROUTES.prizeRedemptions.list, prizeRedemptionPageSchema, { query, signal }),
   cancelRedemption: (id: string) => apiCall(ROUTES.prizeRedemptions.cancel, { params: { id } }),
+  deliverRedemption: (id: string) =>
+    apiRequest(ROUTES.prizeRedemptions.deliver, prizeRedemptionSchema, { params: { id } }),
   redemptionVisitors: (q: string, signal?: AbortSignal) =>
     apiRequest(ROUTES.prizeRedemptions.visitors, redemptionVisitorListSchema, {
       query: { q },
@@ -112,7 +115,7 @@ export function useRedemptionVisitors(q: string) {
   });
 }
 
-/** Troca no balcão (único jeito de trocar): baixa pontos e estoque e já sai entregue. */
+/** Troca no balcão: baixa Trevos e estoque e já sai entregue. */
 export function useCounterRedeem() {
   const qc = useQueryClient();
   return useMutation({
@@ -125,7 +128,16 @@ export function useCounterRedeem() {
   });
 }
 
-/** Desfaz a troca: pontos e estoque voltam. */
+/** Mercado Local: entrega a troca feita no app (pendente → entregue). */
+export function useDeliverRedemption() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: clubApi.deliverRedemption,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: clubKeys.allRedemptions }),
+  });
+}
+
+/** Desfaz a troca: Trevos e estoque voltam. */
 export function useCancelRedemption() {
   const qc = useQueryClient();
   return useMutation({

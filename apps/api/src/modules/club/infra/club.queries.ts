@@ -1,20 +1,25 @@
-import type {
+import {
   App,
-  CouponsByStoreQuery,
-  CouponsByStoreRow,
-  ListPrizeRedemptionsQuery,
-  Prize,
-  PrizeKind,
-  PrizeRedemption,
-  PrizeRedemptionStatus,
-  RankingEntry,
-  RedemptionVisitor,
-  SealsReportQuery,
-  SealsReportRow,
+  type CouponsByStoreQuery,
+  type CouponsByStoreRow,
+  type ListPrizeRedemptionsQuery,
+  type Prize,
+  type PrizeKind,
+  type PrizeRedemption,
+  type PrizeRedemptionStatus,
+  type RankingEntry,
+  type RedemptionVisitor,
+  type SealsReportQuery,
+  type SealsReportRow,
 } from "@arp/contracts";
 import { offsetOf, type Page, toPage } from "../../../shared/application/pagination";
 import { BUSINESS_TIME_ZONE } from "../../../shared/domain/time";
-import { visitorPointsSql } from "../../../shared/infra/database/club-points";
+import {
+  earnedThisYearSql,
+  trevosValidUntil,
+  visitorPointsSql,
+  yearStartSql,
+} from "../../../shared/infra/database/club-points";
 import type { Database } from "../../../shared/infra/database/database";
 import { sql } from "../../../shared/infra/database/sql";
 import { iso, isoOrNull } from "../../../shared/infra/presenters";
@@ -31,24 +36,56 @@ interface PrizeRow {
   points: number;
   stock: number;
   image_url: string | null;
+  pickup_rules: string;
   active: boolean;
   sort_order: number;
   is_demo: boolean;
 }
 
 const PRIZE_COLUMNS = sql.raw(
-  "p.id, p.name, p.description, p.kind, p.points, p.stock, p.image_url, p.active, p.sort_order, p.is_demo",
+  "p.id, p.name, p.description, p.kind, p.points, p.stock, p.image_url, p.pickup_rules, p.active, p.sort_order, p.is_demo",
 );
 
-/** Pontos de quem tem selo valendo (a lojinha e o ranking partem daqui). */
+/** Trevos de quem ganhou algum no ano (a lojinha e o ranking partem daqui). */
 const pointsCte = (now: Date) => sql`
   pts as (
     select v.id, v.ranking_nickname, ${visitorPointsSql(sql`v.id`, now)} as total
     from visitors.visitors v
     where v.status = 'active'
       and exists (select 1 from gamification.earned_seals es
-                  where es.visitor_id = v.id and es.expires_at > ${now})
+                  where es.visitor_id = v.id and es.earned_at >= ${yearStartSql(now)})
   )
+`;
+
+interface RedemptionRow {
+  id: string;
+  code: string;
+  prize_id: string;
+  prize_name: string;
+  prize_image_url: string | null;
+  points: number;
+  status: PrizeRedemptionStatus;
+  created_at: Date;
+  expires_at: Date | null;
+  delivered_at: Date | null;
+}
+
+const toClubRedemption = (r: RedemptionRow): App.ClubRedemption => ({
+  id: r.id,
+  code: r.code,
+  prize: { id: r.prize_id, name: r.prize_name, imageUrl: r.prize_image_url },
+  points: r.points,
+  status: r.status,
+  createdAt: iso(r.created_at),
+  expiresAt: isoOrNull(r.expires_at),
+  deliveredAt: isoOrNull(r.delivered_at),
+});
+
+const REDEMPTION_SELECT = sql`
+  select pr.id, pr.code, p.id as prize_id, p.name as prize_name, p.image_url as prize_image_url,
+         pr.points, pr.status, pr.created_at, pr.expires_at, pr.delivered_at
+  from gamification.prize_redemptions pr
+  join gamification.prizes p on p.id = pr.prize_id
 `;
 
 export class ClubQueries {
@@ -80,6 +117,7 @@ export class ClubQueries {
       points: r.points,
       stock: r.stock,
       imageUrl: r.image_url,
+      pickupRules: r.pickup_rules,
       active: r.active,
       sortOrder: r.sort_order,
       redeemedCount: r.redeemed_count,
@@ -89,7 +127,8 @@ export class ClubQueries {
     }));
   }
 
-  async redemptions(query: ListPrizeRedemptionsQuery): Promise<Page<PrizeRedemption>> {
+  /** Trocas (paginado); `id` = só aquela troca. */
+  async redemptions(query: ListPrizeRedemptionsQuery, id?: string): Promise<Page<PrizeRedemption>> {
     const rows = await this.db.many<{
       id: string;
       code: string;
@@ -100,6 +139,7 @@ export class ClubQueries {
       points: number;
       status: PrizeRedemptionStatus;
       created_at: Date;
+      expires_at: Date | null;
       delivered_at: Date | null;
       delivered_by_id: string | null;
       delivered_by_name: string | null;
@@ -108,7 +148,7 @@ export class ClubQueries {
       total: number;
     }>(sql`
       select pr.id, pr.code, p.id as prize_id, p.name as prize_name, v.id as visitor_id,
-             v.name as visitor_name, pr.points, pr.status, pr.created_at, pr.delivered_at,
+             v.name as visitor_name, pr.points, pr.status, pr.created_at, pr.expires_at, pr.delivered_at,
              u.id as delivered_by_id, u.name as delivered_by_name, pr.cancelled_at, v.is_demo,
              count(*) over() as total
       from gamification.prize_redemptions pr
@@ -116,9 +156,10 @@ export class ClubQueries {
       join visitors.visitors v on v.id = pr.visitor_id
       left join identity.users u on u.id = pr.delivered_by
       ${sql.where([
+        id ? sql`pr.id = ${id}` : null,
         query.status ? sql`pr.status = ${query.status}` : null,
         query.q
-          ? sql`(pr.code = ${query.q.toUpperCase()}
+          ? sql`(pr.code = ${query.q.replace(/[\s-]/g, "").toUpperCase()}
                  or public.f_unaccent(lower(v.name)) like ${sql.containsPattern(query.q)})`
           : null,
       ])}
@@ -133,6 +174,7 @@ export class ClubQueries {
       points: r.points,
       status: r.status,
       createdAt: iso(r.created_at),
+      expiresAt: isoOrNull(r.expires_at),
       deliveredAt: isoOrNull(r.delivered_at),
       deliveredBy: r.delivered_by_id
         ? { id: r.delivered_by_id, name: r.delivered_by_name ?? "" }
@@ -286,7 +328,7 @@ export class ClubQueries {
   /* App ---------------------------------------------------------------- */
 
   async club(visitorId: string | null, now: Date): Promise<App.Club> {
-    const [prizes, seals, ranking, me] = await Promise.all([
+    const [prizes, seals, ranking, me, pending] = await Promise.all([
       this.db.many<PrizeRow>(sql`
         select ${PRIZE_COLUMNS} from gamification.prizes p
         where p.active and p.stock > 0
@@ -301,30 +343,33 @@ export class ClubQueries {
         points: number;
         repeatable: boolean;
         times: number;
-        active_until: Date | null;
-        last_expired: Date | null;
+        last_earned_at: Date | null;
       }>(sql`
         select s.id, s.name, s.icon, s.gradient_from, s.gradient_to, s.points, s.repeatable,
-               count(es.id)::int as times,
-               max(es.expires_at) filter (where es.expires_at > ${now}) as active_until,
-               max(es.expires_at) filter (where es.expires_at <= ${now}) as last_expired
+               count(es.id)::int as times, max(es.earned_at) as last_earned_at
         from gamification.seals s
         left join gamification.earned_seals es
           on es.seal_id = s.id and es.visitor_id = ${visitorId}::uuid
-        where s.status = 'active'
         group by s.id
+        -- Selo arquivado sai da vitrine, mas fica no histórico de quem conquistou.
+        having s.status = 'active' or count(es.id) > 0
         order by s.sort_order, s.name
       `),
       this.ranking(now, RANKING_TOP, visitorId),
       visitorId
-        ? this.db.one<{ total: number; valid_until: Date | null; joined: boolean }>(sql`
+        ? this.db.one<{ total: number; joined: boolean }>(sql`
             select ${visitorPointsSql(sql`${visitorId}::uuid`, now)} as total,
-                   (select min(es.expires_at) from gamification.earned_seals es
-                    where es.visitor_id = ${visitorId} and es.expires_at > ${now}) as valid_until,
                    (select ranking_nickname is not null from visitors.visitors
                     where id = ${visitorId}) as joined
           `)
         : null,
+      visitorId
+        ? this.db.many<RedemptionRow>(sql`
+            ${REDEMPTION_SELECT}
+            where pr.visitor_id = ${visitorId} and pr.status = 'pending' and pr.expires_at > ${now}
+            order by pr.created_at desc
+          `)
+        : Promise.resolve([] as RedemptionRow[]),
     ]);
 
     const next = me
@@ -334,7 +379,7 @@ export class ClubQueries {
       points: me
         ? {
             total: me.total,
-            validUntil: isoOrNull(me.valid_until),
+            validUntil: me.total > 0 ? trevosValidUntil(now).toISOString() : null,
             nextPrize: next
               ? {
                   id: next.id,
@@ -355,9 +400,10 @@ export class ClubQueries {
         },
         points: s.points,
         repeatable: s.repeatable,
-        state: s.active_until ? "active" : s.times > 0 ? "expired" : "none",
+        state: s.times > 0 ? "active" : "none",
         times: s.times,
-        expiresAt: isoOrNull(s.active_until ?? s.last_expired),
+        expiresAt: null,
+        lastEarnedAt: isoOrNull(s.last_earned_at),
       })),
       prizes: prizes.map((p) => ({
         id: p.id,
@@ -367,8 +413,87 @@ export class ClubQueries {
         points: p.points,
         stock: p.stock,
         imageUrl: p.image_url,
+        pickupRules: p.pickup_rules,
       })),
+      pendingRedemptions: pending.map(toClubRedemption),
       ranking: { top: ranking.top, me: ranking.me, joined: me?.joined ?? false },
     };
+  }
+
+  /** Extrato de Trevos: conquistas (+) e trocas (−), do mais recente ao mais antigo. */
+  async statement(visitorId: string, now: Date): Promise<App.TrevoStatement> {
+    const limit = App.TREVO_STATEMENT_LIMIT;
+    const [totals, rows] = await Promise.all([
+      this.db.one<{ total: number; earned: number }>(sql`
+        select ${visitorPointsSql(sql`${visitorId}::uuid`, now)} as total,
+               ${earnedThisYearSql(sql`${visitorId}::uuid`, now)}::int as earned
+      `),
+      this.db.many<{
+        id: string;
+        kind: App.TrevoEntryKind;
+        title: string;
+        seal_id: string | null;
+        seal_name: string | null;
+        seal_icon: string | null;
+        gradient_from: string | null;
+        gradient_to: string | null;
+        points: number;
+        at: Date;
+        status: PrizeRedemptionStatus | null;
+        code: string | null;
+      }>(sql`
+        (select es.id, 'earned' as kind, ch.title, s.id as seal_id, s.name as seal_name,
+                s.icon as seal_icon, s.gradient_from, s.gradient_to, es.points, es.earned_at as at,
+                null::text as status, null::text as code
+         from gamification.earned_seals es
+         join gamification.challenges ch on ch.id = es.challenge_id
+         join gamification.seals s on s.id = es.seal_id
+         where es.visitor_id = ${visitorId}
+         order by es.earned_at desc
+         limit ${limit})
+        union all
+        (select pr.id, 'redeemed', p.name, null, null, null, null, null, -pr.points, pr.created_at,
+                pr.status, pr.code
+         from gamification.prize_redemptions pr
+         join gamification.prizes p on p.id = pr.prize_id
+         where pr.visitor_id = ${visitorId}
+         order by pr.created_at desc
+         limit ${limit})
+        order by at desc
+        limit ${limit}
+      `),
+    ]);
+    return {
+      total: totals.total,
+      validUntil: totals.total > 0 ? trevosValidUntil(now).toISOString() : null,
+      earnedThisYear: totals.earned,
+      entries: rows.map((r) => ({
+        id: r.id,
+        kind: r.kind,
+        title: r.title,
+        seal:
+          r.seal_id && r.seal_name && r.seal_icon && r.gradient_from && r.gradient_to
+            ? {
+                id: r.seal_id,
+                name: r.seal_name,
+                icon: r.seal_icon,
+                gradientFrom: r.gradient_from,
+                gradientTo: r.gradient_to,
+              }
+            : null,
+        points: r.points,
+        at: iso(r.at),
+        status: r.status,
+        code: r.code,
+      })),
+    };
+  }
+
+  /** Uma troca do visitante. */
+  async myRedemption(id: string, visitorId: string): Promise<App.ClubRedemption | null> {
+    const row = await this.db.maybeOne<RedemptionRow>(sql`
+      ${REDEMPTION_SELECT} where pr.id = ${id} and pr.visitor_id = ${visitorId}
+    `);
+    return row ? toClubRedemption(row) : null;
   }
 }
