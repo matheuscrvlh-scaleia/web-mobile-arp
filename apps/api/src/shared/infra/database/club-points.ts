@@ -1,45 +1,57 @@
+import { DEFAULT_TREVOS_VALID_UNTIL } from "@arp/contracts";
 import { BUSINESS_TIME_ZONE } from "../../domain/time";
+import type { Database } from "./database";
 import { type SqlFragment, sql } from "./sql";
 
 /*
  * Trevos do Clube ARP. Selos são conquistas permanentes (não vencem); cada
- * conquista dá Trevos. O programa é por ano do calendário (São Paulo): os
- * Trevos ganhos no ano valem para troca até 31/12 daquele ano. Saldo = Trevos
- * ganhos no ano − trocas do ano que não foram canceladas. Nunca fica negativo.
+ * conquista dá Trevos. A validade é escolhida pela ARP na gestão
+ * (Configurações → Clube ARP): os Trevos ganhos desde "contam a partir de"
+ * valem até "valem até" (inclusive, no fuso da ARP). Vencida a data, o saldo
+ * zera até a ARP escolher outra. Saldo = Trevos ganhos no período − trocas do
+ * período que não foram canceladas. Nunca fica negativo.
  */
 
-/** Início do ano (instante) em que `now` cai, no fuso da ARP. */
-export function yearStartSql(now: Date): SqlFragment {
-  return sql`(date_trunc('year', ${now}::timestamptz at time zone ${BUSINESS_TIME_ZONE}) at time zone ${BUSINESS_TIME_ZONE})`;
+const setting = (key: string) =>
+  sql`(select s.value #>> '{}' from platform.settings s where s.key = ${key})`;
+
+/** Último dia (date) em que os Trevos valem. */
+const untilDateSql = sql`coalesce(${setting("trevosValidUntil")}, ${DEFAULT_TREVOS_VALID_UNTIL})::date`;
+
+/** Fim (exclusivo) da validade: 00:00 do dia seguinte ao "valem até", em São Paulo. */
+export const validEndSql: SqlFragment = sql`((${untilDateSql} + 1)::timestamp at time zone ${BUSINESS_TIME_ZONE})`;
+
+/** Desde quando os Trevos contam (instante). */
+const countFromSql = sql`coalesce((${setting("trevosCountFrom")}::date)::timestamp at time zone ${BUSINESS_TIME_ZONE}, '-infinity'::timestamptz)`;
+
+/** Início do período que vale agora: depois da validade vencida, nada do período antigo conta. */
+export function cycleStartSql(now: Date): SqlFragment {
+  return sql`greatest(${countFromSql},
+    case when ${now}::timestamptz >= ${validEndSql} then ${validEndSql} else '-infinity'::timestamptz end)`;
 }
 
-/** Fim do ano (exclusivo): 1º de janeiro do ano seguinte, 00:00 em São Paulo. */
-export function yearEndSql(now: Date): SqlFragment {
-  return sql`(${yearStartSql(now)} + interval '1 year')`;
+/** Até quando os Trevos de agora valem (último instante); null = validade vencida. */
+export async function trevosValidUntil(db: Database, now: Date): Promise<Date | null> {
+  const r = await db.one<{ until: Date | null }>(sql`
+    select case when ${now}::timestamptz < ${validEndSql}
+                then ${validEndSql} - interval '1 millisecond' end as until
+  `);
+  return r.until;
 }
 
-/** Último instante em que os Trevos de agora ainda valem (31/12 23:59:59.999). */
-export function trevosValidUntil(now: Date): Date {
-  const year = Number(
-    new Intl.DateTimeFormat("en-US", { timeZone: BUSINESS_TIME_ZONE, year: "numeric" }).format(now),
-  );
-  // São Paulo não tem horário de verão desde 2019: 31/12 23:59:59.999 = 02:59:59.999Z de 1º/1.
-  return new Date(Date.UTC(year + 1, 0, 1, 3, 0, 0) - 1);
-}
-
-/** Trevos ganhos no ano de `now` pelo visitante `visitorId` (expressão SQL do id). */
-export function earnedThisYearSql(visitorId: SqlFragment, now: Date): SqlFragment {
+/** Trevos ganhos no período que vale agora pelo visitante `visitorId` (expressão SQL do id). */
+export function earnedInCycleSql(visitorId: SqlFragment, now: Date): SqlFragment {
   return sql`coalesce((select sum(es.points) from gamification.earned_seals es
-             where es.visitor_id = ${visitorId} and es.earned_at >= ${yearStartSql(now)}
+             where es.visitor_id = ${visitorId} and es.earned_at >= ${cycleStartSql(now)}
                and es.earned_at <= ${now}), 0)`;
 }
 
 /** Saldo de Trevos do visitante `visitorId` (expressão SQL do id). */
 export function visitorPointsSql(visitorId: SqlFragment, now: Date): SqlFragment {
   return sql`greatest(
-    ${earnedThisYearSql(visitorId, now)}
+    ${earnedInCycleSql(visitorId, now)}
     - coalesce((select sum(pr.points) from gamification.prize_redemptions pr
                 where pr.visitor_id = ${visitorId} and pr.status <> 'cancelled'
-                  and pr.created_at >= ${yearStartSql(now)}), 0),
+                  and pr.created_at >= ${cycleStartSql(now)}), 0),
     0)::int`;
 }

@@ -27,7 +27,7 @@ import { useAppSettings } from "@/features/settings";
 import { useAuth } from "@/shared/auth";
 import { PATHS } from "@/shared/config/paths";
 import { useDebouncedValue, useSearchParamOption } from "@/shared/hooks";
-import { formatDateTime, formatNumber, plural } from "@/shared/lib/format";
+import { formatDate, formatDateTime, formatNumber, plural } from "@/shared/lib/format";
 import { normalize } from "@/shared/lib/text";
 import {
   ActionMenu,
@@ -87,11 +87,11 @@ export function ClubPage() {
     <div className="min-w-0">
       <PageHeader
         title="Clube ARP"
-        description="Selos valem pontos, que o visitante troca por prêmios no balcão do Centro de Informações. O app mostra a lojinha e o ranking (só apelidos)."
+        description="Selos valem Trevos, que o visitante troca por prêmios no balcão do Centro de Informações. O app mostra a lojinha e o ranking (só apelidos)."
         actions={
           can("club.redeem") && (
             <ButtonLink to={PATHS.prizeExchange} icon={ArrowRightLeft}>
-              Trocar pontos
+              Trocar Trevos
             </ButtonLink>
           )
         }
@@ -135,12 +135,14 @@ function ClubRulesCard() {
     const max = Math.max(...list);
     return min === max ? unit(min) : `de ${formatNumber(min)} a ${unit(max)}`;
   };
-  // Trevos: o programa é por ano (club-points.ts). Os do ano valem até 31/12.
+  // Trevos: a validade é escolhida em Configurações (club-points.ts).
   const notice =
     settings.data && settings.data.pointsExpiryNoticeDays > 0
-      ? ` O app avisa ${plural(settings.data.pointsExpiryNoticeDays, "dia", "dias")} antes do fim do ano.`
+      ? ` O app avisa ${plural(settings.data.pointsExpiryNoticeDays, "dia", "dias")} antes.`
       : "";
-  const validity = `Os Trevos ganhos no ano valem para troca até 31/12 daquele ano (ex.: os de 2027, de janeiro a dezembro de 2027).${notice}`;
+  const validity = settings.data
+    ? `Os Trevos valem para troca até ${formatDate(`${settings.data.trevosValidUntil}T12:00:00`)}.${notice}`
+    : "Os Trevos valem até a data escolhida em Configurações.";
 
   const rules: { text: string; link?: { to: string; label: string } }[] = [
     {
@@ -153,7 +155,7 @@ function ClubRulesCard() {
     {
       text: validity,
       link: settings.data
-        ? { to: PATHS.settings, label: "Mudar o aviso em Configurações" }
+        ? { to: PATHS.settings, label: "Mudar a validade em Configurações" }
         : undefined,
     },
     {
@@ -257,7 +259,7 @@ function PrizesTab({ canEdit }: { canEdit: boolean }) {
         </StatusBadge>
       ),
     },
-    { key: "points", header: "Pontos", numeric: true, cell: (p) => formatNumber(p.points) },
+    { key: "points", header: "Trevos", numeric: true, cell: (p) => formatNumber(p.points) },
     { key: "stock", header: "Estoque", numeric: true, cell: (p) => formatNumber(p.stock) },
     {
       key: "redeemed",

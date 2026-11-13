@@ -203,8 +203,8 @@ export function VisitorClub({ visitor }: { visitor: VisitorDetail }) {
         icon={Gift}
         description={
           expiringPoints > 0 && nextExpiryAt
-            ? `${plural(expiringPoints, "ponto vence", "pontos vencem")} a partir de ${formatDate(nextExpiryAt)}`
-            : "Pontos dos selos que ainda valem, menos as trocas."
+            ? `${plural(expiringPoints, "Trevo vence", "Trevos vencem")} a partir de ${formatDate(nextExpiryAt)}`
+            : "Trevos dos selos que ainda valem, menos as trocas."
         }
       />
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
@@ -212,7 +212,7 @@ export function VisitorClub({ visitor }: { visitor: VisitorDetail }) {
           <span className="text-3xl font-semibold tracking-tight tabular-nums">
             {formatNumber(points)}
           </span>{" "}
-          <span className="text-sm text-neutral-500">{points === 1 ? "ponto" : "pontos"}</span>
+          <span className="text-sm text-neutral-500">{points === 1 ? "Trevo" : "Trevos"}</span>
         </p>
         {can("club.redeem") && !visitor.anonymizedAt && visitor.status === "active" ? (
           <ButtonLink
@@ -220,7 +220,7 @@ export function VisitorClub({ visitor }: { visitor: VisitorDetail }) {
             variant="secondary"
             size="sm"
           >
-            Trocar pontos
+            Trocar Trevos
           </ButtonLink>
         ) : null}
       </div>

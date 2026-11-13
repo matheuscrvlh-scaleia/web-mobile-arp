@@ -1,4 +1,4 @@
-import { type AppSettings, appSettingsSchema } from "@arp/contracts";
+import { type AppSettings, appSettingsSchema, DEFAULT_TREVOS_VALID_UNTIL } from "@arp/contracts";
 
 /** Valores usados quando a chave ainda não foi gravada (ou está inválida no banco). */
 export const DEFAULT_APP_SETTINGS: AppSettings = {
@@ -11,7 +11,8 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   parkingInfo: "",
   tourInfo: "",
   jobDays: 30,
-  pointsValidityMonths: 12,
+  trevosValidUntil: DEFAULT_TREVOS_VALID_UNTIL,
+  trevosCountFrom: null,
   pointsExpiryNoticeDays: 15,
 };
 

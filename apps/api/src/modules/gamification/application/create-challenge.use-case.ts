@@ -20,7 +20,9 @@ export type CreateChallengeInput = Omit<
   | "availableFrom"
   | "availableUntil"
   | "sortOrder"
+  | "points"
 > & {
+  points?: number | null;
   /** Sem ordem: entra no fim da campanha. */
   sortOrder?: number;
   availableFrom?: Date | null;
@@ -47,6 +49,7 @@ export class CreateChallengeUseCase {
         eventId: input.eventId ?? null,
         availableFrom: input.availableFrom ?? null,
         availableUntil: input.availableUntil ?? null,
+        points: input.points ?? null,
       });
     assertAvailability(data);
     return uow.run(async () => {

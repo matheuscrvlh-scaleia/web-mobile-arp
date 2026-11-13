@@ -74,14 +74,14 @@ export const PERMISSION_CATALOG = [
       {
         key: "club.manage",
         label: "Gerenciar o Clube",
-        description: "Prêmios da lojinha e estoque (inclui trocar pontos no balcão).",
+        description: "Prêmios da lojinha e estoque (inclui trocar Trevos no balcão).",
       },
       {
         // Separada de club.manage: o balcão troca sem poder mexer na lojinha.
         key: "club.redeem",
-        label: "Trocar pontos no balcão",
+        label: "Trocar Trevos no balcão",
         description:
-          "Achar o visitante, trocar os pontos por um prêmio, entregar na hora e desfazer a troca.",
+          "Achar o visitante, trocar os Trevos por um prêmio, entregar na hora e desfazer a troca.",
       },
     ],
   },

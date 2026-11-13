@@ -17,7 +17,7 @@ export function createPlatformModule(core: CoreDeps) {
     await app.register(
       platformRoutes({
         getSettings,
-        updateSettings: new UpdateSettingsUseCase({ settings, audit, uow }),
+        updateSettings: new UpdateSettingsUseCase({ settings, audit, uow, clock }),
         uploadImage: new UploadImageUseCase({
           storage,
           images: new SharpImageProcessor(),

@@ -55,7 +55,7 @@ export const ROLES: readonly RoleSeed[] = [
   {
     name: "Atendimento",
     description:
-      "Balcão de informações: valida cupons, troca pontos por prêmios e atende visitantes.",
+      "Balcão de informações: valida cupons, troca Trevos por prêmios e atende visitantes.",
     permissions: [
       "stores.view",
       "map.view",
@@ -180,7 +180,8 @@ export const SETTINGS: AppSettings = {
   privacyUrl: null,
   parkingInfo: SITE_TEXTS.parking,
   jobDays: 30,
-  pointsValidityMonths: 12,
+  trevosValidUntil: "2027-12-31",
+  trevosCountFrom: null,
   pointsExpiryNoticeDays: 15,
   tourInfo: SITE_TEXTS.tour,
 };

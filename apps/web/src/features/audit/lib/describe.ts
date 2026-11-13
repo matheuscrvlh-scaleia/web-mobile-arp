@@ -172,7 +172,7 @@ const FIELD_LABEL: Record<string, string> = {
   weekdays: "Dias da semana",
   review: "Revisão da ARP",
   reviewNote: "Motivo da recusa",
-  points: "Pontos",
+  points: "Trevos",
   stock: "Estoque",
   active: "Ativo",
   validityMonths: "Validade (meses)",
@@ -218,8 +218,9 @@ const FIELD_LABEL: Record<string, string> = {
   parkingInfo: "Estacionamento",
   tourInfo: "Tour da ARP",
   jobDays: "Dias de uma vaga no ar",
-  pointsValidityMonths: "Meses de validade dos pontos",
-  pointsExpiryNoticeDays: "Aviso antes de vencer os pontos",
+  trevosValidUntil: "Validade dos Trevos",
+  trevosCountFrom: "Trevos contam a partir de",
+  pointsExpiryNoticeDays: "Aviso antes de vencer os Trevos",
   mustChangePassword: "Precisa trocar a senha",
 };
 

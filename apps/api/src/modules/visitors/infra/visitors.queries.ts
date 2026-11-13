@@ -9,7 +9,7 @@ import type {
   VisitorSummary,
 } from "@arp/contracts";
 import { offsetOf, type Page, toCountedPage } from "../../../shared/application/pagination";
-import { visitorPointsSql, yearEndSql } from "../../../shared/infra/database/club-points";
+import { validEndSql, visitorPointsSql } from "../../../shared/infra/database/club-points";
 import type { Database } from "../../../shared/infra/database/database";
 import { sql } from "../../../shared/infra/database/sql";
 import { iso, isoOrNull } from "../../../shared/infra/presenters";
@@ -83,13 +83,13 @@ const SUMMARY_COLUMNS = sql`
 `;
 
 /**
- * Trevos que vencem: o saldo inteiro vence em 31/12 (o programa é anual).
- * "Vencendo" = saldo, quando faltam 30 dias ou menos para o fim do ano.
+ * Trevos que vencem: o saldo inteiro vence na validade escolhida pela ARP.
+ * "Vencendo" = saldo, quando faltam 30 dias ou menos para ela.
  */
 const CLUB_EXPIRY_COLUMNS = (now: Date) => sql`
-  (case when ${yearEndSql(now)} <= ${now}::timestamptz + interval '30 days'
+  (case when ${validEndSql} <= ${now}::timestamptz + interval '30 days'
         then ${visitorPointsSql(sql`v.id`, now)} else 0 end) as club_expiring_points,
-  (case when ${visitorPointsSql(sql`v.id`, now)} > 0 then ${yearEndSql(now)} - interval '1 millisecond'
+  (case when ${visitorPointsSql(sql`v.id`, now)} > 0 then ${validEndSql} - interval '1 millisecond'
         end) as club_next_expiry_at
 `;
 

@@ -22,8 +22,7 @@ import {
  * club_rules = Regulamento do Clube ARP · circuit = abertura do Circuito
  * Cultural (o arquivo é a imagem do mapa do Circuito) · history_full = Nossa
  * história completa (o "Saiba mais"; o arquivo é a foto do topo) · sustentarp =
- * abertura do Sustentarp (o arquivo é a foto do topo) · sustentarp_friend =
- * Seja um Amigo do Sustentarp (o arquivo é o formulário ou PDF).
+ * abertura do Sustentarp (o arquivo é a foto do topo).
  */
 export const contentPageKeySchema = z.enum([
   "history",
@@ -32,7 +31,6 @@ export const contentPageKeySchema = z.enum([
   "circuit",
   "history_full",
   "sustentarp",
-  "sustentarp_friend",
 ]);
 export type ContentPageKey = z.infer<typeof contentPageKeySchema>;
 
@@ -43,7 +41,6 @@ export const CONTENT_PAGE_LABEL: Record<ContentPageKey, string> = {
   circuit: "Circuito Cultural",
   history_full: "Nossa história (completa)",
   sustentarp: "Sustentarp",
-  sustentarp_friend: "Seja um Amigo do Sustentarp",
 };
 
 export const contentPageSchema = z.object({

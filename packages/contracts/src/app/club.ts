@@ -9,8 +9,8 @@ import {
 
 /*
  * Clube ARP. Selos são conquistas permanentes (viram histórico, não vencem).
- * Cada conquista dá Trevos, a moeda do Clube: os Trevos ganhos no ano valem
- * para troca até 31/12 daquele ano. Na lojinha o visitante troca pelo app,
+ * Cada conquista dá Trevos, a moeda do Clube: valem para troca até a data
+ * escolhida pela ARP na gestão. Na lojinha o visitante troca pelo app,
  * recebe um código e retira no Mercado Local, que valida e entrega. O
  * ranking mostra só quem aceitou, só com apelido.
  */
@@ -18,7 +18,7 @@ import {
 export const clubPointsSchema = z.object({
   /** Trevos para trocar agora (nunca negativo). */
   total: z.number().int(),
-  /** Até quando os Trevos valem para troca (31/12 do ano; null = sem Trevos). */
+  /** Até quando os Trevos valem para troca (escolhida pela ARP; null = sem Trevos). */
   validUntil: isoDateTimeSchema.nullable(),
   /** Próximo prêmio que ainda não dá para trocar. */
   nextPrize: z
@@ -37,7 +37,7 @@ export type ClubSealState = z.infer<typeof clubSealStateSchema>;
 /** Categoria colecionável de selos (Fio Cultural, Transforma, Sabores…). */
 export const clubSealSchema = z.object({
   seal: sealRefSchema,
-  /** Trevos por conquista. */
+  /** Trevos padrão da categoria (cada desafio pode definir os seus). */
   points: z.number().int(),
   repeatable: z.boolean(),
   state: clubSealStateSchema,
@@ -47,6 +47,8 @@ export const clubSealSchema = z.object({
   expiresAt: isoDateTimeSchema.nullable(),
   /** Última conquista (null = nenhuma). */
   lastEarnedAt: isoDateTimeSchema.nullable(),
+  /** Tem desafio no ar este mês (sem desafio, o app mostra a categoria apagada). */
+  hasChallenge: z.boolean(),
 });
 export type ClubSeal = z.infer<typeof clubSealSchema>;
 
@@ -124,7 +126,7 @@ export const TREVO_STATEMENT_LIMIT = 300;
 export const trevoStatementSchema = z.object({
   total: z.number().int(),
   validUntil: isoDateTimeSchema.nullable(),
-  /** Trevos ganhos no ano (antes das trocas). */
+  /** Trevos ganhos no período que vale (antes das trocas). */
   earnedThisYear: z.number().int(),
   entries: z.array(trevoEntrySchema),
 });

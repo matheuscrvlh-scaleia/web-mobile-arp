@@ -6,7 +6,7 @@ import {
   createChallengeBodySchema,
 } from "@arp/contracts";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CalendarRange, Lock, TriangleAlert } from "lucide-react";
+import { CalendarRange, Lock } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Controller, type UseFormReturn, useForm, useWatch } from "react-hook-form";
 import type { z } from "zod";
@@ -29,7 +29,6 @@ import {
   Select,
   Textarea,
 } from "@/shared/ui";
-import { useChallenges } from "../api";
 import { ChallengeAppRow } from "./ChallengeAppRow";
 import { AUTO_TRIGGER, VALIDATION } from "./ChallengeBadges";
 import { CouponSelect } from "./CouponSelect";
@@ -91,6 +90,7 @@ export function challengeToFormValues(
     eventId: c?.event?.id ?? null,
     availableFrom: c?.availableFrom ?? null,
     availableUntil: c?.availableUntil ?? null,
+    points: c?.points ?? null,
   };
 }
 
@@ -191,14 +191,6 @@ export function ChallengeForm({
   const sealOptions = sealList.filter((s) => s.status === "active" || s.id === sealId);
   // Quem já ganhou ficou com este selo: trocar deixaria o histórico com outro.
   const sealLocked = Boolean(challenge && challenge.completionsCount > 0);
-  // Dois desafios da mesma campanha com o mesmo selo: o visitante ganha uma vez só.
-  const siblings = useChallenges(campaignIdValue || undefined, {
-    enabled: Boolean(campaignIdValue),
-  });
-  const sameSeal =
-    sealId && selectedSeal && !selectedSeal.repeatable
-      ? (siblings.data ?? []).filter((c) => c.id !== challenge?.id && c.seal.id === sealId)
-      : [];
   const summary = periodSummary(campaign, availableFrom, availableUntil);
   const extras = [
     storeId && !couponTrigger && "loja",
@@ -325,15 +317,15 @@ export function ChallengeForm({
 
             <FormSection
               title="Selo e validação"
-              description="O selo que o visitante ganha e como o desafio é comprovado."
+              description="A categoria do selo que o visitante ganha, quantos Trevos ele dá e como o desafio é comprovado. Cada desafio dá o selo uma vez por pessoa."
             >
               <Field
-                label="Selo"
+                label="Categoria do selo"
                 required
                 hint={
                   sealLocked
                     ? `Já deu ${plural(challenge?.completionsCount ?? 0, "selo", "selos")}: quem ganhou ficou com o selo ${selectedSeal?.name ?? "atual"}. Para outro selo, crie outro desafio.`
-                    : "Não achou? Escolha “+ Criar selo novo…” no fim da lista."
+                    : "Não achou? Escolha “+ Criar categoria nova…” no fim da lista."
                 }
                 error={errors.sealId?.message}
               >
@@ -351,7 +343,9 @@ export function ChallengeForm({
                     name="sealId"
                     render={({ field }) => (
                       <Select
-                        placeholder={seals.isLoading ? "Carregando selos…" : "Escolha o selo"}
+                        placeholder={
+                          seals.isLoading ? "Carregando categorias…" : "Escolha a categoria"
+                        }
                         className="flex-1"
                         disabled={sealLocked}
                         value={field.value}
@@ -367,24 +361,33 @@ export function ChallengeForm({
                             {s.status === "archived" ? " (arquivado)" : ""}
                           </option>
                         ))}
-                        <option value={NEW_SEAL}>+ Criar selo novo…</option>
+                        <option value={NEW_SEAL}>+ Criar categoria nova…</option>
                       </Select>
                     )}
                   />
                   {sealLocked && <Lock className="size-4 shrink-0 text-neutral-400" aria-hidden />}
                 </div>
-                {sameSeal.length > 0 && !sealLocked && (
-                  <p
-                    aria-live="polite"
-                    className="mt-2 flex gap-2 rounded-2xl bg-amber-500/15 px-3 py-2 text-sm text-amber-950"
-                  >
-                    <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-                    <span>
-                      Este selo já é dado por {sameSeal.map((c) => `"${c.title}"`).join(", ")} nesta
-                      campanha: quem cumprir os dois ganha o selo uma vez só. Escolha outro selo.
-                    </span>
-                  </p>
-                )}
+              </Field>
+              <Field
+                label="Trevos do selo"
+                optional
+                hint={
+                  selectedSeal
+                    ? `Vazio = ${plural(selectedSeal.points, "Trevo", "Trevos")}, o padrão da categoria ${selectedSeal.name}.`
+                    : "Vazio = o padrão da categoria."
+                }
+                error={errors.points?.message}
+                className="max-w-xs"
+              >
+                <Input
+                  type="number"
+                  min={1}
+                  max={1000}
+                  placeholder={selectedSeal ? String(selectedSeal.points) : undefined}
+                  {...register("points", {
+                    setValueAs: (v) => (v === "" || v == null ? null : Number(v)),
+                  })}
+                />
               </Field>
               <Field
                 label="Validação"

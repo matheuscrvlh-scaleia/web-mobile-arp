@@ -113,6 +113,7 @@ interface ChallengeRow {
   status: "active" | "inactive";
   available_from: Date | null;
   available_until: Date | null;
+  points: number | null;
   completions_count: number;
   qr_codes_count: number;
   created_at: Date;
@@ -127,7 +128,7 @@ const CHALLENGE_SELECT = sql`
          cp.title as coupon_title, cps.name as coupon_store_name,
          ch.store_id, st.name as store_name, ch.product,
          ch.event_id, e.title as event_title, ch.sort_order, ch.status, ch.created_at, ch.updated_at,
-         ch.available_from, ch.available_until,
+         ch.available_from, ch.available_until, ch.points,
          (select count(*) from gamification.earned_seals es where es.challenge_id = ch.id)
            as completions_count,
          (select count(*) from gamification.qr_codes q where q.challenge_id = ch.id) as qr_codes_count
@@ -165,6 +166,7 @@ const toChallenge = (r: ChallengeRow): Challenge => ({
   status: r.status,
   availableFrom: isoOrNull(r.available_from),
   availableUntil: isoOrNull(r.available_until),
+  points: r.points,
   completionsCount: r.completions_count,
   qrCodesCount: r.qr_codes_count,
   isDemo: r.is_demo,

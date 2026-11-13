@@ -41,7 +41,7 @@ export const sealSchema = z.object({
   status: sealStatusSchema,
   /** Pontos que o selo dá no Clube ARP (Fase 2). */
   points: z.number().int(),
-  /** Legado: selos não vencem mais (os Trevos valem até o fim do ano). Ignorado. */
+  /** Legado: selos não vencem mais (os Trevos valem até a data da gestão). Ignorado. */
   validityMonths: z.number().int(),
   /** Pode ser ganho de novo (ex.: evento). Padrão: uso único. */
   repeatable: z.boolean(),
@@ -211,6 +211,8 @@ export const challengeSchema = z.object({
   /** Janela própria dentro da campanha (null = início/fim da campanha). */
   availableFrom: isoDateTimeSchema.nullable(),
   availableUntil: isoDateTimeSchema.nullable(),
+  /** Trevos que o selo deste desafio dá (null = os padrão da categoria). */
+  points: z.number().int().nullable(),
   completionsCount: z.number().int(),
   qrCodesCount: z.number().int(),
   isDemo: demoFlagSchema,
@@ -241,6 +243,14 @@ export const createChallengeBodySchema = z.object({
   /** Vazio: vale o início/fim da campanha. */
   availableFrom: isoDateTimeSchema.nullable().optional(),
   availableUntil: isoDateTimeSchema.nullable().optional(),
+  /** Trevos do selo deste desafio (vazio = os padrão da categoria). */
+  points: z
+    .number({ error: "Informe os Trevos" })
+    .int("Use Trevos inteiros")
+    .min(1, "Use pelo menos 1 Trevo")
+    .max(1000, "No máximo 1.000 Trevos")
+    .nullable()
+    .optional(),
 });
 export type CreateChallengeBody = z.infer<typeof createChallengeBodySchema>;
 export const updateChallengeBodySchema = z.object(
@@ -409,10 +419,10 @@ export const createPrizeBodySchema = z.object({
   description: z.string().trim().max(300).default(""),
   kind: prizeKindSchema,
   points: z
-    .number({ error: "Quantos pontos custa?" })
-    .int("Use pontos inteiros")
+    .number({ error: "Quantos Trevos custa?" })
+    .int("Use Trevos inteiros")
     .min(1, "Custa pelo menos 1 ponto")
-    .max(100_000, "No máximo 100.000 pontos"),
+    .max(100_000, "No máximo 100.000 Trevos"),
   stock: z
     .number({ error: "Quantas unidades tem?" })
     .int("Use um número inteiro")
@@ -484,7 +494,7 @@ export const redemptionVisitorSchema = z.object({
   phone: z.string().nullable(),
   avatarUrl: z.string().nullable(),
   blocked: z.boolean(),
-  /** Saldo de Trevos agora (ganhos no ano menos trocas). */
+  /** Saldo de Trevos agora (ganhos no período menos trocas). */
   points: z.number().int(),
 });
 export type RedemptionVisitor = z.infer<typeof redemptionVisitorSchema>;

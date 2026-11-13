@@ -154,7 +154,7 @@ export function SealFormModal({
       onClose={() => void requestClose()}
       busy={save.isPending}
       size="lg"
-      title={seal ? (readOnly ? seal.name : `Editar ${seal.name}`) : "Novo selo"}
+      title={seal ? (readOnly ? seal.name : `Editar ${seal.name}`) : "Nova categoria de selo"}
       description="O selo que o visitante ganha ao cumprir um desafio."
       footer={
         readOnly ? (
@@ -171,7 +171,7 @@ export function SealFormModal({
               Cancelar
             </Button>
             <Button type="submit" form="form-selo" loading={save.isPending}>
-              {seal ? "Salvar" : "Criar selo"}
+              {seal ? "Salvar" : "Criar categoria"}
             </Button>
           </>
         )
@@ -229,14 +229,14 @@ export function SealFormModal({
               />
             </Field>
             <MoreOptions
-              summary={`${points ?? 10} Trevos por conquista · ${repeatable ? "repetível" : "uma vez por pessoa"}`}
+              summary={`${points ?? 10} Trevos padrão · ${repeatable ? "repetível" : "uma vez por pessoa"}`}
               defaultOpen={Boolean(seal?.availableFrom || seal?.availableUntil)}
               forceOpen={advancedErrors}
             >
               <Field
-                label="Trevos"
+                label="Trevos padrão"
                 required
-                hint="Trevos que cada conquista dá no Clube ARP. O selo não vence: vira histórico."
+                hint="Usados quando o desafio não define os Trevos do selo. Selos não vencem: viram histórico."
                 error={errors.points?.message}
               >
                 <Input

@@ -15,14 +15,15 @@ import {
 import { offsetOf, type Page, toPage } from "../../../shared/application/pagination";
 import { BUSINESS_TIME_ZONE } from "../../../shared/domain/time";
 import {
-  earnedThisYearSql,
+  cycleStartSql,
+  earnedInCycleSql,
   trevosValidUntil,
   visitorPointsSql,
-  yearStartSql,
 } from "../../../shared/infra/database/club-points";
 import type { Database } from "../../../shared/infra/database/database";
 import { sql } from "../../../shared/infra/database/sql";
 import { iso, isoOrNull } from "../../../shared/infra/presenters";
+import { liveCampaignId } from "../../app-api/infra/fragments";
 
 const RANKING_TOP = 10;
 const REDEMPTION_VISITORS_LIMIT = 8;
@@ -46,14 +47,14 @@ const PRIZE_COLUMNS = sql.raw(
   "p.id, p.name, p.description, p.kind, p.points, p.stock, p.image_url, p.pickup_rules, p.active, p.sort_order, p.is_demo",
 );
 
-/** Trevos de quem ganhou algum no ano (a lojinha e o ranking partem daqui). */
+/** Trevos de quem ganhou algum no período que vale (a lojinha e o ranking partem daqui). */
 const pointsCte = (now: Date) => sql`
   pts as (
     select v.id, v.ranking_nickname, ${visitorPointsSql(sql`v.id`, now)} as total
     from visitors.visitors v
     where v.status = 'active'
       and exists (select 1 from gamification.earned_seals es
-                  where es.visitor_id = v.id and es.earned_at >= ${yearStartSql(now)})
+                  where es.visitor_id = v.id and es.earned_at >= ${cycleStartSql(now)})
   )
 `;
 
@@ -344,9 +345,13 @@ export class ClubQueries {
         repeatable: boolean;
         times: number;
         last_earned_at: Date | null;
+        has_challenge: boolean;
       }>(sql`
         select s.id, s.name, s.icon, s.gradient_from, s.gradient_to, s.points, s.repeatable,
-               count(es.id)::int as times, max(es.earned_at) as last_earned_at
+               count(es.id)::int as times, max(es.earned_at) as last_earned_at,
+               exists (select 1 from gamification.challenges ch
+                       where ch.seal_id = s.id and ch.status = 'active'
+                         and ch.campaign_id = ${liveCampaignId(now)}) as has_challenge
         from gamification.seals s
         left join gamification.earned_seals es
           on es.seal_id = s.id and es.visitor_id = ${visitorId}::uuid
@@ -379,7 +384,8 @@ export class ClubQueries {
       points: me
         ? {
             total: me.total,
-            validUntil: me.total > 0 ? trevosValidUntil(now).toISOString() : null,
+            validUntil:
+              me.total > 0 ? ((await trevosValidUntil(this.db, now))?.toISOString() ?? null) : null,
             nextPrize: next
               ? {
                   id: next.id,
@@ -404,6 +410,7 @@ export class ClubQueries {
         times: s.times,
         expiresAt: null,
         lastEarnedAt: isoOrNull(s.last_earned_at),
+        hasChallenge: s.has_challenge,
       })),
       prizes: prizes.map((p) => ({
         id: p.id,
@@ -426,7 +433,7 @@ export class ClubQueries {
     const [totals, rows] = await Promise.all([
       this.db.one<{ total: number; earned: number }>(sql`
         select ${visitorPointsSql(sql`${visitorId}::uuid`, now)} as total,
-               ${earnedThisYearSql(sql`${visitorId}::uuid`, now)}::int as earned
+               ${earnedInCycleSql(sql`${visitorId}::uuid`, now)}::int as earned
       `),
       this.db.many<{
         id: string;
@@ -465,7 +472,8 @@ export class ClubQueries {
     ]);
     return {
       total: totals.total,
-      validUntil: totals.total > 0 ? trevosValidUntil(now).toISOString() : null,
+      validUntil:
+        totals.total > 0 ? ((await trevosValidUntil(this.db, now))?.toISOString() ?? null) : null,
       earnedThisYear: totals.earned,
       entries: rows.map((r) => ({
         id: r.id,

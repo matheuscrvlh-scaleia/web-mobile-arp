@@ -1,9 +1,10 @@
 import type { Clock } from "../../../shared/application/ports/clock";
 import type { PushMessage, PushSender } from "../../../shared/application/ports/push-sender";
+import { BUSINESS_TIME_ZONE } from "../../../shared/domain/time";
 import {
+  cycleStartSql,
+  validEndSql,
   visitorPointsSql,
-  yearEndSql,
-  yearStartSql,
 } from "../../../shared/infra/database/club-points";
 import type { Database, DatabaseLogger } from "../../../shared/infra/database/database";
 import { sql } from "../../../shared/infra/database/sql";
@@ -14,7 +15,7 @@ const DEFAULT_NOTICE_DAYS = 15;
 const PUSH_CHUNK = 100;
 
 /**
- * Os Trevos vencem em 31/12. Faltando N dias para o fim do ano (configuração
+ * Os Trevos vencem na validade escolhida pela ARP. Faltando N dias (configuração
  * pointsExpiryNoticeDays; 0 = sem aviso), avisa por push quem ainda tem saldo.
  * Cada conquista do ano avisa uma vez só: marca e lê na mesma instrução, então
  * duas réplicas não avisam em dobro.
@@ -31,7 +32,7 @@ export function pointsExpiryJob(deps: {
     run: async () => {
       const { db, push, clock, logger } = deps;
       const now = clock.now();
-      const rows = await db.many<{ points: number; tokens: string[] }>(sql`
+      const rows = await db.many<{ points: number; tokens: string[]; until: string }>(sql`
         with cfg as (
           select coalesce((select (s.value)::int from platform.settings s
                            where s.key = 'pointsExpiryNoticeDays'), ${DEFAULT_NOTICE_DAYS}) as days
@@ -39,12 +40,14 @@ export function pointsExpiryJob(deps: {
         due as (
           update gamification.earned_seals es set expiry_notified_at = ${now}
           where es.expiry_notified_at is null and (select days from cfg) > 0
-            and es.earned_at >= ${yearStartSql(now)}
-            and ${now}::timestamptz >= ${yearEndSql(now)} - make_interval(days => (select days from cfg))
+            and es.earned_at >= ${cycleStartSql(now)}
+            and ${now}::timestamptz < ${validEndSql}
+            and ${now}::timestamptz >= ${validEndSql} - make_interval(days => (select days from cfg))
           returning es.visitor_id
         ),
         who as (select distinct visitor_id from due)
         select ${visitorPointsSql(sql`w.visitor_id`, now)} as points,
+               to_char(${validEndSql} at time zone ${BUSINESS_TIME_ZONE} - interval '1 day', 'DD/MM') as until,
                array(select t.token from visitors.push_tokens t where t.visitor_id = w.visitor_id)
                  as tokens
         from who w
@@ -54,8 +57,8 @@ export function pointsExpiryJob(deps: {
         .flatMap((r) =>
           r.tokens.map((to) => ({
             to,
-            title: "Seus Trevos vencem em 31/12",
-            body: `Você tem ${r.points} ${r.points === 1 ? "Trevo" : "Trevos"}. Troque na lojinha do Clube ARP antes do fim do ano!`,
+            title: `Seus Trevos vencem em ${r.until}`,
+            body: `Você tem ${r.points} ${r.points === 1 ? "Trevo" : "Trevos"}. Troque na lojinha do Clube ARP até ${r.until}!`,
             data: { url: "/desafios" },
           })),
         );

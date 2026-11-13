@@ -146,6 +146,15 @@ const envSchema = z
     SMTP_USER: z.string().optional(),
     SMTP_PASSWORD: z.string().optional(),
 
+    /**
+     * RD Station: leva quem marcou "Quero receber novidades" ao RD. Desligado
+     * até a ARP definir o funil e a etapa (a conversão). Liga com os três.
+     */
+    RD_STATION_ENABLED: booleanString.default(false),
+    RD_STATION_API_KEY: z.string().min(1).optional(),
+    /** Identificador da conversão no RD (define funil e etapa). */
+    RD_STATION_CONVERSION: z.string().min(1).optional(),
+
     RUN_MIGRATIONS_ON_START: booleanString.default(true),
     SEED_ON_START: booleanString.default(false),
     JOBS_ENABLED: booleanString.default(true),

@@ -17,9 +17,10 @@ export const CONTENT_PAGES: readonly {
     key: "club_rules",
     title: "Regulamento do Clube ARP",
     body: [
-      "Cada selo vale pontos. Os pontos se somam e são trocados por prêmios na lojinha do Clube.",
-      "Cada selo vence depois do prazo indicado nele (em geral, 6 meses). Quando vence, os pontos dele saem do total.",
-      "O programa é anual: você tem até 1 ano para trocar os pontos. Avisamos antes de vencer.",
+      "Selos são conquistas permanentes: não vencem e viram o histórico das experiências que você viveu na ARP. Cada desafio dá o selo uma vez só.",
+      "Trevos são a moeda do Clube. A única forma de ganhar Trevos é conquistar um selo; cada selo dá os Trevos indicados no desafio.",
+      "Os Trevos se somam e são trocados por prêmios na lojinha do Clube, até a validade mostrada no app. Avisamos antes de vencer.",
+      "A troca é feita no app e gera um código. Retire o prêmio no Mercado Local mostrando o código.",
       "Os prêmios estão sujeitos a estoque. Sem estoque, o prêmio sai da lojinha.",
       "Selos não são trocados por cupons.",
       "A ARP pode mudar ou encerrar o programa, avisando os participantes.",
@@ -28,7 +29,7 @@ export const CONTENT_PAGES: readonly {
   {
     key: "circuit",
     title: "Circuito Cultural",
-    body: "Obras, memórias, esculturas e murais espalhados pela ARP. Visite os pontos e ganhe o selo Fio Cultural.",
+    body: "Obras, memórias, esculturas e murais espalhados pela ARP. Visite as obras e ganhe o selo Fio Cultural.",
   },
 ];
 

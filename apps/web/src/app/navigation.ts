@@ -79,7 +79,7 @@ const STAFF_NAV: NavSection[] = [
         keywords: ["caixa", "código", "qr", "usar cupom", "baixa"],
       }),
       item(
-        "Trocar pontos",
+        "Trocar Trevos",
         PATHS.prizeExchange,
         ArrowRightLeft,
         ROUTES.prizeRedemptions.create.permission,
@@ -89,7 +89,7 @@ const STAFF_NAV: NavSection[] = [
             "validar troca",
             "entregar prêmio",
             "troca",
-            "pontos",
+            "Trevos",
             "clube",
             "brinde",
             "desfazer troca",
@@ -142,8 +142,8 @@ const STAFF_NAV: NavSection[] = [
         also: [PATHS.challenges],
         keywords: ["desafio", "qr", "missão", "mês", "faixa", "recompensa"],
       }),
-      item("Selos", PATHS.seals, Award, ROUTES.seals.list.permission, {
-        keywords: ["selo", "conquista", "medalha", "conquistados"],
+      item("Categorias de selo", PATHS.seals, Award, ROUTES.seals.list.permission, {
+        keywords: ["selo", "categoria", "conquista", "medalha", "conquistados", "trevos"],
       }),
     ],
   },
@@ -151,7 +151,7 @@ const STAFF_NAV: NavSection[] = [
     title: "Clube ARP",
     items: [
       item("Clube ARP", PATHS.club(), Gift, ROUTES.prizes.list.permission, {
-        keywords: ["pontos", "prêmio", "lojinha", "trocas", "ranking", "fidelidade"],
+        keywords: ["Trevos", "prêmio", "lojinha", "trocas", "ranking", "fidelidade"],
       }),
     ],
   },
@@ -219,7 +219,7 @@ const STAFF_NAV: NavSection[] = [
           "suporte",
           "contato",
           "whatsapp",
-          "validade dos pontos",
+          "validade dos Trevos",
           "prazo padrão",
           "estacionamento",
           "tour",

@@ -105,11 +105,11 @@ export const GUIDES: Record<string, Guide> = {
     version: 2,
     steps: [
       opening(
-        "Trocar pontos",
-        "O visitante troca os pontos dos selos por um prêmio da lojinha, aqui no balcão do Centro de Informações. São três passos, e o prêmio sai entregue na hora.",
+        "Trocar Trevos",
+        "O visitante troca os Trevos dos selos por um prêmio da lojinha, aqui no balcão do Centro de Informações. São três passos, e o prêmio sai entregue na hora.",
       ),
       search(
-        "<b>1. Visitante</b>: busque pelo nome, e-mail ou telefone que ele usa no app (2 letras ou mais) e clique na pessoa. Confira o saldo de pontos. Visitante bloqueado não troca.",
+        "<b>1. Visitante</b>: busque pelo nome, e-mail ou telefone que ele usa no app (2 letras ou mais) e clique na pessoa. Confira o saldo de Trevos. Visitante bloqueado não troca.",
       ),
       note(
         "2. Prêmio",
@@ -117,11 +117,11 @@ export const GUIDES: Record<string, Guide> = {
       ),
       note(
         "3. Confirmar",
-        "Confira prêmio e pontos e clique em <b>Trocar e entregar</b>: os pontos saem do saldo, o estoque baixa e você entrega o prêmio. Depois, <b>Próximo visitante</b>.",
+        "Confira prêmio e Trevos e clique em <b>Trocar e entregar</b>: os Trevos saem do saldo, o estoque baixa e você entrega o prêmio. Depois, <b>Próximo visitante</b>.",
       ),
       note(
         "Errou a troca?",
-        "Logo depois, <b>Desfazer troca</b>. Mais tarde, em Clube ARP › Trocas: os pontos voltam para o visitante e o prêmio volta ao estoque (recolha o prêmio no balcão).",
+        "Logo depois, <b>Desfazer troca</b>. Mais tarde, em Clube ARP › Trocas: os Trevos voltam para o visitante e o prêmio volta ao estoque (recolha o prêmio no balcão).",
       ),
       actions("<b>Ver trocas</b> abre todas as trocas já feitas."),
     ],
@@ -784,17 +784,17 @@ export const GUIDES: Record<string, Guide> = {
     version: 2,
     steps: [
       opening(
-        "Selos",
-        "A coleção de selos do app. Cada desafio dá um selo, e cada selo vale pontos no Clube ARP.",
+        "Categorias de selo",
+        "As categorias colecionáveis do app (Fio Cultural, Transforma, Sabores, Energia, Passe Livre, Estilo…). Cada desafio dá um selo de uma categoria, com os Trevos definidos no desafio. Selos não vencem.",
       ),
       actions(
-        "<b>Novo selo</b>: nome, ícone, cores, descrição, <b>pontos</b> no Clube, validade dos pontos e se é <b>repetível</b> (pode ser ganho de novo).",
+        "<b>Nova categoria</b>: nome, ícone, cores, descrição e os <b>Trevos padrão</b> (usados quando o desafio não define os seus).",
       ),
       tabs(
         "<b>Coleção</b>: os selos como aparecem no app. <b>Conquistados</b>: quem ganhou qual selo.",
       ),
       search("Busque o selo pelo nome e veja os ativos ou os arquivados."),
-      row("Um selo", "Como aparece no app, com os pontos que vale no Clube."),
+      row("Uma categoria", "Como aparece no app, com os Trevos padrão."),
       rowMenu(
         "<b>Editar</b>, <b>Arquivar</b> (fica fora da escolha de desafios novos; quem ganhou mantém) e <b>Excluir</b> (só se ninguém ganhou e nenhum desafio usa).",
       ),
@@ -820,23 +820,23 @@ export const GUIDES: Record<string, Guide> = {
     steps: [
       opening(
         "Clube ARP",
-        "Selos valem pontos, que o visitante troca por prêmios no balcão do Centro de Informações. O app só mostra a lojinha e o ranking; quem troca é a equipe, em <b>Trocar pontos</b>.",
+        "Selos valem Trevos, que o visitante troca por prêmios no balcão do Centro de Informações. O app só mostra a lojinha e o ranking; quem troca é a equipe, em <b>Trocar Trevos</b>.",
       ),
-      actions("<b>Trocar pontos</b> abre o balcão de troca."),
+      actions("<b>Trocar Trevos</b> abre o balcão de troca."),
       tabs(
-        "<b>Lojinha</b>: os prêmios. <b>Trocas</b>: o que já foi trocado. <b>Ranking</b>: quem tem mais pontos.",
+        "<b>Lojinha</b>: os prêmios. <b>Trocas</b>: o que já foi trocado. <b>Ranking</b>: quem tem mais Trevos.",
       ),
       {
         target: "regras",
         title: "Regras do clube",
-        text: "Quanto vale cada selo e por quanto tempo os pontos valem, com o atalho para mudar em Selos ou em Configurações.",
+        text: "Quanto vale cada selo e por quanto tempo os Trevos valem, com o atalho para mudar em Selos ou em Configurações.",
       },
       create(
         "Novo prêmio",
-        "Nome, descrição, foto, <b>pontos</b> e <b>estoque</b> (0 = sai da lojinha) e a posição. <b>Aparece na lojinha do app</b> desligado guarda o prêmio sem mostrar.",
+        "Nome, descrição, foto, <b>Trevos</b> e <b>estoque</b> (0 = sai da lojinha) e a posição. <b>Aparece na lojinha do app</b> desligado guarda o prêmio sem mostrar.",
       ),
       table(
-        "<b>Já podem trocar</b> e <b>Perto (80%+)</b> mostram quantos visitantes têm pontos para cada prêmio: ajudam a decidir quanto comprar.",
+        "<b>Já podem trocar</b> e <b>Perto (80%+)</b> mostram quantos visitantes têm Trevos para cada prêmio: ajudam a decidir quanto comprar.",
       ),
       rowMenu("<b>Editar</b>, <b>Tirar da lojinha</b> / <b>Voltar à lojinha</b> e <b>Excluir</b>."),
     ],
@@ -846,16 +846,16 @@ export const GUIDES: Record<string, Guide> = {
     steps: [
       opening(
         "Trocas",
-        "As trocas feitas no Centro de Informações: quem trocou, qual prêmio, quantos pontos e quem fez.",
+        "As trocas feitas no Centro de Informações: quem trocou, qual prêmio, quantos Trevos e quem fez.",
       ),
-      actions("<b>Trocar pontos</b> abre o balcão para uma troca nova."),
+      actions("<b>Trocar Trevos</b> abre o balcão para uma troca nova."),
       search(
         "Busque pelo visitante ou pelo comprovante e filtre pela situação (Entregue ou Desfeita).",
       ),
       {
         target: "desfazer-troca",
         title: "Desfazer uma troca",
-        text: "Os pontos voltam para o visitante e o prêmio volta ao estoque. Recolha o prêmio no balcão.",
+        text: "Os Trevos voltam para o visitante e o prêmio volta ao estoque. Recolha o prêmio no balcão.",
       },
     ],
   },
@@ -864,9 +864,9 @@ export const GUIDES: Record<string, Guide> = {
     steps: [
       opening(
         "Ranking",
-        "Os 100 visitantes com mais pontos. Só entra quem aceitou participar, e só com apelido: é o mesmo ranking do app.",
+        "Os 100 visitantes com mais Trevos. Só entra quem aceitou participar, e só com apelido: é o mesmo ranking do app.",
       ),
-      table("Posição, apelido e pontos."),
+      table("Posição, apelido e Trevos."),
     ],
   },
 
@@ -1161,7 +1161,7 @@ export const GUIDES: Record<string, Guide> = {
       ),
       row(
         "Abrir a conta",
-        "Clique no visitante para ver selos, cupons, pontos do clube, lojas seguidas e eventos de interesse, e para bloquear se precisar.",
+        "Clique no visitante para ver selos, cupons, Trevos do clube, lojas seguidas e eventos de interesse, e para bloquear se precisar.",
       ),
     ],
   },
@@ -1170,7 +1170,7 @@ export const GUIDES: Record<string, Guide> = {
     steps: [
       opening(
         "Visitante",
-        "A conta de quem usa o app: selos, cupons pegos e usados, pontos do Clube, lojas que segue e eventos que marcou.",
+        "A conta de quem usa o app: selos, cupons pegos e usados, Trevos do Clube, lojas que segue e eventos que marcou.",
       ),
       {
         target: "acoes",
@@ -1179,7 +1179,7 @@ export const GUIDES: Record<string, Guide> = {
       },
       note(
         "Atalhos",
-        "Em <b>Cupons recentes</b>, <b>Ver todos</b> abre os cupons dela. No <b>Clube ARP</b>, o saldo e o atalho <b>Trocar pontos</b>.",
+        "Em <b>Cupons recentes</b>, <b>Ver todos</b> abre os cupons dela. No <b>Clube ARP</b>, o saldo e o atalho <b>Trocar Trevos</b>.",
       ),
     ],
   },
@@ -1368,7 +1368,7 @@ export const GUIDES: Record<string, Guide> = {
       section(
         "clube-arp",
         "Clube ARP",
-        "A validade dos pontos e quantos dias antes de vencer o visitante recebe o aviso (0 = sem aviso).",
+        "A validade dos Trevos e quantos dias antes de vencer o visitante recebe o aviso (0 = sem aviso).",
       ),
       section(
         "contato-e-suporte",

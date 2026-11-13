@@ -151,7 +151,7 @@ export function SealGallery({
             action={
               <Can permission="challenges.manage">
                 <Button icon={Plus} onClick={onCreate}>
-                  Novo selo
+                  Nova categoria
                 </Button>
               </Can>
             }

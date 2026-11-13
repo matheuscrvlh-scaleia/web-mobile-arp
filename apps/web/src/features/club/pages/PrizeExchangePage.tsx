@@ -80,7 +80,7 @@ export function PrizeExchangePage() {
     undo.mutate(done.id, {
       onSuccess: () => {
         toast.success(
-          `Troca desfeita: ${plural(done.points, "ponto voltou", "pontos voltaram")} para ${done.visitor.name} e ${done.prize.name} voltou ao estoque. Recolha o prêmio.`,
+          `Troca desfeita: ${plural(done.points, "Trevo voltou", "Trevos voltaram")} para ${done.visitor.name} e ${done.prize.name} voltou ao estoque. Recolha o prêmio.`,
         );
         setPicked({ ...visitor, points: visitor.points + done.points });
         setDone(null);
@@ -139,11 +139,11 @@ export function PrizeExchangePage() {
             }
           >
             <p>
-              <b>{done.prize.name}</b> para {done.visitor.name} · {formatNumber(done.points)} pontos
+              <b>{done.prize.name}</b> para {done.visitor.name} · {formatNumber(done.points)} Trevos
               · comprovante <b className="font-mono">{done.code}</b>
             </p>
             <p className="mt-1 text-xs text-neutral-500">
-              Sobraram {formatNumber(done.totalPoints)} pontos. Entregue o prêmio.
+              Sobraram {formatNumber(done.totalPoints)} Trevos. Entregue o prêmio.
             </p>
           </Banner>
         )}
@@ -205,7 +205,7 @@ function VisitorStep({
           <div className="text-left sm:text-right">
             <p className="text-xs font-medium tracking-wide text-neutral-500 uppercase">Saldo</p>
             <p className="text-3xl font-semibold tracking-tight">
-              {formatNumber(visitor.points)} <span className="text-base font-medium">pontos</span>
+              {formatNumber(visitor.points)} <span className="text-base font-medium">Trevos</span>
             </p>
           </div>
           <Button variant="secondary" icon={UserSearch} onClick={() => onPick(null)}>
@@ -214,7 +214,7 @@ function VisitorStep({
         </div>
         {visitor.blocked && (
           <p className="mt-4 text-sm font-medium text-red-700">
-            Este visitante está bloqueado e não pode trocar pontos.
+            Este visitante está bloqueado e não pode trocar Trevos.
           </p>
         )}
       </Card>
@@ -343,7 +343,7 @@ function PrizeOption({
 }) {
   const missing = prize.points - balance;
   const blocked =
-    prize.stock <= 0 ? "Esgotado" : missing > 0 ? `Faltam ${formatNumber(missing)} pontos` : null;
+    prize.stock <= 0 ? "Esgotado" : missing > 0 ? `Faltam ${formatNumber(missing)} Trevos` : null;
   return (
     <button
       type="button"
@@ -393,12 +393,12 @@ function ConfirmStep({
     <Card>
       <CardHeader title="3. Confirmar" />
       <p className="text-sm text-neutral-700">
-        <b>{visitor.name}</b> troca <b>{formatNumber(prize.points)} pontos</b> por{" "}
+        <b>{visitor.name}</b> troca <b>{formatNumber(prize.points)} Trevos</b> por{" "}
         <b>{prize.name}</b>.
       </p>
       <p className="mt-1 text-sm text-neutral-500">
         Saldo: {formatNumber(visitor.points)} → {formatNumber(visitor.points - prize.points)}{" "}
-        pontos.
+        Trevos.
       </p>
       <div className="mt-4 flex flex-col gap-2 sm:flex-row">
         <Button

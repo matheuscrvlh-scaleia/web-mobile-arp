@@ -133,7 +133,6 @@ const PAGE_HINT: Record<ContentPageKey, string> = {
   history_full:
     "O “Saiba mais” das boas-vindas e o atalho Nossa História do Início. A imagem vai no topo.",
   sustentarp: "Texto de abertura do Sustentarp. A imagem é a foto colorida do topo.",
-  sustentarp_friend: "Botão “Seja um Amigo do Sustentarp”. O link abre o formulário ou o PDF.",
 };
 
 interface Draft {
@@ -268,15 +267,11 @@ function PagesForm({
                     onChange={(e) => setDraft(p.key, { body: e.target.value })}
                   />
                 </Field>
-                {p.key === "rules" || p.key === "sustentarp_friend" ? (
+                {p.key === "rules" ? (
                   <Field
-                    label={p.key === "rules" ? "Link do PDF" : "Link do formulário"}
+                    label="Link do PDF"
                     optional
-                    hint={
-                      p.key === "rules"
-                        ? "O botão “Baixar” do app abre este link."
-                        : "O botão “Quero ser amigo” do app abre este link."
-                    }
+                    hint="O botão “Baixar” do app abre este link."
                   >
                     <Input
                       type="url"

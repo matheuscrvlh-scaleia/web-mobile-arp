@@ -119,13 +119,22 @@ export function createFeedbackModule(core: CoreDeps) {
       const actor = visitorOf(request);
       const platform = request.headers["x-platform"];
       const version = request.headers["x-app-version"];
-      const { id } = await db.one<{ id: string }>(sql`
+      // Uma resposta por pessoa por mês (no fuso da ARP): a repetida é ignorada.
+      // atalho: checagem na mesma instrução, sem índice único (duas abas ao mesmo tempo passariam).
+      const row = await db.maybeOne<{ id: string }>(sql`
         insert into visitors.nps_responses (visitor_id, score, comment, platform, app_version)
-        values (${actor.id}, ${request.body.score}, ${request.body.comment || null},
-                ${typeof platform === "string" ? platform.slice(0, 20) : null},
-                ${typeof version === "string" ? version.slice(0, 40) : null})
+        select ${actor.id}, ${request.body.score}, ${request.body.comment || null},
+               ${typeof platform === "string" ? platform.slice(0, 20) : null},
+               ${typeof version === "string" ? version.slice(0, 40) : null}
+        where not exists (
+          select 1 from visitors.nps_responses n
+          where n.visitor_id = ${actor.id}
+            and date_trunc('month', n.created_at at time zone ${BUSINESS_TIME_ZONE})
+              = date_trunc('month', ${clock.now()}::timestamptz at time zone ${BUSINESS_TIME_ZONE}))
         returning id
       `);
+      if (!row) return reply.status(204).send();
+      const { id } = row;
       await audit.log({
         actor,
         action: "nps.answer",

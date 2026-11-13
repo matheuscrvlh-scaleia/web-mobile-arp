@@ -138,13 +138,31 @@ function SettingsForm({ settings }: { settings: AppSettings }) {
 
         <FormSection
           title="Clube ARP"
-          description="Os Trevos ganhos no ano valem para troca até 31/12 daquele ano."
+          description="Validade dos Trevos. Selos não vencem; os Trevos valem até a data escolhida aqui (ex.: 31/12/2027, ou 6 meses num piloto)."
         >
           <FieldRow>
             <Field
-              label="Avisar antes de 31/12 (dias)"
+              label="Trevos valem até"
               required
-              hint="Push para quem ainda tem Trevos quando faltam estes dias para o fim do ano (0 = sem aviso)."
+              hint="Último dia para trocar na lojinha. Depois dele, os Trevos ganhos até ali vencem; escolha a próxima data."
+              error={errors.trevosValidUntil?.message}
+            >
+              <Input type="date" {...register("trevosValidUntil")} />
+            </Field>
+            <Field
+              label="Contam os Trevos ganhos a partir de"
+              optional
+              hint="Vazio = desde o início. Ao trocar uma validade que já venceu, passa sozinho para o dia seguinte à antiga."
+              error={errors.trevosCountFrom?.message}
+            >
+              <Input type="date" {...register("trevosCountFrom", nullable)} />
+            </Field>
+          </FieldRow>
+          <FieldRow>
+            <Field
+              label="Avisar antes de vencer (dias)"
+              required
+              hint="Push para quem ainda tem Trevos quando faltam estes dias para a validade (0 = sem aviso)."
               error={errors.pointsExpiryNoticeDays?.message}
             >
               <Input

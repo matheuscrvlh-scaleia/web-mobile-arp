@@ -58,6 +58,9 @@ export type AuditActorList = z.infer<typeof auditActorListSchema>;
 
 /* Configurações do app --------------------------------------------------- */
 
+/** Validade dos Trevos antes de a ARP escolher uma na gestão. */
+export const DEFAULT_TREVOS_VALID_UNTIL = "2027-12-31";
+
 export const appSettingsSchema = z.object({
   /** Prazo padrão sugerido ao criar um cupom. */
   couponDefaultWindowHours: z
@@ -80,12 +83,16 @@ export const appSettingsSchema = z.object({
     .int("Use dias inteiros")
     .min(1, "Use pelo menos 1 dia")
     .max(90, "Use no máximo 90 dias"),
-  /** Meses em que os pontos do Clube valem para troca (padrão 12). */
-  pointsValidityMonths: z
-    .number({ error: "Informe os meses" })
-    .int("Use meses inteiros")
-    .min(1, "Use pelo menos 1 mês")
-    .max(24, "Use no máximo 24 meses"),
+  /**
+   * Até quando os Trevos valem para troca (AAAA-MM-DD, inclusive). A ARP
+   * escolhe na gestão: ex. 31/12/2027 no ano, ou 6 meses num piloto.
+   */
+  trevosValidUntil: isoDateSchema,
+  /**
+   * Contam os Trevos ganhos a partir deste dia (null = desde o início). Quando
+   * a validade vence e a ARP escolhe outra, passa a ser o dia seguinte à antiga.
+   */
+  trevosCountFrom: isoDateSchema.nullable(),
   /** Dias antes de vencer para avisar o visitante por push (0 = sem aviso). */
   pointsExpiryNoticeDays: z
     .number({ error: "Informe os dias (0 = sem aviso)" })

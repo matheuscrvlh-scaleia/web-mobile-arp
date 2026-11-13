@@ -18,13 +18,13 @@ export function SealsPage() {
   return (
     <>
       <PageHeader
-        title="Selos"
-        description="A coleção de selos do app e quem já conquistou cada um."
+        title="Categorias de selo"
+        description="As categorias colecionáveis do app (nome, ícone e cor) e quem já conquistou selos em cada uma. Os Trevos de cada selo ficam no desafio."
         actions={
           tab === "galeria" && (
             <Can permission="challenges.manage">
               <Button icon={Plus} onClick={() => setCreating(true)}>
-                Novo selo
+                Nova categoria
               </Button>
             </Can>
           )

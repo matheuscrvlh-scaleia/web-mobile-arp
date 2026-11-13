@@ -249,10 +249,11 @@ interface ChallengeRow {
   status: ChallengeStatus;
   available_from: Date | null;
   available_until: Date | null;
+  points: number | null;
 }
 
 const CHALLENGE_COLUMNS = sql.raw(
-  "id, campaign_id, seal_id, title, how_to, icon, validation, auto_trigger, coupon_id, store_id, product, event_id, sort_order, status, available_from, available_until",
+  "id, campaign_id, seal_id, title, how_to, icon, validation, auto_trigger, coupon_id, store_id, product, event_id, sort_order, status, available_from, available_until, points",
 );
 
 const challengeToDomain = (r: ChallengeRow) =>
@@ -273,6 +274,7 @@ const challengeToDomain = (r: ChallengeRow) =>
     status: r.status,
     availableFrom: r.available_from,
     availableUntil: r.available_until,
+    points: r.points,
   });
 
 export class PgChallengeRepository implements ChallengeRepository {
@@ -298,10 +300,10 @@ export class PgChallengeRepository implements ChallengeRepository {
     const row = await this.db.one<ChallengeRow>(sql`
       insert into gamification.challenges
         (campaign_id, seal_id, title, how_to, icon, validation, auto_trigger, coupon_id, store_id,
-         product, event_id, sort_order, status, available_from, available_until)
+         product, event_id, sort_order, status, available_from, available_until, points)
       values (${d.campaignId}, ${d.sealId}, ${d.title}, ${d.howTo}, ${d.icon}, ${d.validation},
               ${d.autoTrigger}, ${d.couponId}, ${d.storeId}, ${d.product}, ${d.eventId}, ${d.sortOrder}, ${d.status},
-              ${d.availableFrom}, ${d.availableUntil})
+              ${d.availableFrom}, ${d.availableUntil}, ${d.points})
       returning ${CHALLENGE_COLUMNS}
     `);
     return challengeToDomain(row);
@@ -315,7 +317,8 @@ export class PgChallengeRepository implements ChallengeRepository {
           validation = ${s.validation}, auto_trigger = ${s.autoTrigger}, coupon_id = ${s.couponId},
           store_id = ${s.storeId}, product = ${s.product}, event_id = ${s.eventId},
           sort_order = ${s.sortOrder}, status = ${s.status},
-          available_from = ${s.availableFrom}, available_until = ${s.availableUntil}
+          available_from = ${s.availableFrom}, available_until = ${s.availableUntil},
+          points = ${s.points}
       where id = ${s.id}
     `);
   }
@@ -480,7 +483,7 @@ export class PgSealAwardRepository implements SealAwardRepository {
              ch.auto_trigger, ch.coupon_id, ch.store_id, ch.product, ch.event_id, ch.sort_order, ch.status as challenge_status,
              c.id as campaign_id, c.name as campaign_name, c.description as campaign_description,
              c.starts_at, c.ends_at, c.status as campaign_status,
-             s.points as seal_points, s.validity_months as seal_validity_months,
+             coalesce(ch.points, s.points) as seal_points, s.validity_months as seal_validity_months,
              s.repeatable as seal_repeatable,
              s.available_from as seal_available_from, s.available_until as seal_available_until,
              ch.available_from as challenge_available_from,
@@ -530,6 +533,7 @@ export class PgSealAwardRepository implements SealAwardRepository {
         status: r.challenge_status,
         available_from: r.challenge_available_from,
         available_until: r.challenge_available_until,
+        points: null, // os Trevos já vêm em seal_points (desafio ou categoria)
       }),
       campaign: campaignToDomain({
         id: r.campaign_id,
@@ -563,7 +567,7 @@ export class PgSealAwardRepository implements SealAwardRepository {
              ch.status, ch.available_from, ch.available_until,
              c.name as campaign_name, c.description as campaign_description,
              c.starts_at, c.ends_at, c.status as campaign_status,
-             s.name as seal_name, s.points as seal_points,
+             s.name as seal_name, coalesce(ch.points, s.points) as seal_points,
              s.validity_months as seal_validity_months, s.repeatable as seal_repeatable,
              s.available_from as seal_available_from, s.available_until as seal_available_until
       from gamification.challenges ch

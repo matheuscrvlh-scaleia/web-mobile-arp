@@ -277,7 +277,7 @@ function QuickSearch({ sections }: { sections: NavSection[] }) {
         >
           {showEmpty ? (
             <p className="px-3 py-2 text-sm text-neutral-500">
-              Nada encontrado. Tente outra palavra (ex.: “push”, “pontos”, “banner”).
+              Nada encontrado. Tente outra palavra (ex.: “push”, “Trevos”, “banner”).
             </p>
           ) : (
             results.map((r, i) => {

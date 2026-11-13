@@ -152,7 +152,7 @@ export function PrizeFormModal({
           </Select>
         </Field>
         <FieldRow>
-          <Field label="Pontos" required error={errors.points?.message}>
+          <Field label="Trevos" required error={errors.points?.message}>
             <Input type="number" min={1} {...form.register("points", { valueAsNumber: true })} />
           </Field>
           <Field label="Estoque" required hint="0 = sai da lojinha" error={errors.stock?.message}>
@@ -177,7 +177,7 @@ export function PrizeFormModal({
           <summary className="cursor-pointer font-medium text-neutral-700">Mais opções</summary>
           <Field
             label="Posição na lojinha"
-            hint="Menor aparece primeiro; empate vai pelos pontos."
+            hint="Menor aparece primeiro; empate vai pelos Trevos."
             error={errors.sortOrder?.message}
             className="mt-3 sm:max-w-48"
           >

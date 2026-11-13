@@ -138,19 +138,19 @@ export const ROUTES = {
       "GET",
       "/prize-redemptions/visitors",
       "club.redeem",
-      "Buscar visitante com saldo de pontos (troca no balcão)",
+      "Buscar visitante com saldo de Trevos (troca no balcão)",
     ),
     create: r(
       "POST",
       "/prize-redemptions",
       "club.redeem",
-      "Trocar pontos por prêmio no balcão (já entregue)",
+      "Trocar Trevos por prêmio no balcão (já entregue)",
     ),
     cancel: r(
       "POST",
       "/prize-redemptions/:id/cancel",
       "club.redeem",
-      "Desfazer troca (pontos e estoque voltam)",
+      "Desfazer troca (Trevos e estoque voltam)",
     ),
     /** Mercado Local: o visitante trocou no app e mostra o código; aqui o prêmio sai entregue. */
     deliver: r(

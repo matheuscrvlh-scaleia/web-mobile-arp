@@ -10,6 +10,7 @@ import { createFeedbackModule } from "./modules/feedback";
 import { createGamificationModule } from "./modules/gamification";
 import { createIdentityModule } from "./modules/identity";
 import { createMarketingModule } from "./modules/marketing";
+import { rdStationLeadsJob } from "./modules/marketing/infra/rd-station-job";
 import { createMerchantModule } from "./modules/merchant";
 import { createMerchantSignupModule } from "./modules/merchant-signup";
 import { createPlatformModule } from "./modules/platform";
@@ -232,6 +233,16 @@ export async function createContainer(options: ContainerOptions): Promise<Contai
     ...appApi.jobs,
     ...club.jobs,
   ];
+  // RD Station: pronto e desligado até a ARP definir funil e etapa (rd-station-job.ts).
+  if (env.RD_STATION_ENABLED && env.RD_STATION_API_KEY && env.RD_STATION_CONVERSION) {
+    jobs.push(
+      rdStationLeadsJob({
+        db,
+        config: { apiKey: env.RD_STATION_API_KEY, conversion: env.RD_STATION_CONVERSION },
+        logger: core.logger,
+      }),
+    );
+  }
   if (env.RATE_LIMIT_STORE === "postgres") {
     jobs.push({
       name: "delete-expired-rate-limits",

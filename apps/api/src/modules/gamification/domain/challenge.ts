@@ -28,6 +28,8 @@ export interface ChallengeProps {
   /** Janela própria dentro da campanha (null = início/fim da campanha). */
   availableFrom: Date | null;
   availableUntil: Date | null;
+  /** Trevos que o selo deste desafio dá (null = os da categoria). */
+  points: number | null;
 }
 
 export type NewChallenge = Omit<ChallengeProps, "id">;
