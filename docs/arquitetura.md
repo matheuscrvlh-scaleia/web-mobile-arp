@@ -444,10 +444,12 @@ seções recolhíveis; barra superior com "Seção / Tela", data e busca de tela
 | web | nginx (build do Vite) | 80 | **8082** |
 | api | node:22-alpine | 3000 | **3002** |
 | db | postgres:17-alpine | 5432 | 5433 (só 127.0.0.1) |
+| backup | postgres:17-alpine | — | — |
 
 Produção e dev usam o mesmo compose: dados no volume `pgdata`, imagens e
-arquivos no volume `uploads`, servidos em `/uploads/`. Sem backup automático
-por enquanto.
+arquivos no volume `uploads`, servidos em `/uploads/`. O serviço `backup` faz
+`pg_dump` diário (03:00) em `/var/backups/arp-controlapp/`, um arquivo por dia
+da semana (máximo 7); restauração no README.
 
 O nginx do web serve o SPA e faz proxy de `/api/` (e `/uploads/` no modo
 local) para `api:3000` — mesma origem, o cookie de refresh funciona sem CORS.

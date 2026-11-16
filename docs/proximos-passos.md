@@ -14,7 +14,7 @@
 
 ## Próximos passos
 
-1. **Backup do banco**: hoje não há; `pg_dump` diário para fora da VPS.
+1. **Backup fora da VPS**: o diário fica só na VPS (`/var/backups/arp-controlapp`); copiar para S3/R2 ou outro servidor.
 2. **Verificação final no navegador** (dark mode, responsivo, arrastar no mapa e nos
    destaques, impressão dos QR Codes).
 3. **Escalabilidade**: itens restantes em "Pendente" de `docs/escalabilidade.md`

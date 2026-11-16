@@ -53,7 +53,21 @@ docker compose up -d --build
 - API: <http://localhost:3002> (node :3000)
 
 O banco é o serviço `db` do compose (dados no volume `pgdata`). A API monta a
-`DATABASE_URL` com a `POSTGRES_PASSWORD`. Ainda não há backup automático.
+`DATABASE_URL` com a `POSTGRES_PASSWORD`.
+
+**Backup**: o serviço `backup` roda `pg_dump` na subida e todo dia às 03:00 em
+`/var/backups/arp-controlapp/` (pasta da VPS, fora dos volumes; outra com
+`BACKUP_DIR`). Um arquivo por dia da semana (`arp-1-Mon.dump` … `arp-7-Sun.dump`),
+sobrescrito na semana seguinte: no máximo 7. Não cobre perda da VPS inteira.
+
+```bash
+ls -lh /var/backups/arp-controlapp/                # backups e datas
+docker compose logs backup                         # último resultado
+# Restaurar (substitui o banco atual; pare a API antes):
+docker compose stop api
+docker compose exec -T db pg_restore -U postgres -d postgres --clean --if-exists --no-owner   < /var/backups/arp-controlapp/arp-1-Mon.dump
+docker compose start api
+```
 
 ## Qualidade
 
