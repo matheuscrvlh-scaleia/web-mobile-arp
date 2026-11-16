@@ -25,20 +25,22 @@ pt-BR, curtos, explicando o porquê (não o quê).
 
 ```
 controlapp-arp/
-└─ apps/                     # nada na raiz: cada app é independente
+├─ docker-compose.yml        # sobe tudo: include dos composes de cada app
+├─ docs/                     # este arquivo, modelo de dados, decisões
+├─ .gitignore  .gitattributes  .editorconfig  README.md
+└─ apps/
    ├─ api/                   # Fastify (porta interna 3000, externa 3002)
    │  ├─ src/contracts/      # contrato HTTP (import `@arp/contracts`, alias no tsconfig)
    │  ├─ migrations/         # <timestamp>_<nome>.sql — SQL puro
    │  ├─ ops/                # pg-backup.sh
-   │  ├─ docs/               # este arquivo, modelo de dados, decisões
-   │  └─ docker-compose.yml  # api + db + backup (cria a rede arp-controlapp_default)
+   │  └─ docker-compose.yml  # api + db + backup (.env de apps/api)
    └─ web/                   # React/Vite servido por nginx (interna 80, externa 8082)
       ├─ src/contracts/      # cópia idêntica do contrato da API
-      └─ docker-compose.yml  # web (entra na rede da API)
+      └─ docker-compose.yml  # web (depende do api)
 ```
 
 Cada app tem `package.json`, `package-lock.json`, `node_modules`, `.env`,
-`biome.json`, `tsconfig.json`, `.editorconfig` e `.gitignore` próprios.
+`biome.json`, `tsconfig.json` e Dockerfile próprios.
 O contrato é **duplicado de propósito** (`src/contracts` nos dois apps) e
 consumido como fonte TS pelo alias `@arp/contracts`: o Vite compila no web; na
 API o `tsx` roda em dev e o `tsup` empacota no build. Mudou o contrato num app,

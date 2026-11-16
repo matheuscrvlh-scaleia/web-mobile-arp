@@ -11,7 +11,7 @@ cp .env.example .env           # VITE_API_PROXY_TARGET
 npm run dev                    # http://localhost:5173 (proxy → VITE_API_PROXY_TARGET, padrão :3000)
 npm run build                  # tsc + vite build (um chunk por tela)
 npm run check                  # Biome + TypeScript
-docker compose up -d --build   # nginx em :8082 (depois do compose de apps/api, que cria a rede)
+# Docker: `docker compose up -d --build` na raiz do repositório (sobe API e painel)
 ```
 
 ## Estrutura

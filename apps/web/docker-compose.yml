@@ -1,9 +1,7 @@
-# Painel (nginx + React). Rodar nesta pasta (apps/web), depois do compose da
-# API (apps/api), que cria a rede "arp-controlapp_default":
-#   docker compose up -d --build
-# Painel: http://localhost:8082 (nginx :80), proxy de /api e /uploads para api:3000.
+# Painel (nginx + React). Incluído pelo docker-compose.yml da raiz (rode de lá):
+# depende do serviço api do compose de apps/api.
 
-name: arp-controlapp-web
+name: arp-controlapp
 
 services:
   web:
@@ -24,8 +22,6 @@ services:
       options:
         max-size: "10m"
         max-file: "5"
-
-networks:
-  default:
-    name: arp-controlapp_default
-    external: true
+    depends_on:
+      api:
+        condition: service_healthy

@@ -1,0 +1,12 @@
+# Sobe tudo a partir da raiz:  docker compose up -d --build
+# Cada app tem o próprio compose e o próprio .env (apps/api/.env, apps/web/.env):
+# o include usa a pasta de cada arquivo para caminhos e variáveis.
+#
+#   apps/api/docker-compose.yml  api (:3002), db (Postgres, :5433) e backup diário
+#   apps/web/docker-compose.yml  painel (nginx :8082), proxy de /api e /uploads para api:3000
+
+name: arp-controlapp
+
+include:
+  - apps/api/docker-compose.yml
+  - apps/web/docker-compose.yml

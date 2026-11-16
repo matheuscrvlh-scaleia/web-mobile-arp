@@ -32,7 +32,7 @@ npm run dev:web                 # http://localhost:5173
 ## Com Docker
 
 ```bash
-docker compose up -d --build   # em apps/api e depois em apps/web (.env de cada um)
+docker compose up -d --build   # na raiz (.env de cada app)
 docker compose stop            # mantém os volumes
 ```
 

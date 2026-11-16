@@ -1,9 +1,6 @@
-# API + Postgres + backup. Rodar nesta pasta (apps/api):
-#   cp .env.example .env  →  preencher  →  docker compose up -d --build
-# Banco: serviço "db" (volume pgdata). Backup diário em /var/backups/arp-controlapp
-# (serviço "backup", 7 arquivos, um por dia da semana).
-# API: http://localhost:3002 (node :3000). O painel (apps/web) entra na rede
-# "arp-controlapp_default" criada aqui e chama a API por "api:3000".
+# API + Postgres + backup. Incluído pelo docker-compose.yml da raiz (rode de lá).
+# Variáveis: apps/api/.env (cp .env.example .env). Banco no volume pgdata;
+# backup diário em /var/backups/arp-controlapp (7 arquivos, um por dia da semana).
 
 name: arp-controlapp
 
@@ -105,8 +102,3 @@ services:
 volumes:
   uploads:
   pgdata:
-
-networks:
-  default:
-    # Nome fixo: o compose do painel (apps/web) entra nesta rede.
-    name: arp-controlapp_default
