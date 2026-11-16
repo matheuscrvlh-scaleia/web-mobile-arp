@@ -314,11 +314,6 @@ export function screensByPermission(): Map<Permission, string[]> {
   return map;
 }
 
-/** Rótulo do menu da tela que usa a permissão (ex.: tela de acesso negado). */
-export function screenOfPermission(permission: Permission): string | null {
-  return screensByPermission().get(permission)?.[0] ?? null;
-}
-
 /* Busca de telas (Ctrl+K) ------------------------------------------------- */
 
 /** Palavra sem acento e sem plural simples ("promoções" → "promoco", "cupons" → "cupom"). */

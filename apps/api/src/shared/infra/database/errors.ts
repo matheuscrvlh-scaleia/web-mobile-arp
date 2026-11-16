@@ -44,22 +44,9 @@ export const isUniqueViolation = (err: unknown, constraint?: string) =>
 export const isForeignKeyViolation = (err: unknown, constraint?: string) =>
   matches(err, PG_ERROR.FOREIGN_KEY_VIOLATION, constraint);
 
-export const isCheckViolation = (err: unknown, constraint?: string) =>
-  matches(err, PG_ERROR.CHECK_VIOLATION, constraint);
-
-export const isNotNullViolation = (err: unknown, column?: string) =>
-  isPgError(err) &&
-  err.code === PG_ERROR.NOT_NULL_VIOLATION &&
-  (column === undefined || err.column === column);
-
 /** Texto inválido para o tipo (ex.: id que não é uuid). Normalmente vira 400/404. */
 export const isInvalidTextRepresentation = (err: unknown) =>
   matches(err, PG_ERROR.INVALID_TEXT_REPRESENTATION);
-
-/** Erros em que repetir a transação inteira resolve (concorrência). */
-export const isRetryableTransactionError = (err: unknown) =>
-  isPgError(err) &&
-  (err.code === PG_ERROR.SERIALIZATION_FAILURE || err.code === PG_ERROR.DEADLOCK_DETECTED);
 
 /**
  * Banco sobrecarregado, não erro do pedido: pool sem conexão livre dentro do

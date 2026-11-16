@@ -29,11 +29,11 @@ WORKDIR /app
 ENV NODE_ENV=production \
   HOST=0.0.0.0 \
   PORT=3000 \
-  MIGRATIONS_DIR=/app/supabase/migrations \
+  MIGRATIONS_DIR=/app/migrations \
   STORAGE_LOCAL_DIR=/app/storage/uploads
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/apps/api/dist ./dist
-COPY supabase/migrations ./supabase/migrations
+COPY migrations ./migrations
 RUN mkdir -p storage/uploads && chown -R node:node storage
 USER node
 EXPOSE 3000

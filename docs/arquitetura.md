@@ -7,11 +7,10 @@ com selos por QR Code, destaques patrocinados, notificações, visitantes.
 
 - **API**: Node 22 + Fastify 5 + TypeScript, Clean Architecture por módulo.
 - **Web**: React 19 + Vite + Tailwind CSS 4 + TypeScript.
-- **Banco**: PostgreSQL do **Supabase**, usado **só como armazenamento**
-  (dados no Postgres, imagens no Supabase Storage). **Sem ORM**: SQL escrito à
-  mão com `pg` (node-postgres), parametrizado. Auth, regras, permissões, jobs:
-  tudo no nosso código. Nada de Supabase Auth, PostgREST, RLS por usuário ou
-  Edge Functions.
+- **Banco**: PostgreSQL 17 em container na VPS (serviço `db`, volume
+  `pgdata`), usado **só como armazenamento**; imagens no volume `uploads`.
+  **Sem ORM**: SQL escrito à mão com `pg` (node-postgres), parametrizado. Auth,
+  regras, permissões, jobs: tudo no nosso código.
 - **Contratos**: `packages/contracts` (Zod 4) é a fonte única dos DTOs, das
   permissões e das rotas. API valida com eles; web tipa e valida forms com eles.
 - **Auth**: JWT de acesso curto (15 min, header `Authorization: Bearer`) +
@@ -31,8 +30,7 @@ erp-mobile-arp/
 │  └─ web/                  # @arp/web  — React/Vite servido por nginx (interna 80, externa 8082)
 ├─ packages/
 │  └─ contracts/            # @arp/contracts — schemas Zod, tipos, permissões, rotas
-├─ supabase/
-│  └─ migrations/           # <timestamp>_<nome>.sql — SQL puro, formato do Supabase CLI
+├─ migrations/              # <timestamp>_<nome>.sql — SQL puro
 ├─ docs/                    # este arquivo, modelo de dados, decisões
 ├─ docker-compose.yml
 ├─ biome.json  tsconfig.base.json  package.json (npm workspaces)
@@ -112,7 +110,7 @@ modules/<modulo>/
 - `application` importa `domain` e portas de `shared/application`. Nunca `infra`.
   Tipos de DTO do `@arp/contracts` são aceitos quando o caso de uso devolve uma
   leitura pronta (dashboard, consulta de código no caixa).
-- `infra` implementa portas; é o único lugar com SQL e com o cliente do Supabase.
+- `infra` implementa portas; é o único lugar com SQL.
   Não importa de `http` (os presenters ficam em `shared/infra/presenters.ts`).
 - Um módulo usa outro pelo `index.ts` dele (ex.: o app-api recebe `ClaimCouponUseCase`
   e `SessionService` prontos no container).
@@ -122,7 +120,7 @@ modules/<modulo>/
 - Datas no domínio são `Date`; no fio são strings ISO (presenter converte).
 - Dinheiro em centavos (inteiro). Ids `uuid` v7 gerados pelo banco
   (`public.uuid_generate_v7()`, função plpgsql da migration inicial — o
-  Postgres do Supabase ainda não tem `uuidv7()` nativo).
+  Postgres 17 ainda não tem `uuidv7()` nativo).
 
 ### SQL sem ORM
 
@@ -149,9 +147,9 @@ modules/<modulo>/
   listas que crescem sem parar (visitantes, cupons pegos, auditoria) paginam pelo
   índice com a contagem numa consulta enxuta à parte (`toCountedPage`) ou por
   cursor/keyset sem contagem (`toKeysetPage`, `?cursor=`).
-- Conexão: `DATABASE_URL` do Supabase (pooler em modo **session**, porta 5432,
-  por causa dos advisory locks e prepared statements). `ssl` ligado quando o
-  host não é local. Pool pequeno por instância (`DB_POOL_MAX`, padrão 10).
+- Conexão: `DATABASE_URL` direto no Postgres (com pooler na frente, só em modo
+  **session**, por causa dos advisory locks e prepared statements). `ssl`
+  ligado quando o host não é local (o `db` do compose é local). Pool pequeno por instância (`DB_POOL_MAX`, padrão 10).
 - Fuso do negócio: `America/Sao_Paulo` (aberto agora, mês da campanha, dashboard).
 
 ### Leitura x escrita (CQRS leve)
@@ -260,8 +258,8 @@ limit. `JOBS_ENABLED=false` desliga todos (ex.: réplica só de leitura, testes)
 
 ## 3. Banco de dados
 
-PostgreSQL do Supabase (compatível com 15+; em dev, `postgres:17-alpine`
-local). **Um schema por domínio**. Convenções:
+PostgreSQL 17 (`postgres:17-alpine`, compatível com 15+), o mesmo em dev e
+produção. **Um schema por domínio**. Convenções:
 
 - Tabelas e colunas em `snake_case`, tabelas no plural.
 - PK `id uuid default public.uuid_generate_v7()` (exceto `audit_logs`: `bigint identity`).
@@ -272,19 +270,18 @@ local). **Um schema por domínio**. Convenções:
 - Busca sem acento: extensão `unaccent` + função imutável `public.f_unaccent`
   e índices `gin (f_unaccent(lower(nome)) gin_trgm_ops)` com `pg_trgm`.
 - E-mails únicos via índice em `lower(email)`.
-- Extensões no schema `extensions` (padrão do Supabase; a migration cria o
-  schema se não existir, para rodar igual no Postgres local).
-- **Migrations em SQL puro** em `supabase/migrations/<AAAAMMDDHHMMSS>_<nome>.sql`
+- Extensões no schema `extensions` (herança do Supabase; a migration cria o
+  schema se não existir).
+- **Migrations em SQL puro** em `migrations/<AAAAMMDDHHMMSS>_<nome>.sql`
   (nunca editar uma já aplicada; mudança = nova migration). O runner da API
   (`npm run db:migrate`, e na subida do container) aplica cada arquivo numa
-  transação e registra em `supabase_migrations.schema_migrations` — a mesma
-  tabela do Supabase CLI, então `supabase db push` e o runner convivem.
-- **Segurança no Supabase**: nossos schemas não são expostos na API REST do
-  Supabase; ainda assim toda tabela tem `enable row level security` sem
-  políticas e `revoke all … from anon, authenticated`. Só a API (role
-  `postgres`/dona das tabelas) lê e grava.
+  transação e registra em `migrations.schema_migrations`.
+- **Acesso**: o Postgres só escuta na rede interna do compose e em
+  `127.0.0.1:5433` da VPS. Só a API (role `postgres`, dona das tabelas) lê e
+  grava. As tabelas têm `enable row level security` sem políticas, herança da
+  época do Supabase (para a dona das tabelas não muda nada).
 - **Imagens**: disco do servidor (volume `uploads` da VPS), gravado só pela API
-  e servido por ela em `/uploads/` (atrás do nginx). Nada vai para o Supabase.
+  e servido por ela em `/uploads/` (atrás do nginx).
   O banco guarda a URL pública absoluta (`STORAGE_PUBLIC_BASE_URL` + `/uploads/…`,
   o app mobile precisa dela). Caminho: `<pasta>/<AAAA>/<MM>/<uuid>.<ext>`.
 - **Miniaturas**: o upload (`POST /uploads`) gera com `sharp`, antes de
@@ -295,8 +292,7 @@ local). **Um schema por domínio**. Convenções:
   descompressão) e o mesmo cache longo da original. Nada muda no banco nem
   nos DTOs: o app e o painel montam a URL com `imageVariantUrl(url, largura)`
   de `@arp/contracts` (URL sem `<uuid>.<ext>` no fim, como link externo, volta
-  igual). Não usamos o "image transformation" do Supabase (pago e inexistente
-  no driver local).
+  igual).
   - O seed grava as imagens como `seed/<pasta>/<uuid do conteúdo>.<ext>` (uuid
     derivado do sha256: mesmo padrão dos uploads) e gera as miniaturas que
     faltarem.
@@ -447,12 +443,11 @@ seções recolhíveis; barra superior com "Seção / Tela", data e busca de tela
 |---|---|---|---|
 | web | nginx (build do Vite) | 80 | **8082** |
 | api | node:22-alpine | 3000 | **3002** |
-| db (só perfil `local`) | postgres:17-alpine | 5432 | 5433 |
+| db | postgres:17-alpine | 5432 | 5433 (só 127.0.0.1) |
 
-Produção: `DATABASE_URL` aponta para o Postgres do Supabase; não há container
-de banco. Imagens e arquivos ficam no volume `uploads` da VPS, servidos em
-`/uploads/`. Dev offline: `docker compose --profile local up` sobe também um
-Postgres local.
+Produção e dev usam o mesmo compose: dados no volume `pgdata`, imagens e
+arquivos no volume `uploads`, servidos em `/uploads/`. Sem backup automático
+por enquanto.
 
 O nginx do web serve o SPA e faz proxy de `/api/` (e `/uploads/` no modo
 local) para `api:3000` — mesma origem, o cookie de refresh funciona sem CORS.

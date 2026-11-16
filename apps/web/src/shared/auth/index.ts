@@ -5,5 +5,4 @@ export {
   type SignedOutReason,
   useAuth,
   useCurrentUser,
-  usePermission,
 } from "./auth-context";

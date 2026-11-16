@@ -10,7 +10,6 @@ export {
   type ComboboxProps,
   type ComboboxSingleProps,
 } from "./Combobox";
-export { ComingSoon } from "./ComingSoon";
 export { ConfirmHost, type ConfirmOptions, confirmar } from "./confirm";
 export { DateTimeInput } from "./DateTimeInput";
 export { DEMO_HINT, DEMO_MIXED_HINT, DemoMark, DemoNotice } from "./DemoMark";
@@ -22,7 +21,7 @@ export { IconTile, SealIcon } from "./IconTile";
 export { ImageUpload } from "./ImageUpload";
 export { Input, SearchInput, Select, Textarea } from "./inputs";
 export { KpiCard } from "./Kpi";
-export { LIFECYCLE, type Lifecycle, LifecycleBadge, lifecycleBadge } from "./LifecycleBadge";
+export { LIFECYCLE, type Lifecycle, LifecycleBadge } from "./LifecycleBadge";
 export { LoadError } from "./LoadError";
 export { ConfirmDialog, Modal, type ModalProps } from "./Modal";
 export { Avatar, Can, CopyButton, FilterBar, InfoItem } from "./misc";
@@ -30,7 +29,6 @@ export { OfflineBanner } from "./OfflineBanner";
 export { PageHeader } from "./PageHeader";
 export { Pagination } from "./Pagination";
 export { PasswordInput } from "./PasswordInput";
-export { PHASE_LABEL, PhaseBadge } from "./PhaseBadge";
 export { PhoneFrame } from "./PhoneFrame";
 export { PrintArea } from "./PrintArea";
 export { LoadingRegion, PageSkeleton, Skeleton, SkeletonGrid } from "./Skeleton";

@@ -111,7 +111,7 @@ export const UPLOAD_MAX_BYTES = 5 * 1024 * 1024;
 export const UPLOAD_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
 export const uploadResponseSchema = z.object({
-  /** URL pública (Supabase Storage) ou caminho local em dev (/uploads/…). */
+  /** URL pública (/uploads/… na origem do painel) ou caminho relativo em dev. */
   url: z.string(),
   mimeType: z.enum(UPLOAD_MIME_TYPES),
   size: z.number().int(),

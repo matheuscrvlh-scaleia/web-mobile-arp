@@ -3,8 +3,8 @@
 Como a API aguenta muitos visitantes do app mobile e o painel ao mesmo tempo,
 o que foi medido, o que mudou, como escalar e o que ainda falta.
 
-Premissas do produto: **sem ORM**, **Supabase só como armazenamento**
-(Postgres + Storage), **nenhum serviço obrigatório novo** (sem Redis). Peças
+Premissas do produto: **sem ORM**, **Postgres só como armazenamento**
+(container na VPS; imagens no volume `uploads`), **nenhum serviço obrigatório novo** (sem Redis). Peças
 distribuídas são opcionais, atrás das portas existentes, e usam o próprio
 Postgres.
 
@@ -24,14 +24,13 @@ Postgres.
 
 **Gargalos que continuam:**
 
-- **Banco é o recurso escasso.** O pooler do Supabase (modo session) tem um
-  limite de conexões por projeto; `réplicas × DB_POOL_MAX` não pode passar
-  dele (seção 3).
+- **Banco é o recurso escasso.** O Postgres tem `max_connections` (100
+  por padrão); `réplicas × DB_POOL_MAX` não pode passar dele (seção 3).
 - **Cupom muito disputado** é serializado por desenho (`FOR UPDATE` no
   cupom). Vazão máxima ≈ 1 / (tempo com o lock). Com o banco na mesma região
   (~1 ms por ida) isso dá centenas de pegos/s no mesmo cupom; com latência
-  alta entre API e banco cai proporcionalmente — mantenha a API na região do
-  Supabase.
+  alta entre API e banco cai proporcionalmente — mantenha a API perto do
+  banco (hoje, mesma VPS).
 - **Estoque derivado** (`count` dos pegos ativos + usados por cupom) custa
   proporcional às unidades ocupadas do cupom (index-only no
   `coupon_claims_stock_idx`). Para cupons com dezenas de milhares de
@@ -247,7 +246,7 @@ A API é stateless (JWT, sessões no banco, imagens no Storage). Para N réplica
 7. **Encerramento**: `SHUTDOWN_DRAIN_MS` (~5 s atrás de balanceador) faz a
    readiness (`/api/v1/health`) responder 503 antes de parar de aceitar
    conexões; `stop_grace_period` do orquestrador > `SHUTDOWN_TIMEOUT_MS`.
-8. **Health**: liveness `/health/live` (sem banco — Supabase fora não
+8. **Health**: liveness `/health/live` (sem banco — banco fora não
    reinicia réplicas); readiness `/api/v1/health` (com banco, 503 no dreno).
 
 ## 4. Particionamento futuro
@@ -265,8 +264,8 @@ A API é stateless (JWT, sessões no banco, imagens no Storage). Para N réplica
 
 ## 5. Checklist de produção
 
-- [ ] `DATABASE_URL` do pooler em **modo session** (porta 5432), API na mesma região do Supabase.
-- [ ] `DB_POOL_MAX` × réplicas dentro do limite do pooler; `DB_CONNECTION_TIMEOUT_MS` ~5 s.
+- [ ] `DATABASE_URL` direto no Postgres (com pooler, só **modo session**), API perto do banco.
+- [ ] `DB_POOL_MAX` × réplicas abaixo do `max_connections`; `DB_CONNECTION_TIMEOUT_MS` ~5 s.
 - [ ] `DB_STATEMENT_TIMEOUT_MS` (30 s), `DB_LOCK_TIMEOUT_MS` (10 s), `DB_IDLE_IN_TRANSACTION_TIMEOUT_MS` (60 s).
 - [ ] `TRUST_PROXY` com o número certo de saltos (senão o rate limit por IP vê o IP do proxy).
 - [ ] Mais de uma réplica: `RATE_LIMIT_STORE=postgres`; avaliar `CACHE_INVALIDATION=postgres`.
@@ -279,7 +278,7 @@ A API é stateless (JWT, sessões no banco, imagens no Storage). Para N réplica
 
 ## 6. O que mudou (referência)
 
-- **Migration** `supabase/migrations/20261101001100_scalability.sql`:
+- **Migration** `migrations/20261101001100_scalability.sql`:
   `marketing.highlight_daily_metrics` (+ cópia dos totais antigos; colunas
   `impressions/clicks` viram legado, sem escrita), `platform.rate_limit_hits`
   (UNLOGGED, RLS ligado), índices `(claimed_at, id)`, `(created_at desc, id

@@ -31,9 +31,9 @@ export function hasImageVariants(url: string): boolean {
 /**
  * URL da miniatura WebP com a largura pedida.
  *
- * - URL de upload da API (pública do Supabase Storage ou `/uploads/...` local,
- *   reconhecida pelo `<uuid>.<ext>` no fim do caminho) → URL da variante, ex.:
- *   `https://x.supabase.co/storage/v1/object/public/media/stores/2026/11/<uuid>.jpg`
+ * - URL de upload da API (`/uploads/...`, absoluta ou relativa, reconhecida
+ *   pelo `<uuid>.<ext>` no fim do caminho) → URL da variante, ex.:
+ *   `https://painel.exemplo/uploads/stores/2026/11/<uuid>.jpg`
  *   → `…/stores/2026/11/<uuid>_w480.webp`. Query string e hash são mantidos.
  * - Qualquer outra URL (externa, de terceiros, sem uuid) → a própria URL.
  * - `null`/`undefined` → `null`.

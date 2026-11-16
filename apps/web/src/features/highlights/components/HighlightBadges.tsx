@@ -1,13 +1,6 @@
-import type { Highlight, HighlightBadge, HighlightStatus, HighlightTarget } from "@arp/contracts";
+import type { Highlight, HighlightBadge, HighlightTarget } from "@arp/contracts";
 import { Megaphone, Sparkles } from "lucide-react";
 import { type Lifecycle, LifecycleBadge, StatusBadge } from "@/shared/ui";
-
-export const HIGHLIGHT_STATUS_LABEL: Record<HighlightStatus, string> = {
-  draft: "Rascunho",
-  published: "Ativo",
-  paused: "Pausado",
-  archived: "Arquivado",
-};
 
 export const BADGE_LABEL: Record<HighlightBadge, string> = {
   featured: "Destaque",

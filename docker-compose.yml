@@ -1,6 +1,5 @@
-# Produção (Supabase):  cp .env.example .env  →  preencher  →  docker compose up -d --build
-# Dev offline:          docker compose --profile local up -d --build
-#                       (com DATABASE_URL=postgres://postgres:postgres@db:5432/postgres)
+# cp .env.example .env  →  preencher  →  docker compose up -d --build
+# Banco: Postgres no serviço "db" (volume pgdata). Sem backup automático por enquanto.
 #
 # Web:  http://localhost:8082  (nginx :80)  — proxy de /api para a API
 # API:  http://localhost:3002  (node  :3000)
@@ -19,11 +18,12 @@ services:
     environment:
       NODE_ENV: production
       TRUST_PROXY: ${TRUST_PROXY:-1}
-      DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL no .env}
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no .env}@db:5432/postgres
+      DB_SSL: "off"
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?Defina JWT_ACCESS_SECRET no .env (32+ caracteres)}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8082}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
-      # Imagens no volume "uploads" (nunca no Supabase); URL absoluta para o app mobile.
+      # Imagens no volume "uploads"; URL absoluta para o app mobile.
       STORAGE_PUBLIC_BASE_URL: ${STORAGE_PUBLIC_BASE_URL:?Defina STORAGE_PUBLIC_BASE_URL no .env, a origem pública do painel}
       # Heap abaixo do limite do container: o GC age antes do OOM killer.
       NODE_OPTIONS: --max-old-space-size=384
@@ -46,7 +46,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-        required: false
 
   web:
     build:
@@ -71,17 +70,27 @@ services:
       api:
         condition: service_healthy
 
-  # Postgres local só no perfil "local" (em produção o banco é o Supabase).
   db:
-    profiles: ["local"]
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no .env}
+    # Só na máquina (dev e psql/pg_dump na VPS); a API usa a rede interna.
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    shm_size: 256m
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s

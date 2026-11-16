@@ -9,7 +9,7 @@ painel (`/api/v1/*`) e o app mobile (`/api/v1/app/*`).
 |---|---|
 | API | Node 22 · Fastify 5 · TypeScript · Clean Architecture · SQL puro (`pg`) |
 | Web | React 19 · Vite · Tailwind CSS 4 · TanStack Query · React Hook Form |
-| Dados | Supabase Postgres (dados). Imagens e arquivos no disco da VPS (volume `uploads`), nunca no Supabase. Sem ORM, sem Supabase Auth |
+| Dados | PostgreSQL 17 no Docker da VPS (volume `pgdata`). Imagens e arquivos no disco da VPS (volume `uploads`). Sem ORM |
 | Auth | JWT de acesso (15 min) + refresh rotativo em cookie httpOnly · RBAC. App: e-mail/senha, Google/Apple (id_token) e nova senha por código no e-mail |
 | Contratos | `packages/contracts`: schemas Zod, permissões e rotas compartilhados |
 
@@ -23,7 +23,7 @@ Documentação: [arquitetura](docs/arquitetura.md) · [modelo de dados](docs/mod
 apps/api            API Fastify (modules/<domínio>/{domain,application,infra,http})
 apps/web            Painel React (features/<feature>/{api,components,pages})
 packages/contracts  Contrato HTTP compartilhado
-supabase/migrations Migrations em SQL puro (formato do Supabase CLI)
+migrations          Migrations em SQL puro (<AAAAMMDDHHMMSS>_<nome>.sql)
 ```
 
 ## Rodar em desenvolvimento
@@ -32,8 +32,8 @@ supabase/migrations Migrations em SQL puro (formato do Supabase CLI)
 npm install
 cp apps/api/.env.example apps/api/.env   # preencha JWT_ACCESS_SECRET e SEED_ADMIN_PASSWORD
 
-docker compose --profile local up -d db  # Postgres na porta 5433
-npm run db:migrate                       # aplica supabase/migrations
+docker compose up -d db                  # Postgres na porta 5433 (POSTGRES_PASSWORD no .env da raiz)
+npm run db:migrate                       # aplica migrations/
 npm run db:seed                          # cargos, admin e dados de demonstração
 
 npm run dev:api                          # http://localhost:3000  (docs em /docs)
@@ -45,15 +45,15 @@ Entre com `admin@arp.com.br` e a senha de `SEED_ADMIN_PASSWORD`.
 ## Rodar com Docker
 
 ```bash
-cp .env.example .env                     # DATABASE_URL do Supabase, JWT, STORAGE_PUBLIC_BASE_URL
+cp .env.example .env                     # POSTGRES_PASSWORD, JWT, STORAGE_PUBLIC_BASE_URL
 docker compose up -d --build
 ```
 
 - Painel: <http://localhost:8082> (nginx :80, faz proxy de `/api`)
 - API: <http://localhost:3002> (node :3000)
 
-Sem Supabase, use o perfil local: `DATABASE_URL=postgres://postgres:postgres@db:5432/postgres`,
-`STORAGE_PUBLIC_BASE_URL=http://localhost:8082` e `docker compose --profile local up -d --build`.
+O banco é o serviço `db` do compose (dados no volume `pgdata`). A API monta a
+`DATABASE_URL` com a `POSTGRES_PASSWORD`. Ainda não há backup automático.
 
 ## Qualidade
 
@@ -62,6 +62,6 @@ npm run check   # Biome + TypeScript em todos os workspaces
 npm run build
 ```
 
-Banco: mudança só por **nova** migration em `supabase/migrations` (nunca editar
+Banco: mudança só por **nova** migration em `migrations/` (nunca editar
 uma aplicada). Contrato: toda rota nova entra primeiro em
 `packages/contracts/src/routes.ts`, com os schemas dela.

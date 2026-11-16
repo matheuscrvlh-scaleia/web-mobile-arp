@@ -15,14 +15,14 @@ export interface DatabaseLogger {
 /**
  * auto: liga SSL quando o host não é local (padrão);
  * require: SSL sem validar o certificado (como o sslmode=require do libpq);
- * verify: SSL validando a cadeia (use DB_SSL_CA com o certificado do Supabase);
+ * verify: SSL validando a cadeia (use DB_SSL_CA com o certificado do servidor);
  * off: sem SSL.
  */
 export type DbSslMode = "auto" | "require" | "verify" | "off";
 
 export interface DatabaseOptions {
   connectionString: string;
-  /** Conexões por instância da API. Supabase (pooler session) tem limite por projeto. */
+  /** Conexões por instância da API (o Postgres tem max_connections). */
   poolMax?: number;
   ssl?: DbSslMode;
   /** Certificado CA (PEM) para ssl=verify. */
@@ -192,7 +192,7 @@ export function resolveConnection(
       ? false
       : effective === "verify"
         ? { rejectUnauthorized: true, ...(ca ? { ca } : {}) }
-        : // Supabase usa CA própria; "require" cifra sem validar a cadeia, como o libpq.
+        : // "require" cifra sem validar a cadeia, como o libpq.
           { rejectUnauthorized: false };
 
   return { connectionString: url.toString(), ssl };
@@ -436,9 +436,9 @@ function sessionSettingsOf(options: DatabaseOptions): [string, string][] {
 
 /**
  * Client do pool que aplica os timeouts logo depois de conectar, antes de a
- * conexão ser entregue a alguém. Por SET e não como parâmetro de startup: o
- * pooler do Supabase pode recusar parâmetros de startup que não conhece, e no
- * modo session o SET vale para a sessão inteira.
+ * conexão ser entregue a alguém. Por SET e não como parâmetro de startup:
+ * poolers (PgBouncer e afins) podem recusar parâmetros de startup que não
+ * conhecem, e o SET vale para a sessão inteira.
  */
 function sessionClient(settings: [string, string][]): typeof pg.Client {
   if (settings.length === 0) return pg.Client;

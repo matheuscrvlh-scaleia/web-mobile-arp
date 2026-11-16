@@ -6,7 +6,7 @@ export { LocalDiskStorage } from "./local-disk-storage";
 
 /**
  * Imagens e arquivos ficam no disco do servidor (o volume "uploads" da VPS) e
- * a própria API os serve em STORAGE_LOCAL_PUBLIC_PATH. Nada vai para o Supabase.
+ * a própria API os serve em STORAGE_LOCAL_PUBLIC_PATH.
  * Chamar uma vez na subida (composition root).
  */
 export async function createStorage(env: StorageEnv): Promise<Storage> {

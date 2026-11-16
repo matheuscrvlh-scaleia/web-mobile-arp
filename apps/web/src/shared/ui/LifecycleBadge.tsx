@@ -35,9 +35,6 @@ export const LIFECYCLE: Record<Lifecycle, { label: string; tone: StatusTone; ico
   archived: { label: "Arquivado", tone: "outline", icon: Archive },
 };
 
-/** Rótulo, tom e ícone do status (para filtros, abas, textos). */
-export const lifecycleBadge = (status: Lifecycle) => LIFECYCLE[status];
-
 /**
  * Selo do ciclo de vida, com dica curta opcional ao lado ("termina em 3
  * dias"). `label` troca o texto quando o substantivo pede ("Ativa", "Encerrada").

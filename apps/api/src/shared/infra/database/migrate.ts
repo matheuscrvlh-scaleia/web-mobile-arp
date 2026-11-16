@@ -8,11 +8,10 @@ import { Database, type DatabaseLogger } from "./database";
 import { sql } from "./sql";
 
 /*
- * Runner de migrations em SQL puro (supabase/migrations/<versão>_<nome>.sql).
+ * Runner de migrations em SQL puro (migrations/<versão>_<nome>.sql).
  *
  * - Cada arquivo roda numa transação própria: ou entra inteiro, ou nada.
- * - Registra em supabase_migrations.schema_migrations, a MESMA tabela do
- *   Supabase CLI: `supabase db push` e este runner enxergam o mesmo histórico.
+ * - Registra em migrations.schema_migrations (versão, conteúdo e nome).
  * - pg_advisory_lock garante que só uma réplica migra; as outras esperam e,
  *   ao entrar, não acham nada pendente.
  * - Migration aplicada nunca é editada; mudança = arquivo novo.
@@ -71,9 +70,9 @@ export async function readMigrations(dir: string): Promise<MigrationFile[]> {
 }
 
 /**
- * Acha supabase/migrations subindo pastas a partir do diretório atual e do
- * próprio módulo. Cobre dev (apps/api → raiz do monorepo) e o container
- * (copie supabase/migrations para a raiz da imagem ou defina MIGRATIONS_DIR).
+ * Acha migrations/ subindo pastas a partir do diretório atual e do próprio
+ * módulo. Cobre dev (apps/api → raiz do monorepo) e o container (a imagem
+ * copia migrations/ para /app e define MIGRATIONS_DIR).
  */
 export function findMigrationsDir(explicit?: string): string {
   if (explicit) {
@@ -85,25 +84,33 @@ export function findMigrationsDir(explicit?: string): string {
   for (const start of starts) {
     let current = path.resolve(start);
     while (true) {
-      const candidate = path.join(current, "supabase", "migrations");
+      const candidate = path.join(current, "migrations");
       if (isDirectory(candidate)) return candidate;
       const parent = path.dirname(current);
       if (parent === current) break;
       current = parent;
     }
   }
-  throw new Error("Não achei supabase/migrations. Defina MIGRATIONS_DIR.");
+  throw new Error("Não achei a pasta migrations. Defina MIGRATIONS_DIR.");
 }
 
 function isDirectory(dir: string): boolean {
   return existsSync(dir) && statSync(dir).isDirectory();
 }
 
+// Banco vindo do Supabase traz o histórico em supabase_migrations: renomeia uma vez.
 const ENSURE_HISTORY_TABLE = sql.raw(`
-  create schema if not exists supabase_migrations;
-  create table if not exists supabase_migrations.schema_migrations (version text not null primary key);
-  alter table supabase_migrations.schema_migrations add column if not exists statements text[];
-  alter table supabase_migrations.schema_migrations add column if not exists name text;
+  do $$ begin
+    if to_regnamespace('supabase_migrations') is not null and to_regnamespace('migrations') is null then
+      alter schema supabase_migrations rename to migrations;
+    end if;
+  end $$;
+  create schema if not exists migrations;
+  create table if not exists migrations.schema_migrations (
+    version text not null primary key,
+    statements text[],
+    name text
+  );
 `);
 
 interface AppliedRow {
@@ -135,7 +142,7 @@ export async function runMigrations(
     try {
       await db.query(ENSURE_HISTORY_TABLE);
       const appliedRows = await db.many<AppliedRow>(
-        sql`select version, statements from supabase_migrations.schema_migrations order by version`,
+        sql`select version, statements from migrations.schema_migrations order by version`,
       );
       const applied = new Map(appliedRows.map((r) => [r.version, r]));
       const latestApplied = appliedRows.at(-1)?.version;
@@ -158,7 +165,7 @@ export async function runMigrations(
         await db.transaction(async () => {
           if (file.content.trim()) await db.query(sql.raw(file.content));
           await db.query(sql`
-            insert into supabase_migrations.schema_migrations (version, statements, name)
+            insert into migrations.schema_migrations (version, statements, name)
             values (${file.version}, ${[file.content]}, ${file.name})
           `);
         });
@@ -190,7 +197,7 @@ function warnAboutDrift(
   const onDisk = new Set(files.map((f) => f.version));
   for (const file of files) {
     const row = applied.get(file.version);
-    // Registro com 1 statement = gravado por este runner (o CLI separa por comando).
+    // Registro com 1 statement = gravado por este runner (o Supabase CLI separava por comando).
     if (row?.statements?.length === 1 && row.statements[0] !== file.content) {
       logger.warn(
         { migration: file.fileName },
@@ -215,14 +222,12 @@ export async function migrationStatus(
 ): Promise<{ fileName: string; applied: boolean }[]> {
   const files = await readMigrations(dir);
   const exists = await db.one<{ exists: boolean }>(
-    sql`select to_regclass('supabase_migrations.schema_migrations') is not null as exists`,
+    sql`select to_regclass('migrations.schema_migrations') is not null as exists`,
   );
   const applied = exists.exists
     ? new Set(
         (
-          await db.many<{ version: string }>(
-            sql`select version from supabase_migrations.schema_migrations`,
-          )
+          await db.many<{ version: string }>(sql`select version from migrations.schema_migrations`)
         ).map((r) => r.version),
       )
     : new Set<string>();

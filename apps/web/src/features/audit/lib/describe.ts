@@ -241,8 +241,6 @@ const HIDDEN_FIELDS = new Set([
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export const entityLabel = (type: string) => NOUNS[type]?.label ?? "item";
-
 /**
  * O que a pessoa fez, sem o nome dela nem o do item: "criou a campanha",
  * "entrou no painel". `withItem` diz se o nome do item vem depois.
@@ -259,12 +257,6 @@ export function actionPhrase(log: AuditLog): { text: string; withItem: boolean }
   const item = `${noun.article} ${noun.label.toLowerCase()}`;
   const text = v.endsWith(" de") ? `${v.slice(0, -3)} d${item}` : `${v} ${item}`;
   return { text, withItem: true };
-}
-
-/** Versão antiga (só o verbo), usada em outros lugares. */
-export function actionLabel(action: string): string {
-  const [, verb = action] = action.split(".");
-  return VERBS[verb] ?? "alterou";
 }
 
 export const fieldLabel = (field: string) => FIELD_LABEL[field] ?? null;

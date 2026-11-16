@@ -1,13 +1,12 @@
 # Modelo de dados — ERP do App ARP
 
-PostgreSQL do Supabase usado **só como armazenamento** (dados no Postgres,
-imagens no Supabase Storage). Sem ORM: SQL à mão com `pg`, parametrizado pela
-template tag `sql`. Auth, permissões e regras ficam na API — nada de Supabase
-Auth, PostgREST, Edge Functions ou RLS por usuário.
+PostgreSQL 17 em container na VPS (serviço `db` do compose) usado **só como
+armazenamento**; imagens no volume `uploads`. Sem ORM: SQL à mão com `pg`,
+parametrizado pela template tag `sql`. Auth, permissões e regras ficam na API.
 
-- Migrations: `supabase/migrations/*.sql` (SQL puro, formato do Supabase CLI).
+- Migrations: `migrations/*.sql` (SQL puro).
 - Acesso: `apps/api/src/shared/infra/database/` (`Database`, `sql`, `migrate`, `seed`).
-- Compatível com Postgres 15, 16 e 17 (Supabase). Em dev roda no Postgres 17 do Docker.
+- Compatível com Postgres 15, 16 e 17. Dev e produção rodam no Postgres 17 do Docker.
 
 ---
 
@@ -293,7 +292,7 @@ válidos é o mesmo dos `z.enum` do `@arp/contracts`.
 
 **UUID v7 gerado no banco** (`public.uuid_generate_v7()`, plpgsql). Ids
 ordenados no tempo: o índice da PK cresce sempre no fim (menos page split e
-cache melhor que v4) e `order by id` ≈ ordem de criação. O Supabase ainda não
+cache melhor que v4) e `order by id` ≈ ordem de criação. O Postgres 17 não
 tem `uuidv7()` nativo (só no PG 18); quando tiver, basta trocar o default.
 `audit_logs` usa `bigint identity` (só cresce, só é lido por data) e a API
 serializa o id como string.
@@ -458,8 +457,8 @@ await db.transaction(async () => {
 
 ## 6. Migrations
 
-**Criar uma nova**: arquivo `supabase/migrations/<AAAAMMDDHHMMSS>_<nome_snake>.sql`
-com versão maior que a última (ou `supabase migration new <nome>`). Regras:
+**Criar uma nova**: arquivo `migrations/<AAAAMMDDHHMMSS>_<nome_snake>.sql`
+com versão maior que a última. Regras:
 
 - Nunca edite uma migration já aplicada (o runner avisa se o conteúdo mudar);
   mudança = migration nova.
@@ -469,38 +468,21 @@ com versão maior que a última (ou `supabase migration new <nome>`). Regras:
 - Tabela nova: PK `uuid default public.uuid_generate_v7()`, `created_at`/
   `updated_at` com trigger `set_updated_at`, CHECKs de status, índices nas FKs
   consultadas, `comment on` no que não for óbvio e
-  `alter table … enable row level security` (os grants para anon/authenticated
-  já nascem revogados pelos default privileges).
+  `alter table … enable row level security` (padrão das tabelas existentes).
 
 **Aplicar**: `npm run db:migrate -w @arp/api` (e a API chama
 `runMigrations(db, dir)` na subida). Cada arquivo roda numa transação e é
-registrado em `supabase_migrations.schema_migrations (version, statements,
-name)` — a mesma tabela do Supabase CLI. Um `pg_advisory_lock` impede duas
+registrado em `migrations.schema_migrations (version, statements, name)`
+(banco vindo do Supabase: o runner renomeia `supabase_migrations` uma vez). Um `pg_advisory_lock` impede duas
 réplicas de migrarem juntas (a segunda espera e não acha nada pendente).
 `npm run db:migrate -w @arp/api -- --status` lista aplicadas/pendentes.
-
-**No Supabase**:
-
-1. Use a connection string do **pooler em modo session** (porta 5432,
-   `postgres.<ref>@aws-0-<regiao>.pooler.supabase.com`) ou a conexão direta.
-   O modo transaction (6543) não serve: advisory locks e prepared statements
-   precisam de sessão fixa.
-2. `DB_SSL=auto` liga SSL (sem validar a cadeia, como `sslmode=require`); para
-   validar, baixe o certificado no painel e use `DB_SSL=verify` + `DB_SSL_CA`.
-3. `supabase db push` é compatível: o CLI lê a mesma tabela de histórico e só
-   aplica o que faltar (e vice-versa). Os schemas `extensions` e
-   `supabase_migrations` já existem lá; as migrations usam `if not exists`.
-4. Não exponha os nossos schemas em *API settings → Exposed schemas*. Mesmo se
-   expuser, RLS sem políticas + `revoke` deixam anon/authenticated sem acesso.
-   As três funções do `public` continuam executáveis via `PUBLIC` (padrão do
-   Postgres): são puras e não leem dados.
 
 ---
 
 ## 7. Desenvolvimento local
 
 ```bash
-docker compose --profile local up -d db   # Postgres 17 em 127.0.0.1:5433
+docker compose up -d db                   # Postgres 17 em 127.0.0.1:5433
 npm run db:migrate -w @arp/api
 npm run db:seed -w @arp/api               # exige SEED_ADMIN_PASSWORD
 ```

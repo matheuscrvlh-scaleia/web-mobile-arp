@@ -12,7 +12,7 @@ export const booleanString = z
   .transform((v) => v === "true" || v === "1");
 
 export const databaseEnvShape = {
-  /** postgres://user:pass@host:port/db. No Supabase: pooler em modo session (porta 5432). */
+  /** postgres://user:pass@host:port/db. */
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
   DB_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
   DB_SSL: z.enum(["auto", "require", "verify", "off"]).default("auto"),
@@ -31,7 +31,7 @@ export const databaseEnvShape = {
   DB_MAX_LIFETIME_SECONDS: z.coerce.number().int().min(0).default(1_800),
   /** Loga como lenta a consulta acima disso (0 = desliga). */
   DB_SLOW_QUERY_MS: z.coerce.number().int().min(0).default(500),
-  /** Diretório das migrations; sem valor, procura supabase/migrations subindo pastas. */
+  /** Diretório das migrations; sem valor, procura migrations/ subindo pastas. */
   MIGRATIONS_DIR: z.string().optional(),
 };
 

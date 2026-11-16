@@ -35,7 +35,3 @@ export function useCurrentUser(): AuthUser {
   if (!user) throw new Error("useCurrentUser fora de uma rota protegida");
   return user;
 }
-
-export function usePermission(permission: Permission | null): boolean {
-  return useAuth().can(permission);
-}
