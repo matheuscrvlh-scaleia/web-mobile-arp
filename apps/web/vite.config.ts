@@ -13,7 +13,10 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), tailwindcss()],
     resolve: {
-      alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+      alias: {
+        "@arp/contracts": fileURLToPath(new URL("./src/contracts/index.ts", import.meta.url)),
+        "@": fileURLToPath(new URL("./src", import.meta.url)),
+      },
     },
     server: {
       port: 5173,

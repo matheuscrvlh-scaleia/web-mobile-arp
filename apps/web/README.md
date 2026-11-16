@@ -1,20 +1,24 @@
-# @arp/web — painel de gestão do app ARP
+# Painel web — gestão do app ARP
 
 React 19 + Vite 8 + Tailwind 4 + TanStack Query 5 + React Hook Form/Zod 4.
 Fala só com a API em `/api/v1` (proxy do Vite em dev, nginx em produção).
 Visual: o mesmo do copiloto-arp (vidro, aurora, tons, dark mode por `data-theme`).
 
 ```bash
-npm run dev -w @arp/web        # http://localhost:5173 (proxy → VITE_API_PROXY_TARGET, padrão :3000)
-npm run build -w @arp/web      # tsc + vite build (um chunk por tela)
-npx biome check apps/web       # lint + formatação (use --write)
-npx tsx --tsconfig apps/web/scripts/tsconfig.json apps/web/scripts/smoke.ts   # smoke de integração
+# nesta pasta (apps/web), independente da API: package.json, lockfile e .env próprios
+npm install
+cp .env.example .env           # VITE_API_PROXY_TARGET
+npm run dev                    # http://localhost:5173 (proxy → VITE_API_PROXY_TARGET, padrão :3000)
+npm run build                  # tsc + vite build (um chunk por tela)
+npm run check                  # Biome + TypeScript
+docker compose up -d --build   # nginx em :8082 (depois do compose de apps/api, que cria a rede)
 ```
 
 ## Estrutura
 
 ```
 src/
+├─ contracts/               # contrato HTTP (import `@arp/contracts`); cópia de apps/api/src/contracts
 ├─ main.tsx                 # fonte Geist, globals.css, Zod em pt-BR, providers, router
 ├─ styles/globals.css       # tokens: vidro, fume, destaque, ladrilho, flutua, tom-escuro/verde,
 │                           # tom-app-* (tons do app), carregando, estoque-*, --serie-1..5, --mapa-*

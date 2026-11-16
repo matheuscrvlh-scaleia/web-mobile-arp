@@ -13,7 +13,7 @@ import { SharpImageProcessor } from "./sharp-image-processor";
  * Backfill das miniaturas: percorre as URLs de imagem gravadas no banco
  * (IMAGE_URL_COLUMNS) e gera as que faltam. Idempotente: o que já existe
  * (storage.exists) não é refeito. Uso:
- *   npm run images:thumbnails -w @arp/api [-- --concurrency=4 --dry-run]
+ *   npm run images:thumbnails [-- --concurrency=4 --dry-run]
  */
 
 export interface BackfillOptions {

@@ -1,27 +1,19 @@
 # syntax=docker/dockerfile:1.7
-# Build a partir da raiz do monorepo: docker build -f apps/api/Dockerfile .
+# Build a partir desta pasta (apps/api): docker build .
 
-FROM node:22-alpine AS base
+FROM node:22-alpine AS manifests
 WORKDIR /app
-
-# Manifestos de todos os workspaces: o npm ci confere o lockfile com eles.
-FROM base AS manifests
 COPY package.json package-lock.json ./
-COPY packages/contracts/package.json packages/contracts/
-COPY apps/api/package.json apps/api/
-COPY apps/web/package.json apps/web/
 
 FROM manifests AS build
-RUN --mount=type=cache,target=/root/.npm npm ci --workspace @arp/api --no-audit --no-fund
-COPY tsconfig.base.json ./
-COPY packages/contracts packages/contracts
-COPY apps/api apps/api
-RUN npm run build -w @arp/api
+RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
+COPY tsconfig.json tsup.config.ts ./
+COPY src src
+RUN npm run build
 
-# Só dependências de produção (o @arp/contracts já está dentro do bundle).
+# Só dependências de produção (o contrato em src/contracts já está no bundle).
 FROM manifests AS prod-deps
-RUN --mount=type=cache,target=/root/.npm \
-  npm ci --workspace @arp/api --omit=dev --no-audit --no-fund
+RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev --no-audit --no-fund
 
 FROM node:22-alpine AS runtime
 RUN apk add --no-cache tini
@@ -32,7 +24,7 @@ ENV NODE_ENV=production \
   MIGRATIONS_DIR=/app/migrations \
   STORAGE_LOCAL_DIR=/app/storage/uploads
 COPY --from=prod-deps /app/node_modules ./node_modules
-COPY --from=build /app/apps/api/dist ./dist
+COPY --from=build /app/dist ./dist
 COPY migrations ./migrations
 RUN mkdir -p storage/uploads && chown -R node:node storage
 USER node

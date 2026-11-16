@@ -4,7 +4,7 @@
 
 | Parte | Estado | Verificação |
 |---|---|---|
-| Contratos (`packages/contracts`) | Painel + app (`App.*`), PATCH via `patchOf`, URLs só http(s) | tsc, biome |
+| Contratos (`src/contracts`, nos dois apps) | Painel + app (`App.*`), PATCH via `patchOf`, URLs só http(s) | tsc, biome |
 | Banco (`migrations`, `apps/api/src/shared/infra/database`) | Migrations SQL, `Database`/`sql`, imagens no disco, seed idempotente | testes de integração, EXPLAIN nas consultas quentes, migrations em PostgreSQL 17 |
 | API (`apps/api`) | Rotas do painel + app, auth JWT + refresh rotativo, RBAC, escopo de loja, auditoria, jobs | 269 testes (+1 só com Postgres real, passou contra PG17); suíte removida em 01/11 |
 | Web (`apps/web`) | Todas as telas, design do copiloto-arp | tsc, biome, build, smoke de integração (55 passos; script removido em 01/11) |
@@ -32,7 +32,7 @@ npm run dev:web                 # http://localhost:5173
 ## Com Docker
 
 ```bash
-docker compose up -d --build   # .env na raiz (já existe, ignorado pelo git)
+docker compose up -d --build   # em apps/api e depois em apps/web (.env de cada um)
 docker compose stop            # mantém os volumes
 ```
 

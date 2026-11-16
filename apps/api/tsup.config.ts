@@ -9,6 +9,4 @@ export default defineConfig({
   clean: true,
   sourcemap: true,
   splitting: false,
-  // O contrato é consumido como fonte TS: entra no bundle.
-  noExternal: ["@arp/contracts"],
 });

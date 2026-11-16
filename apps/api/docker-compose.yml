@@ -1,9 +1,9 @@
-# cp .env.example .env  →  preencher  →  docker compose up -d --build
-# Banco: Postgres no serviço "db" (volume pgdata). Backup diário em /var/backups/arp-controlapp
+# API + Postgres + backup. Rodar nesta pasta (apps/api):
+#   cp .env.example .env  →  preencher  →  docker compose up -d --build
+# Banco: serviço "db" (volume pgdata). Backup diário em /var/backups/arp-controlapp
 # (serviço "backup", 7 arquivos, um por dia da semana).
-#
-# Web:  http://localhost:8082  (nginx :80)  — proxy de /api para a API
-# API:  http://localhost:3002  (node  :3000)
+# API: http://localhost:3002 (node :3000). O painel (apps/web) entra na rede
+# "arp-controlapp_default" criada aqui e chama a API por "api:3000".
 
 name: arp-controlapp
 
@@ -11,7 +11,6 @@ services:
   api:
     build:
       context: .
-      dockerfile: apps/api/Dockerfile
     restart: unless-stopped
     env_file:
       - path: .env
@@ -46,29 +45,6 @@ services:
         max-file: "5"
     depends_on:
       db:
-        condition: service_healthy
-
-  web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-    restart: unless-stopped
-    environment:
-      API_HOST: api:3000
-    ports:
-      - "127.0.0.1:8082:80"
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 128M
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "5"
-    depends_on:
-      api:
         condition: service_healthy
 
   db:
@@ -129,3 +105,8 @@ services:
 volumes:
   uploads:
   pgdata:
+
+networks:
+  default:
+    # Nome fixo: o compose do painel (apps/web) entra nesta rede.
+    name: arp-controlapp_default

@@ -470,12 +470,12 @@ com versão maior que a última. Regras:
   consultadas, `comment on` no que não for óbvio e
   `alter table … enable row level security` (padrão das tabelas existentes).
 
-**Aplicar**: `npm run db:migrate -w @arp/api` (e a API chama
+**Aplicar**: `npm run db:migrate` (e a API chama
 `runMigrations(db, dir)` na subida). Cada arquivo roda numa transação e é
 registrado em `migrations.schema_migrations (version, statements, name)`
 (banco vindo do Supabase: o runner renomeia `supabase_migrations` uma vez). Um `pg_advisory_lock` impede duas
 réplicas de migrarem juntas (a segunda espera e não acha nada pendente).
-`npm run db:migrate -w @arp/api -- --status` lista aplicadas/pendentes.
+`npm run db:migrate -- --status` lista aplicadas/pendentes.
 
 ---
 
@@ -483,15 +483,15 @@ réplicas de migrarem juntas (a segunda espera e não acha nada pendente).
 
 ```bash
 docker compose up -d db                   # Postgres 17 em 127.0.0.1:5433
-npm run db:migrate -w @arp/api
-npm run db:seed -w @arp/api               # exige SEED_ADMIN_PASSWORD
+npm run db:migrate
+npm run db:seed               # exige SEED_ADMIN_PASSWORD
 ```
 
 ---
 
 ## 8. Seed
 
-`npm run db:seed -w @arp/api` (ou `runSeed({ db }, { adminPassword })`).
+`npm run db:seed` (ou `runSeed({ db }, { adminPassword })`).
 
 - **Idempotente**: insere o que falta pela chave natural e **não sobrescreve**
   o que foi editado no painel — seguro com `SEED_ON_START`. Senha só na

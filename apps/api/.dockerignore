@@ -2,7 +2,6 @@
 **/dist
 **/coverage
 storage
-apps/api/storage
 **/.env
 **/.env.*
 !**/.env.example

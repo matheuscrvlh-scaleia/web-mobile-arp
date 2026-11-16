@@ -11,7 +11,7 @@ com selos por QR Code, destaques patrocinados, notificações, visitantes.
   `pgdata`), usado **só como armazenamento**; imagens no volume `uploads`.
   **Sem ORM**: SQL escrito à mão com `pg` (node-postgres), parametrizado. Auth,
   regras, permissões, jobs: tudo no nosso código.
-- **Contratos**: `packages/contracts` (Zod 4) é a fonte única dos DTOs, das
+- **Contratos**: `src/contracts` (Zod 4, cópia igual nos dois apps) é a fonte dos DTOs, das
   permissões e das rotas. API valida com eles; web tipa e valida forms com eles.
 - **Auth**: JWT de acesso curto (15 min, header `Authorization: Bearer`) +
   refresh token opaco rotativo (30 dias) em cookie httpOnly; RBAC por permissão.
@@ -21,24 +21,28 @@ pt-BR, curtos, explicando o porquê (não o quê).
 
 ---
 
-## 1. Monorepo
+## 1. Repositório
 
 ```
-erp-mobile-arp/
-├─ apps/
-│  ├─ api/                  # @arp/api  — Fastify (porta interna 3000, externa 3002)
-│  └─ web/                  # @arp/web  — React/Vite servido por nginx (interna 80, externa 8082)
-├─ packages/
-│  └─ contracts/            # @arp/contracts — schemas Zod, tipos, permissões, rotas
-├─ migrations/              # <timestamp>_<nome>.sql — SQL puro
-├─ docs/                    # este arquivo, modelo de dados, decisões
-├─ docker-compose.yml
-├─ biome.json  tsconfig.base.json  package.json (npm workspaces)
+controlapp-arp/
+└─ apps/                     # nada na raiz: cada app é independente
+   ├─ api/                   # Fastify (porta interna 3000, externa 3002)
+   │  ├─ src/contracts/      # contrato HTTP (import `@arp/contracts`, alias no tsconfig)
+   │  ├─ migrations/         # <timestamp>_<nome>.sql — SQL puro
+   │  ├─ ops/                # pg-backup.sh
+   │  ├─ docs/               # este arquivo, modelo de dados, decisões
+   │  └─ docker-compose.yml  # api + db + backup (cria a rede arp-controlapp_default)
+   └─ web/                   # React/Vite servido por nginx (interna 80, externa 8082)
+      ├─ src/contracts/      # cópia idêntica do contrato da API
+      └─ docker-compose.yml  # web (entra na rede da API)
 ```
 
-`@arp/contracts` é consumido **como fonte TS** (`exports: ./src/index.ts`):
-o Vite compila no web; na API o `tsx` roda em dev e o `tsup` empacota no build
-(`noExternal: ["@arp/contracts"]`).
+Cada app tem `package.json`, `package-lock.json`, `node_modules`, `.env`,
+`biome.json`, `tsconfig.json`, `.editorconfig` e `.gitignore` próprios.
+O contrato é **duplicado de propósito** (`src/contracts` nos dois apps) e
+consumido como fonte TS pelo alias `@arp/contracts`: o Vite compila no web; na
+API o `tsx` roda em dev e o `tsup` empacota no build. Mudou o contrato num app,
+copie o arquivo igual para o outro.
 
 ---
 
@@ -301,7 +305,7 @@ produção. **Um schema por domínio**. Convenções:
     (`ImageCleanup`; falha só vira log). As colunas de imagem ficam em
     `IMAGE_URL_COLUMNS` (`shared/infra/images`): coluna nova entra lá.
   - Backfill (imagens antigas, idempotente, só gera o que falta):
-    `npm run images:thumbnails -w @arp/api [-- --concurrency=4 --dry-run]`,
+    `npm run images:thumbnails [-- --concurrency=4 --dry-run]` (em apps/api),
     com `DATABASE_URL` e `STORAGE_*` do ambiente alvo (rodar no servidor, onde está o volume). Rodar
     depois de publicar a versão que gera miniaturas.
 

@@ -71,7 +71,7 @@ export async function readMigrations(dir: string): Promise<MigrationFile[]> {
 
 /**
  * Acha migrations/ subindo pastas a partir do diretório atual e do próprio
- * módulo. Cobre dev (apps/api → raiz do monorepo) e o container (a imagem
+ * módulo. Cobre dev (apps/api/migrations) e o container (a imagem
  * copia migrations/ para /app e define MIGRATIONS_DIR).
  */
 export function findMigrationsDir(explicit?: string): string {
