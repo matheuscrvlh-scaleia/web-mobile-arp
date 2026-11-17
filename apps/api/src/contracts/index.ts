@@ -7,6 +7,7 @@ export * from "./dashboard";
 export * from "./directory";
 export * from "./gamification";
 export * from "./images";
+export * from "./integrations";
 export * from "./marketing";
 export * from "./permissions";
 export * from "./platform";

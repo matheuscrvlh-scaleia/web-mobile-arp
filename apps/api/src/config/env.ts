@@ -147,13 +147,14 @@ const envSchema = z
     SMTP_PASSWORD: z.string().optional(),
 
     /**
-     * RD Station: leva quem marcou "Quero receber novidades" ao RD. Desligado
-     * até a ARP definir o funil e a etapa (a conversão). Liga com os três.
+     * Chave que cifra os segredos das integrações no banco (secret e refresh
+     * token do RD). Sem valor: derivada do JWT_ACCESS_SECRET; trocar qualquer
+     * uma das duas obriga a conectar o RD de novo.
      */
-    RD_STATION_ENABLED: booleanString.default(false),
-    RD_STATION_API_KEY: z.string().min(1).optional(),
-    /** Identificador da conversão no RD (define funil e etapa). */
-    RD_STATION_CONVERSION: z.string().min(1).optional(),
+    INTEGRATIONS_SECRET: z
+      .string()
+      .min(32, "INTEGRATIONS_SECRET precisa de 32+ caracteres")
+      .optional(),
 
     RUN_MIGRATIONS_ON_START: booleanString.default(true),
     SEED_ON_START: booleanString.default(false),

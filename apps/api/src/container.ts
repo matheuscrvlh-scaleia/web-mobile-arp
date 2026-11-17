@@ -9,8 +9,8 @@ import { createDirectoryModule } from "./modules/directory";
 import { createFeedbackModule } from "./modules/feedback";
 import { createGamificationModule } from "./modules/gamification";
 import { createIdentityModule } from "./modules/identity";
+import { createIntegrationsModule } from "./modules/integrations";
 import { createMarketingModule } from "./modules/marketing";
-import { rdStationLeadsJob } from "./modules/marketing/infra/rd-station-job";
 import { createMerchantModule } from "./modules/merchant";
 import { createMerchantSignupModule } from "./modules/merchant-signup";
 import { createPlatformModule } from "./modules/platform";
@@ -197,6 +197,9 @@ export async function createContainer(options: ContainerOptions): Promise<Contai
   });
 
   const club = createClubModule(core, { isVisitorActive });
+  const integrations = createIntegrationsModule(core, {
+    secret: env.INTEGRATIONS_SECRET ?? env.JWT_ACCESS_SECRET,
+  });
   const modules: ModuleRoutes[] = [
     { name: "identity", routes: identity.routes },
     { name: "directory", routes: createDirectoryModule(core).routes },
@@ -212,6 +215,7 @@ export async function createContainer(options: ContainerOptions): Promise<Contai
     { name: "platform", routes: createPlatformModule(core).routes },
     { name: "content", routes: createContentModule(core).routes },
     { name: "club", routes: club.routes },
+    { name: "integrations", routes: integrations.routes },
     { name: "feedback", routes: createFeedbackModule(core).routes },
     { name: "merchant-signup", routes: createMerchantSignupModule(core).routes },
     { name: "app-api", routes: appApi.routes },
@@ -232,17 +236,8 @@ export async function createContainer(options: ContainerOptions): Promise<Contai
     ...identity.jobs,
     ...appApi.jobs,
     ...club.jobs,
+    ...integrations.jobs,
   ];
-  // RD Station: pronto e desligado até a ARP definir funil e etapa (rd-station-job.ts).
-  if (env.RD_STATION_ENABLED && env.RD_STATION_API_KEY && env.RD_STATION_CONVERSION) {
-    jobs.push(
-      rdStationLeadsJob({
-        db,
-        config: { apiKey: env.RD_STATION_API_KEY, conversion: env.RD_STATION_CONVERSION },
-        logger: core.logger,
-      }),
-    );
-  }
   if (env.RATE_LIMIT_STORE === "postgres") {
     jobs.push({
       name: "delete-expired-rate-limits",

@@ -348,6 +348,25 @@ export const ROUTES = {
     get: r("GET", "/settings", "settings.manage", "Configurações do app"),
     update: r("PATCH", "/settings", "settings.manage", "Salvar configurações"),
   },
+  integrations: {
+    rdStation: {
+      get: r("GET", "/integrations/rd-station", "settings.manage", "RD Station: configuração"),
+      update: r(
+        "PUT",
+        "/integrations/rd-station",
+        "settings.manage",
+        "RD Station: salvar e testar",
+      ),
+      connect: r(
+        "POST",
+        "/integrations/rd-station/connect",
+        "settings.manage",
+        "RD Station: trocar o code da autorização pelo acesso",
+      ),
+      test: r("POST", "/integrations/rd-station/test", "settings.manage", "RD Station: testar"),
+      remove: r("DELETE", "/integrations/rd-station", "settings.manage", "RD Station: remover"),
+    },
+  },
   uploads: r("POST", "/uploads", null, "Enviar imagem (multipart, campo file)"),
 } as const;
 

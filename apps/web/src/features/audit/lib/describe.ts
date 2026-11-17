@@ -113,6 +113,10 @@ const PHRASES: Record<string, string> = {
   "visitor.password_reset": "trocou a senha do app",
   "user.change_password": "trocou a própria senha",
   "setting.update": "editou as configurações do app",
+  "integration.create": "configurou o RD Station",
+  "integration.update": "editou a configuração do RD Station",
+  "integration.connect": "conectou o RD Station",
+  "integration.remove": "removeu a conexão com o RD Station",
   "upload.create": "enviou uma imagem",
   "highlight.reorder": "reordenou os destaques",
   "recycling_item.reorder": "reordenou os itens do Sustentarp",
@@ -293,6 +297,8 @@ export function entityHref(log: AuditLog): string | null {
     case "settings":
     case "setting":
       return PATHS.settings;
+    case "integration":
+      return PATHS.integrations;
     default:
       return null;
   }
