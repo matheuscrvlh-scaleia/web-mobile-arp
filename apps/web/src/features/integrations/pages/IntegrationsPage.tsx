@@ -15,6 +15,7 @@ import {
   Select,
   toast,
 } from "@/shared/ui";
+import { RdStationCard } from "../components/RdStationCard";
 
 const SITE_URL = "https://www.espacoarp.com.br";
 
@@ -29,7 +30,7 @@ function summary(r: SyncSiteEventsResult): string {
   return parts.join(", ");
 }
 
-/** Integrações da plataforma com sistemas de fora. Hoje: a agenda do site. */
+/** Integrações da plataforma com sistemas de fora: a agenda do site e o RD Station. */
 export function IntegrationsPage() {
   return (
     <>
@@ -38,6 +39,7 @@ export function IntegrationsPage() {
         description="Sistemas de fora que alimentam o app. O que vem deles não se edita aqui."
       />
       <SiteEventsCard />
+      <RdStationCard />
     </>
   );
 }
